@@ -1,0 +1,11 @@
+.env
+__pycache__/
+uploads/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.json
+processed_documents/
+.server-*.pid
