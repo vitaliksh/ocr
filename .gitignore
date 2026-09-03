@@ -9,3 +9,6 @@ uploads/
 *.json
 processed_documents/
 .server-*.pid
+examples/
+examples - Copy/
+PKUDA_AI_TEST.TXT
