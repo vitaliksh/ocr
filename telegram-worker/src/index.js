@@ -105,24 +105,38 @@ export default {
 };
 
 export class UploadSession {
-  constructor(state, env) { this.state = state; this.env = env; this.streams = new Set(); }
+  constructor(state, env) { this.state = state; this.env = env; this.streams = new Set(); this.mutations = Promise.resolve(); }
+  serialize(operation) {
+    const result = this.mutations.then(operation, operation);
+    // Keep the queue usable after a failed Telegram download or R2 operation.
+    this.mutations = result.catch(() => {});
+    return result;
+  }
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname === "/bind") { await this.state.storage.put("telegramSessionId", await request.text()); return new Response("ok"); }
-    if (url.pathname === "/unbind") { if ((await this.state.storage.get("telegramSessionId")) === await request.text()) await this.state.storage.delete("telegramSessionId"); return new Response("ok"); }
-    if (url.pathname === "/create") return this.create(await request.json());
-    if (url.pathname === "/telegram/connect") return this.connectTelegram(await request.json());
-    if (url.pathname === "/telegram/photo") return this.receivePhoto(await request.json());
+    if (url.pathname === "/bind") { const sessionId = await request.text(); return this.serialize(async () => { await this.state.storage.put("telegramSessionId", sessionId); return new Response("ok"); }); }
+    if (url.pathname === "/unbind") { const sessionId = await request.text(); return this.serialize(async () => { if ((await this.state.storage.get("telegramSessionId")) === sessionId) await this.state.storage.delete("telegramSessionId"); return new Response("ok"); }); }
+    if (url.pathname === "/create") { const payload = await request.json(); return this.serialize(() => this.create(payload)); }
+    if (url.pathname === "/telegram/connect") { const payload = await request.json(); return this.serialize(() => this.connectTelegram(payload)); }
+    if (url.pathname === "/telegram/photo") { const payload = await request.json(); return this.serialize(() => this.receivePhoto(payload)); }
     if (url.pathname === "/telegram/lookup") return new Response((await this.state.storage.get("telegramSessionId")) || "");
     if (!url.pathname.startsWith("/client/")) return json({ error: "Not found." }, 404);
-    const session = await this.activeSession(request.headers.get("X-Upload-Token"));
+    const clientToken = request.headers.get("X-Upload-Token");
+    const session = await this.activeSession(clientToken);
     if (!session) return json({ error: "Session expired or unauthorized." }, 401);
     const action = url.pathname.slice("/client/".length);
     if (action === "events") return this.events(session);
-    if (action === "finish") return this.finish(session);
+    if (action === "finish") return this.serialize(async () => {
+      const current = await this.activeSession(clientToken);
+      return current ? this.finish(current) : json({ error: "Session expired or unauthorized." }, 401);
+    });
     const match = action.match(/^documents\/([0-9a-f-]{36})(\/ack)?$/);
     if (!match) return json({ error: "Not found." }, 404);
-    return match[2] ? this.ack(session, match[1]) : this.download(session, match[1]);
+    if (match[2]) return this.serialize(async () => {
+      const current = await this.activeSession(clientToken);
+      return current ? this.ack(current, match[1]) : json({ error: "Session expired or unauthorized." }, 401);
+    });
+    return this.download(session, match[1]);
   }
   async create({ sessionId, clientToken, now }) {
     if (await this.state.storage.get("session")) return json({ error: "Session already exists." }, 409);
