@@ -1,0 +1,392 @@
+Technical Specification
+Temporary Telegram Photo Transfer Session to Windows Browser
+1. Goal
+Implement a simple workflow that allows an accountant sitting at a Windows PC to use a phone as a wireless document camera through Telegram.
+
+The workflow must be:
+
+On the Windows PC, the user opens a web application.
+The user presses “Upload photos”.
+A temporary upload session is created.
+The user connects the Telegram bot on the phone to this session.
+The user photographs and sends documents through Telegram.
+Every received photo appears almost immediately in the open Windows browser.
+The user presses “Finish” when all documents have been sent.
+The temporary Telegram-to-browser connection is destroyed.
+There must be:
+
+no Windows Service;
+no tray application;
+no permanent polling process on Windows;
+no requirement to install software on Windows;
+no permanent storage of documents in the cloud;
+no dependency on Google Drive, OneDrive, iCloud or similar services.
+The Windows client must be a normal browser-based HTML/JavaScript application.
+
+2. Target architecture
+Phone
+  │
+  │ Telegram
+  ▼
+Telegram Bot
+  │
+  │ Webhook
+  ▼
+Cloudflare Worker
+  │
+  │ Temporary session / temporary photo storage
+  ▼
+Windows browser
+GitHub Pages web application
+Components:
+
+A. Windows Web Client
+A static HTML/JavaScript application hosted on GitHub Pages.
+
+Recommended browsers:
+
+Microsoft Edge
+Google Chrome
+The Windows browser initiates every photo-transfer session.
+
+B. Telegram Bot
+Used only as the mobile interface.
+
+The user uses the standard Telegram application on iPhone or Android.
+
+No dedicated mobile application must be developed.
+
+C. Cloudflare Worker
+Acts as a secure temporary bridge between Telegram and the currently active browser session.
+
+Responsibilities:
+
+create temporary sessions;
+receive Telegram webhooks;
+associate a Telegram user with an active browser session;
+receive Telegram photos;
+make new photos immediately available to the correct browser session;
+delete temporary data after successful receipt or session expiration.
+3. Windows user workflow
+The main page must contain a button:
+
+Upload photos
+
+When pressed:
+
+The web application requests a new upload session from Cloudflare Worker.
+Worker generates a cryptographically random session_id.
+The session receives an expiration time.
+Recommended initial session lifetime:
+
+30 minutes
+The UI changes to:
+
+Photo upload active
+
+Connect your phone using Telegram.
+
+[QR CODE]
+
+or
+
+Open Telegram
+The QR code / link must contain a Telegram deep link similar to:
+
+https://t.me/<BOT_NAME>?start=<session_token>
+Do not expose internal database IDs or predictable sequential session identifiers.
+
+Use a sufficiently long random session token.
+
+4. Telegram session connection
+When the user opens the Telegram link, Telegram sends:
+
+/start <session_token>
+to the bot.
+
+Cloudflare Worker must:
+
+verify that the session exists;
+verify that it has not expired;
+associate the Telegram user_id with this temporary session;
+respond through the bot:
+Connected.
+Send document photos now.
+From this point until the session ends, photos sent by this Telegram user must be routed only to this browser session.
+
+A Telegram user must not be permanently bound to a particular PC.
+
+The binding exists only for the lifetime of the temporary session.
+
+5. Sending photos
+The accountant takes a photo using Telegram and sends it to the bot.
+
+The bot/Worker must accept Telegram messages containing a photo.
+
+For every photo:
+
+Validate that the sender is attached to an active session.
+Select the highest-resolution Telegram photo variant.
+Obtain the corresponding Telegram file_id.
+Download the photo through Telegram Bot API.
+Assign an internal unique document_id.
+Temporarily make the image available to the Windows session.
+Notify the connected Windows browser immediately.
+The preferred browser notification mechanism is:
+
+Server-Sent Events (SSE)
+or, if technically more appropriate:
+
+WebSocket
+Do not implement periodic 5–10 second polling if an event-driven connection can be used reliably.
+
+6. Windows browser behavior
+While an upload session is active, the page keeps an active connection to the Worker for that session.
+
+When a new photo arrives:
+
+Worker notifies the browser.
+Browser downloads the photo.
+Browser creates an in-memory Blob/File representation.
+The photo appears immediately in the UI.
+Example:
+
+Photo upload active
+
+[ receipt 1 ] [ receipt 2 ] [ receipt 3 ]
+
+Received: 3 documents
+For every received document show:
+
+thumbnail;
+sequence number;
+receipt time;
+download status.
+The user must visually see each new document appear shortly after sending it from Telegram.
+
+7. Local document handling
+Do not require immediate permanent saving to Windows during transfer unless the existing application architecture requires it.
+
+The browser may initially keep received files in memory for the active workflow.
+
+Expose the received images to the existing document-processing workflow as normal image files / Blob objects.
+
+If the existing application requires files in a local directory, use the File System Access API only at the point where local filesystem access is actually needed.
+
+Do not make local-folder selection part of the Telegram transfer protocol.
+
+Telegram transport and later OCR/document processing must remain logically separate modules.
+
+8. ACK protocol
+For every successfully received document the Windows client must send:
+
+ACK(document_id)
+to Worker.
+
+Worker must not consider a document successfully delivered until ACK has been received.
+
+After ACK:
+
+temporary image data may be deleted;
+metadata may be removed or marked as delivered.
+The protocol must tolerate duplicate delivery.
+
+The Windows client must use document_id to ensure that the same document is not added twice if an ACK or network request is lost.
+
+Delivery model:
+
+At-least-once delivery
++
+idempotent client processing
+9. Finishing a session
+The Windows page must contain:
+
+Finish
+
+When pressed:
+
+stop accepting new photos for this session;
+disconnect the Telegram-user/session association;
+close SSE/WebSocket connection;
+remove temporary session data;
+delete already delivered temporary image objects;
+mark the session as closed.
+Telegram bot should respond to further photos with something similar to:
+
+No active upload session.
+Start a new upload session from the PC.
+Expired sessions must behave identically.
+
+10. Session expiration
+Sessions must automatically expire even if the user forgets to press Finish.
+
+Initial value:
+
+30 minutes
+Session expiration should preferably be extended while active photo transfers continue.
+
+For example, every received photo may reset the inactivity timeout.
+
+Expired sessions must not accept additional documents.
+
+Temporary files associated with expired sessions must be deleted automatically.
+
+11. Security
+Telegram webhook
+Store:
+
+TELEGRAM_BOT_TOKEN
+only as a Cloudflare secret.
+
+Never expose it to GitHub Pages JavaScript.
+
+Configure Telegram webhook with a secret token.
+
+Validate Telegram’s webhook secret header for every webhook request.
+
+Browser session
+Each session must use a cryptographically secure random token.
+
+A token must:
+
+not be sequential;
+not be guessable;
+have sufficient entropy;
+automatically expire.
+A browser may access only documents belonging to its own session.
+
+Windows API
+Do not place authentication secrets in query-string parameters.
+
+Use secure session tokens in request headers or another appropriate authenticated mechanism.
+
+GitHub
+No Telegram Bot token, Cloudflare API token or other private credentials may exist in:
+
+GitHub repository;
+JavaScript source;
+HTML;
+localStorage.
+12. Temporary storage
+Cloud storage is only a transport buffer, not an archive.
+
+Preferred option:
+
+Cloudflare R2
+Typical lifetime of a photo should be:
+
+Telegram upload
+→ temporary R2 object
+→ Windows receives it
+→ ACK
+→ delete R2 object
+Normally an object should exist for seconds or minutes.
+
+Do not design R2 as permanent accounting storage.
+
+A cleanup mechanism must delete abandoned objects belonging to expired sessions.
+
+D1/KV may be used only where required for small session/metadata state.
+
+Do not add unnecessary infrastructure.
+
+13. Important separation of responsibilities
+Keep these modules independent:
+
+Telegram Photo Transfer
+and
+
+OCR  / invoice processing / gui table
+The output of the Telegram transfer module is simply:
+
+a collection of successfully received document images
+The existing OCR/accounting application can process those images afterward.
+
+Do not embed OCR logic into the Telegram Worker.
+
+14. Required UI
+The first implementation should be intentionally minimal.
+
+Inactive state:
+
+Upload documents
+
+[ Upload photos ]
+Active state:
+
+Photo upload active
+
+Scan QR code with your phone
+or
+[ Open Telegram ]
+
+[thumbnail] [thumbnail] [thumbnail]
+
+Received: 3
+
+[ Finish ]
+Error states should clearly show:
+
+Internet connection lost
+Telegram session not connected
+Session expired
+Photo download failed
+Duplicate document ignored
+Avoid unnecessary settings and configuration screens.
+
+15. Hosting
+Use:
+
+GitHub Pages
+for the Windows HTML/JavaScript client.
+
+Use:
+
+Cloudflare Worker
+for the backend/API/webhook.
+
+Use:
+
+Cloudflare R2
+only for temporary image buffering if required.
+
+The initial implementation should remain within the available free tiers under normal small-accounting-office usage.
+
+16. Do not implement
+Do NOT implement:
+
+Windows Service;
+native Windows desktop client;
+Android application;
+iOS application;
+Google Drive synchronization;
+OneDrive synchronization;
+permanent cloud archive;
+permanent association between Telegram account and PC;
+background operation after the browser workflow has been closed;
+continuous Windows monitoring;
+Telegram Bot Token in frontend JavaScript;
+long polling from the Windows browser.
+The system is intentionally session-based.
+
+17. Definition of successful MVP
+The MVP is successful when the following sequence works reliably:
+
+1. Open web page on Windows.
+2. Press "Upload photos".
+3. QR code appears.
+4. Scan/open Telegram link on phone.
+5. Telegram bot confirms connection.
+6. Take photo #1 and send it.
+7. Photo #1 appears on Windows.
+8. Take photo #2 and send it.
+9. Photo #2 appears on Windows.
+10. Continue for several documents.
+11. Press "Finish".
+12. Session closes.
+13. Additional Telegram photos are no longer delivered to that Windows session.
+No manual file transfer must be required during this workflow.
+
+This end-to-end flow should be implemented and tested before adding OCR or other accounting functionality.
+
+Я специально отделил передачу фотографий от OCR/gui table/Ривхит: агент сначала должен добиться идеально работающей цепочки «нажал кнопку → Telegram → фото появилось в браузере», а уже потом подключать её к последующей обработке.

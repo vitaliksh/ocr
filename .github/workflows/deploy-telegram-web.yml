@@ -1,0 +1,45 @@
+name: Deploy Telegram transfer page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - telegram-web/**
+      - .github/workflows/deploy-telegram-web.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: telegram-web-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure public Worker URL
+        if: ${{ vars.TELEGRAM_TRANSFER_API != '' }}
+        env:
+          TELEGRAM_TRANSFER_API: ${{ vars.TELEGRAM_TRANSFER_API }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          Path("telegram-web/config.js").write_text(
+              f'window.TELEGRAM_TRANSFER_API = {os.environ["TELEGRAM_TRANSFER_API"]!r};\n',
+              encoding="utf-8",
+          )
+          PY
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: telegram-web
+      - id: deployment
+        uses: actions/deploy-pages@v4

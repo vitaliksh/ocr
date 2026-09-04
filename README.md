@@ -20,3 +20,7 @@ The Git repository intentionally contains no receipt photos, generated TXT files
 - `docs/OPERATING_RULES.md` — architecture, import rules, privacy rules, and verification requirements.
 
 See [operating rules](docs/OPERATING_RULES.md) before changing the import format or Gemini prompt.
+
+## Telegram photo transfer (current development stage)
+
+The independent temporary transfer client is in [`telegram-web/`](telegram-web/) and its Cloudflare Worker is in [`telegram-worker/`](telegram-worker/). It deliberately transfers photos only; it does not contain Gemini or Rivhit logic. Follow the Worker [setup guide](telegram-worker/README.md) to create the bot, configure the secrets, and deploy the browser page.

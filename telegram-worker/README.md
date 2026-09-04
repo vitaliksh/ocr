@@ -1,0 +1,29 @@
+# Telegram temporary transfer Worker
+
+This Worker is the temporary bridge only: it never runs OCR and deletes each R2 object after the browser sends an ACK.
+
+## One-time setup
+
+1. Create a private Telegram bot with BotFather and note its username.
+2. In Cloudflare, create an R2 bucket named `rivhit-temporary-photos` (or change `wrangler.toml`).
+3. In this directory, run `npm install`, then `npx wrangler login` and `npx wrangler deploy`.
+4. Set the three Worker secrets. Do not place their values in a source file:
+
+   ```powershell
+   npx wrangler secret put TELEGRAM_BOT_TOKEN
+   npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
+   ```
+
+5. Replace `BOT_USERNAME` and `ALLOWED_ORIGINS` in `wrangler.toml`, deploy again, then set the Telegram webhook:
+
+   ```powershell
+   $workerUrl = "https://YOUR-WORKER.workers.dev"
+   $secret = Read-Host "Telegram webhook secret"
+   Invoke-RestMethod -Method Post -Uri "https://api.telegram.org/botYOUR_BOT_TOKEN/setWebhook" -Body @{url="$workerUrl/telegram/webhook";secret_token=$secret}
+   ```
+
+The public Worker URL is not a secret. Copy it to `telegram-web/config.js`, set the GitHub Pages origin in `ALLOWED_ORIGINS`, and publish the `telegram-web` directory as GitHub Pages.
+
+## Manual test
+
+Open the hosted page, select **Upload photos**, scan the QR code, send two photos through Telegram, and confirm that both thumbnails appear. Press **Finish**, then send one more photo: the bot must reject it.

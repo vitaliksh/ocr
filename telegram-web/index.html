@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upload documents from Telegram</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js" defer></script>
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Upload documents</h1>
+    <p id="intro">Use Telegram on your phone to send photos to this browser.</p>
+    <section id="inactive" class="card">
+      <button id="start" type="button">Upload photos</button>
+    </section>
+    <section id="active" class="card" hidden>
+      <h2>Photo upload active</h2>
+      <p>Scan this QR code with your phone, or open Telegram.</p>
+      <canvas id="qr" width="260" height="260" aria-label="Telegram connection QR code"></canvas>
+      <p><a id="telegram-link" target="_blank" rel="noopener">Open Telegram</a></p>
+      <p id="connection" role="status">Waiting for Telegram connection…</p>
+      <div id="documents" class="documents" aria-live="polite"></div>
+      <p id="count">Received: 0</p>
+      <button id="finish" type="button">Finish</button>
+    </section>
+    <p id="status" role="alert"></p>
+  </main>
+</body>
+</html>

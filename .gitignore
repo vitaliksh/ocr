@@ -1,4 +1,6 @@
 .env
+node_modules/
+.wrangler/
 __pycache__/
 uploads/
 *.jpg
@@ -7,6 +9,8 @@ uploads/
 *.gif
 *.webp
 *.json
+!telegram-worker/package.json
+!telegram-worker/package-lock.json
 processed_documents/
 .server-*.pid
 examples/
