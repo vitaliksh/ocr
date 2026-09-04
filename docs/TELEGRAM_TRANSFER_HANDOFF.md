@@ -1,7 +1,8 @@
 # Telegram photo transfer — status and next stage
 
-**Updated:** 4 September 2026  
-**Project:** `D:\projects\ocr`  
+**Updated:** 4 September 2026
+
+**Project:** `D:\projects\ocr`
 **Specification:** [Technical_requirements.txt](../Technical_requirements.txt)
 
 ## 1. Goal of the completed stage
