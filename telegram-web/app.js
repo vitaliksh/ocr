@@ -20,10 +20,16 @@ start.addEventListener("click", async () => {
 
 finish.addEventListener("click", async () => {
   if (!session) return;
+  const closingSession = session, controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 10000);
   finish.disabled = true;
-  try { await fetch(apiUrl(`/v1/sessions/${session.sessionId}/finish`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }); }
-  catch { showError("Could not close the session. It will expire automatically."); }
-  reset(); start.disabled = false;
+  try {
+    const response = await fetch(apiUrl(`/v1/sessions/${closingSession.sessionId}/finish`), { method: "POST", headers: { "X-Upload-Token": closingSession.clientToken }, signal: controller.signal });
+    if (!response.ok) throw new Error("Could not close the session.");
+  } catch {
+    showError("Could not confirm session closure. The browser session was closed; Telegram access will expire automatically.");
+  } finally {
+    clearTimeout(timeout); reset(); start.disabled = false;
+  }
 });
 
 async function openEvents() {

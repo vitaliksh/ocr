@@ -69,6 +69,9 @@ async function webhook(request, env) {
         const result = await response.json();
         if (!result.ok) await telegramApi(env, "sendMessage", { chat_id: chatId, text: "No active upload session. Start a new upload session from the PC." });
       }
+    } else if (message.video || message.video_note || message.animation) {
+      const list = await env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(`telegram-user:${userId}`)).fetch("https://session/telegram/lookup", { method: "POST" });
+      if (await list.text()) await telegramApi(env, "sendMessage", { chat_id: chatId, text: "Videos are not supported. Please send document photos." });
     }
   } catch (error) {
     console.error("Telegram webhook error", error);
