@@ -55,22 +55,22 @@ function consumeEvent(message) {
   if (type === "finished") reset();
 }
 async function receiveDocument(documentId, receivedAt) {
-  if (!session || received.has(documentId)) return; received.add(documentId);
+  if (!session || received.has(documentId)) return; received.add(documentId); const imageIndex = ++imageCount;
   try {
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}`), { headers: { "X-Upload-Token": session.clientToken } }); if (!response.ok) throw new Error("הורדת התמונה נכשלה.");
-    const downloaded = await response.blob(), blob = new Blob([downloaded], { type: downloaded.type === "image/png" ? "image/png" : "image/jpeg" }), imageUrl = URL.createObjectURL(blob), imageIndex = ++imageCount, row = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex);
+    const downloaded = await response.blob(), blob = new Blob([downloaded], { type: downloaded.type === "image/png" ? "image/png" : "image/jpeg" }), imageUrl = URL.createObjectURL(blob), row = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex);
     row.runRecognition = (onlyThis = false) => enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, true, onlyThis); enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex);
     const ack = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}/ack`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }); if (!ack.ok) throw new Error("אישור קבלת התמונה נכשל; ייתכן שהיא תישלח שוב.");
   } catch (error) { received.delete(documentId); showError(error.message); }
 }
-function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex) {
+function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, insertAfter = null) {
   emptyRow?.remove(); recordCount += 1; count.textContent = `שורות ביומן: ${recordCount}`;
   const row = document.createElement("tr"); row.dataset.documentId = documentId; row.dataset.imageIndex = String(imageIndex);
   row.append(emptyCell(String(recordCount)), emptyCell(receivedAtText(receivedAt)), emptyCell(), emptyCell("ממתין לעיבוד"), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell());
   const photo = document.createElement("td"), open = document.createElement("button"); open.type = "button"; open.className = "photo-button"; open.textContent = `תמונה #${imageIndex}`; open.addEventListener("click", () => openPhoto(imageUrl, imageIndex)); photo.append(open); row.append(photo);
   row.append(emptyCell("ממתין ל‑Gemini", "agent-opinion"), emptyCell(), emptyCell("התקבל", "state received"));
   const exportCell = document.createElement("td"), include = document.createElement("input"); include.type = "checkbox"; include.disabled = true; exportCell.append(include); row.append(exportCell);
-  const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { row.remove(); refreshRows(); }); deleteCell.append(remove); row.append(deleteCell); records.append(row); return row;
+  const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { row.remove(); refreshRows(); }); deleteCell.append(remove); row.append(deleteCell); if (insertAfter?.parentNode === records) records.insertBefore(row, insertAfter.nextSibling); else records.append(row); refreshRows(); return row;
 }
 function enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, restart = false, onlyThis = false) {
   if (restart) stopRequested = false;
@@ -88,7 +88,7 @@ async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/recognize`), { method: "POST", signal: controller.signal, headers, body: blob }), result = await response.json();
     if (!response.ok) throw new Error(result.error || "העיבוד נכשל.");
     applyRecord(row, result.records[0]);
-    if (!onlyThis) for (const record of result.records.slice(1)) { const extra = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex); extra.runRecognition = (single = false) => enqueueRecognition(extra, blob, imageUrl, receivedAt, documentId, imageIndex, true, single); applyRecord(extra, record); }
+    if (!onlyThis) for (const record of result.records.slice(1)) { const lastForImage = [...records.querySelectorAll("tr")].filter((candidate) => candidate.dataset.documentId === documentId).at(-1); const extra = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, lastForImage); extra.runRecognition = (single = false) => enqueueRecognition(extra, blob, imageUrl, receivedAt, documentId, imageIndex, true, single); applyRecord(extra, record); }
   } catch (error) {
     if (controller.signal.aborted) { setStatus(row, "בוטל", "review"); row.cells[3].textContent = "—"; row.cells[14].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); }
     else { setStatus(row, "שגיאה בעיבוד", "error"); row.cells[3].textContent = "—"; row.cells[14].textContent = error.message; addRerunButton(row, "נסה שוב"); }
