@@ -1,4 +1,8 @@
-# Telegram photo transfer — status and next stage
+# Telegram photo transfer — historical handoff
+
+> The active cloud Rivhit GUI handoff is
+> [CLOUD_RIVHIT_GUI_HANDOFF.md](CLOUD_RIVHIT_GUI_HANDOFF.md). This document
+> remains as transfer-stage history.
 
 **Updated:** 4 September 2026
 
