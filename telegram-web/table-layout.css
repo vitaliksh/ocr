@@ -21,3 +21,16 @@ th:nth-child(18) { width: 4%; }
 
 td select { width: 100%; min-width: 0; font: inherit; }
 td .photo-button { max-width: 100%; white-space: normal; }
+
+.column-resizer {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.column-resizer:hover,
+.column-resizer:active { background: #2877a766; }
