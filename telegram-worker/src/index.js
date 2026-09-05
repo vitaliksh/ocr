@@ -65,7 +65,7 @@ async function recognizeWithGemini(request, env) {
   if (!new Set(["image/jpeg", "image/jpg", "image/png"]).has(contentType)) return json({ error: "Only JPG and PNG images are supported." }, 415);
   const activity = decodeURIComponent(request.headers.get("x-business-activity") || "").trim();
   if (!activity || activity.length > 500) return json({ error: "Business activity is required." }, 400);
-  const selectedModel = request.headers.get("x-gemini-model") || env.GEMINI_MODEL || "gemini-3.6-flash";
+  const selectedModel = request.headers.get("x-gemini-model") || env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   if (!GEMINI_MODELS.has(selectedModel)) return json({ error: "Unsupported Gemini model." }, 400);
   const image = await request.arrayBuffer(); if (!image.byteLength || image.byteLength > MAX_AI_IMAGE_BYTES) return json({ error: "Image must be 12 MB or smaller." }, 413);
   const prompt = `Analyze this financial document image for an Israeli Rivhit expense journal. Business activity: ${activity}\n\nReturn one record for each distinct document visible. document_kind must be exactly expense_invoice, payment_confirmation, income_report, or other. All non-expense documents must still get one record with a concise Hebrew agent_opinion explaining the decision. For expense_invoice, extract only visible evidence, choose one allowed full Form 6111 code, and make the best accounting decision. confidence is one overall integer from 0 to 100. Monetary values must satisfy net_amount + vat_amount = total_amount after rounding. A payment confirmation is not an expense invoice.\n\nAllowed Form 6111 → Rivhit mapping:\n${mappingPrompt()}`;
@@ -74,7 +74,7 @@ async function recognizeWithGemini(request, env) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY }, body: payload });
     try { data = await response.json(); } catch { data = null; }
-    if (response.ok || (response.status !== 429 && response.status < 500)) break;
+    if (response.ok || (response.status !== 429 && response.status < 500) || attempt === 3) break;
     const retryAfter = Number(response.headers.get("retry-after")); await new Promise((resolve) => setTimeout(resolve, Math.min(16000, Math.max(2000 * 2 ** attempt, Number.isFinite(retryAfter) ? retryAfter * 1000 : 0))));
   }
   if (!response.ok) { console.error("Gemini request failed", response.status, data?.error?.message); const error = response.status === 429 ? "Gemini מוגבל זמנית. נסה שוב בעוד דקה או בחר מודל אחר." : response.status >= 500 ? "Gemini אינו זמין זמנית. נסה שוב." : "Gemini דחה את עיבוד המסמך."; return json({ error }, 502); }

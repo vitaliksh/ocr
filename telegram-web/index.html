@@ -14,7 +14,7 @@
     <header>
       <h1>קליטת מסמכים ל‑Rivhit</h1>
       <p>שלח תמונות מהטלפון דרך Telegram. כל תמונה תופיע מיד כשורה חדשה ביומן.</p>
-      <div class="settings"><label class="business-label" for="business-activity">סוג פעילות העסק <input id="business-activity" value="שיעורי ספורט ופילאטיס פרטיים" maxlength="500" required></label><label class="model-label" for="model">מודל Gemini <select id="model"><option value="gemini-3.6-flash">gemini-3.6-flash</option><option value="gemini-3.5-flash">gemini-3.5-flash</option><option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option><option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option></select></label></div>
+      <div class="settings"><label class="business-label" for="business-activity">סוג פעילות העסק <input id="business-activity" value="שיעורי ספורט ופילאטיס פרטיים" maxlength="500" required></label><label class="model-label" for="model">מודל Gemini <select id="model"><option value="gemini-3.5-flash-lite" selected>gemini-3.5-flash-lite</option><option value="gemini-3.6-flash">gemini-3.6-flash</option><option value="gemini-3.5-flash">gemini-3.5-flash</option><option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option></select></label><button id="stop-processing" type="button" class="stop" hidden>עצור עיבוד</button></div>
     </header>
     <section id="inactive" class="card upload-card">
       <button id="start" type="button">התחל העלאת תמונות</button>
@@ -29,6 +29,6 @@
     </section>
     <p id="status" role="alert"></p>
   </main>
-  <dialog id="photo-dialog"><button id="close-photo" type="button" aria-label="סגור">×</button><img id="dialog-image" alt="תמונת מסמך"></dialog>
+  <section id="photo-window" class="photo-window" hidden aria-label="תמונת מסמך"><header id="photo-drag"><strong>תמונת מסמך</strong><button id="close-photo" type="button" aria-label="סגור">×</button></header><img id="dialog-image" alt="תמונת מסמך"></section>
 </body>
 </html>
