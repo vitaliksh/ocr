@@ -1,5 +1,5 @@
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, "");
-const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), model = document.querySelector("#model");
+const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model");
 let session = null, streamAbort = null, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0;
 
 function apiUrl(path) { return `${api}${path}`; }
@@ -10,7 +10,13 @@ function emptyCell(text = "—", className = "") { const cell = document.createE
 function display(value) { return value === null || value === undefined || value === "" ? "—" : String(value); }
 function editableCell(value) { const cell = emptyCell(display(value), "editable"); cell.contentEditable = "true"; cell.spellcheck = false; return cell; }
 function refreshRows() { const rows = [...records.querySelectorAll("tr")]; recordCount = rows.length; rows.forEach((row, index) => { row.cells[0].textContent = String(index + 1); }); count.textContent = `שורות ביומן: ${recordCount}`; if (!recordCount) records.append(emptyRow); }
-function setStatus(row, text, state = "") { const cell = row.cells[15]; cell.replaceChildren(document.createTextNode(text)); cell.className = `state ${state}`; }
+function setStatus(row, text, state = "") { const cell = row.cells[16]; cell.replaceChildren(document.createTextNode(text)); cell.className = `state ${state}`; }
+function percentSelect(value = 100) { const select = document.createElement("select"); for (const item of [100, 25]) { const option = new Option(`${item}%`, String(item), false, Number(value) === item); select.add(option); } select.addEventListener("change", () => recalculateRow(select.closest("tr"))); return select; }
+function classificationSelect(code = "") { const select = document.createElement("select"); select.add(new Option("—", "")); for (const [value, label] of Object.entries(window.RIVHIT_MAPPING || {})) select.add(new Option(`${value} — ${label}`, value, false, value === code)); select.addEventListener("change", () => { applyBusinessRule(select.closest("tr")); }); return select; }
+function recalculateRow(row) { const net = Number(row.dataset.rawNet || 0), vat = Number(row.dataset.rawVat || 0), vatPercent = Number(row.cells[11].querySelector("select")?.value || 100) / 100, expensePercent = Number(row.cells[12].querySelector("select")?.value || 100) / 100; row.cells[8].textContent = (net * expensePercent + vat * vatPercent).toFixed(2); }
+function applyBusinessRule(row) { const code = row.cells[2].querySelector("select")?.value, homeUtility = businessKind.value === "home" && ["809", "820"].includes(code); const vat = row.cells[11].querySelector("select"), expense = row.cells[12].querySelector("select"); if (vat) vat.value = "100"; if (expense) expense.value = homeUtility ? "25" : "100"; recalculateRow(row); }
+function applyBusinessRules() { for (const row of records.querySelectorAll("tr")) applyBusinessRule(row); }
+businessKind.addEventListener("change", applyBusinessRules);
 function updateProcessingControls() { stop.hidden = !pendingRecognitions; stop.disabled = !pendingRecognitions; }
 function updateImageTransform() { dialogImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`; }
 function openPhoto(imageUrl, imageIndex) { dialogImage.src = imageUrl; photoTitle.textContent = `תמונה #${imageIndex}`; zoom = 1; panX = 0; panY = 0; updateImageTransform(); photoWindow.hidden = false; if (!photoWindow.style.left) { photoWindow.style.left = `${Math.max(20, (window.innerWidth - photoWindow.offsetWidth) / 2)}px`; photoWindow.style.top = "60px"; } }
@@ -60,7 +66,7 @@ async function receiveDocument(documentId, receivedAt) {
 function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex) {
   emptyRow?.remove(); recordCount += 1; count.textContent = `שורות ביומן: ${recordCount}`;
   const row = document.createElement("tr"); row.dataset.documentId = documentId; row.dataset.imageIndex = String(imageIndex);
-  row.append(emptyCell(String(recordCount)), emptyCell(receivedAtText(receivedAt)), emptyCell(), emptyCell("ממתין לעיבוד"), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell());
+  row.append(emptyCell(String(recordCount)), emptyCell(receivedAtText(receivedAt)), emptyCell(), emptyCell("ממתין לעיבוד"), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell());
   const photo = document.createElement("td"), open = document.createElement("button"); open.type = "button"; open.className = "photo-button"; open.textContent = `תמונה #${imageIndex}`; open.addEventListener("click", () => openPhoto(imageUrl, imageIndex)); photo.append(open); row.append(photo);
   row.append(emptyCell("ממתין ל‑Gemini", "agent-opinion"), emptyCell(), emptyCell("התקבל", "state received"));
   const exportCell = document.createElement("td"), include = document.createElement("input"); include.type = "checkbox"; include.disabled = true; exportCell.append(include); row.append(exportCell);
@@ -73,10 +79,10 @@ function enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIn
 }
 function recordTarget(row) { return { date: row.cells[1].textContent, classification: row.cells[2].textContent, purpose: row.cells[3].textContent, supplier: row.cells[4].textContent, reference: row.cells[6].textContent, gross: row.cells[8].textContent }; }
 async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis = false) {
-  if (stopRequested) { setStatus(row, "בוטל", "review"); row.cells[13].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); return; }
-  const activity = businessActivity.value.trim(); if (!activity) { setStatus(row, "חסרה פעילות העסק", "error"); row.cells[13].textContent = "יש למלא את סוג פעילות העסק ואז להפעיל מחדש."; return; }
-  if (!session) { setStatus(row, "לא עובד", "error"); row.cells[13].textContent = "סשן ההעלאה נסגר לפני העיבוד."; return; }
-  const controller = new AbortController(); activeRecognitionController = controller; setStatus(row, "מעבד…", "processing"); row.cells[3].textContent = "Gemini מעבד את התמונה…"; row.cells[13].textContent = "ממתין להחלטת הסוכן…";
+  if (stopRequested) { setStatus(row, "בוטל", "review"); row.cells[14].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); return; }
+  const activity = businessActivity.value.trim(); if (!activity) { setStatus(row, "חסרה פעילות העסק", "error"); row.cells[14].textContent = "יש למלא את סוג פעילות העסק ואז להפעיל מחדש."; return; }
+  if (!session) { setStatus(row, "לא עובד", "error"); row.cells[14].textContent = "סשן ההעלאה נסגר לפני העיבוד."; return; }
+  const controller = new AbortController(); activeRecognitionController = controller; setStatus(row, "מעבד…", "processing"); row.cells[3].textContent = "Gemini מעבד את התמונה…"; row.cells[14].textContent = "ממתין להחלטת הסוכן…";
   try {
     const headers = { "Content-Type": blob.type || "image/jpeg", "X-Upload-Token": session.clientToken, "X-Business-Activity": encodeURIComponent(activity), "X-Gemini-Model": model.value }; if (onlyThis) headers["X-Target-Record"] = encodeURIComponent(JSON.stringify(recordTarget(row)));
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/recognize`), { method: "POST", signal: controller.signal, headers, body: blob }), result = await response.json();
@@ -84,16 +90,18 @@ async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex
     applyRecord(row, result.records[0]);
     if (!onlyThis) for (const record of result.records.slice(1)) { const extra = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex); extra.runRecognition = (single = false) => enqueueRecognition(extra, blob, imageUrl, receivedAt, documentId, imageIndex, true, single); applyRecord(extra, record); }
   } catch (error) {
-    if (controller.signal.aborted) { setStatus(row, "בוטל", "review"); row.cells[3].textContent = "—"; row.cells[13].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); }
-    else { setStatus(row, "שגיאה בעיבוד", "error"); row.cells[3].textContent = "—"; row.cells[13].textContent = error.message; addRerunButton(row, "נסה שוב"); }
+    if (controller.signal.aborted) { setStatus(row, "בוטל", "review"); row.cells[3].textContent = "—"; row.cells[14].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); }
+    else { setStatus(row, "שגיאה בעיבוד", "error"); row.cells[3].textContent = "—"; row.cells[14].textContent = error.message; addRerunButton(row, "נסה שוב"); }
   } finally { if (activeRecognitionController === controller) activeRecognitionController = null; }
 }
-function addRerunButton(row, label = "עבד מחדש", onlyThis = true) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.(onlyThis)); row.cells[15].append(document.createElement("br"), button); }
+function addRerunButton(row, label = "עבד מחדש", onlyThis = true) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.(onlyThis)); row.cells[16].append(document.createElement("br"), button); }
 function applyRecord(row, record) {
-  const values = [record.date, record.rivhit_code ? `${record.rivhit_code} — ${record.classification_name}` : null, record.purpose, record.supplier_name, record.supplier_vat_id, record.transaction_number || record.invoice_number, record.allocation_number, record.total_amount, record.net_amount, record.vat_amount, record.recognized_percent === null ? null : `${record.recognized_percent}%`];
+  row.dataset.rawNet = String(record.net_amount || 0); row.dataset.rawVat = String(record.vat_amount || 0);
+  const values = [record.date, null, record.purpose, record.supplier_name, record.supplier_vat_id, record.transaction_number || record.invoice_number, record.allocation_number, null, record.net_amount, record.vat_amount];
   values.forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 1]));
-  row.cells[13].textContent = record.agent_opinion; row.cells[13].className = "agent-opinion"; row.cells[14].textContent = `${record.confidence}%`;
-  const include = row.cells[16].querySelector("input"); include.disabled = !record.include; include.checked = record.include;
+  row.cells[2].replaceChildren(classificationSelect(record.rivhit_code || "")); row.cells[11].replaceChildren(percentSelect(100)); row.cells[12].replaceChildren(percentSelect(record.recognized_percent || 100)); applyBusinessRule(row);
+  row.cells[14].textContent = record.agent_opinion; row.cells[14].className = "agent-opinion"; row.cells[15].textContent = String(record.confidence) + "%";
+  const include = row.cells[17].querySelector("input"); include.disabled = !record.include; include.checked = record.include;
   setStatus(row, record.include ? "מוכן לייצוא" : record.document_kind === "payment_confirmation" ? "אישור תשלום" : "לא מיועד לייצוא", record.include ? "ready" : "review"); addRerunButton(row);
 }
 document.querySelector("#close-photo").addEventListener("click", () => { photoWindow.hidden = true; });

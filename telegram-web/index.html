@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js" defer></script>
   <script src="config.js" defer></script>
+  <script src="rivhit-mapping.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -14,7 +15,7 @@
     <header>
       <h1>קליטת מסמכים ל‑Rivhit</h1>
       <p>שלח תמונות מהטלפון דרך Telegram. כל תמונה תופיע מיד כשורה חדשה ביומן.</p>
-      <div class="settings"><label class="business-label" for="business-activity">סוג פעילות העסק <input id="business-activity" value="שיעורי ספורט ופילאטיס פרטיים" maxlength="500" required></label><label class="model-label" for="model">מודל Gemini <select id="model"><option value="gemini-3.5-flash-lite" selected>gemini-3.5-flash-lite</option><option value="gemini-3.6-flash">gemini-3.6-flash</option><option value="gemini-3.5-flash">gemini-3.5-flash</option><option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option></select></label><button id="stop-processing" type="button" class="stop" hidden>עצור עיבוד</button></div>
+      <div class="settings"><label class="business-label" for="business-activity">סוג פעילות העסק <input id="business-activity" value="שיעורי ספורט ופילאטיס פרטיים" maxlength="500" required></label><label class="model-label" for="business-kind">סוג העסק <select id="business-kind"><option value="home" selected>עסק בבית פרטי</option><option value="office">עסק במשרד</option></select></label><label class="model-label" for="model">מודל Gemini <select id="model"><option value="gemini-3.5-flash-lite" selected>gemini-3.5-flash-lite</option><option value="gemini-3.6-flash">gemini-3.6-flash</option><option value="gemini-3.5-flash">gemini-3.5-flash</option><option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option></select></label><button id="stop-processing" type="button" class="stop" hidden>עצור עיבוד</button></div>
     </header>
     <section id="inactive" class="card upload-card">
       <button id="start" type="button">התחל העלאת תמונות</button>
@@ -25,7 +26,7 @@
     </section>
     <section class="journal card" aria-labelledby="journal-title">
       <div class="journal-heading"><div><h2 id="journal-title">יומן מסמכים</h2><p id="count">שורות ביומן: 0</p></div><span class="stage">שלב 2: עיבוד אוטומטי</span></div>
-      <div class="table-wrap"><table><thead><tr><th>#</th><th>תאריך</th><th>קוד מיון</th><th>פרטים</th><th>ספק</th><th>ע.מ./ת.ז</th><th>אסמכתא</th><th>מספר הקצאה</th><th>כולל מע״מ</th><th>ללא מע״מ</th><th>מע״מ</th><th>מוכר %</th><th>תמונה</th><th>החלטת הסוכן</th><th>ביטחון</th><th>סטטוס</th><th>לייצוא</th><th>מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="18" class="empty">עדיין לא התקבלו מסמכים.</td></tr></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>#</th><th>תאריך</th><th>קוד מיון</th><th>פרטים</th><th>ספק</th><th>ע.מ./ת.ז</th><th>אסמכתא</th><th>מספר הקצאה</th><th>כולל מע״מ</th><th>ללא מע״מ</th><th>מע״מ</th><th>% מוכר מע״מ</th><th>% מוכר כהוצאה</th><th>תמונה</th><th>החלטת הסוכן</th><th>ביטחון</th><th>סטטוס</th><th>לייצוא</th><th>מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="19" class="empty">עדיין לא התקבלו מסמכים.</td></tr></tbody></table></div>
     </section>
     <p id="status" role="alert"></p>
   </main>
