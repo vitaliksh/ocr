@@ -14,6 +14,7 @@
     <header>
       <h1>קליטת מסמכים ל‑Rivhit</h1>
       <p>שלח תמונות מהטלפון דרך Telegram. כל תמונה תופיע מיד כשורה חדשה ביומן.</p>
+      <label class="business-label" for="business-activity">סוג פעילות העסק <input id="business-activity" value="שיעורי ספורט ופילאטיס פרטיים" maxlength="500" required></label>
     </header>
     <section id="inactive" class="card upload-card">
       <button id="start" type="button">התחל העלאת תמונות</button>
@@ -23,7 +24,7 @@
       <div class="qr-panel"><canvas id="qr" width="260" height="260" aria-label="קוד QR לחיבור Telegram"></canvas><p>סרוק את הקוד ב‑Telegram או <a id="telegram-link" target="_blank" rel="noopener">פתח Telegram</a>.</p></div>
     </section>
     <section class="journal card" aria-labelledby="journal-title">
-      <div class="journal-heading"><div><h2 id="journal-title">יומן מסמכים</h2><p id="count">התקבלו: 0 מסמכים</p></div><span class="stage">שלב 1: קליטה</span></div>
+      <div class="journal-heading"><div><h2 id="journal-title">יומן מסמכים</h2><p id="count">שורות ביומן: 0</p></div><span class="stage">שלב 2: עיבוד אוטומטי</span></div>
       <div class="table-wrap"><table><thead><tr><th>#</th><th>תאריך</th><th>קוד מיון</th><th>פרטים</th><th>ספק</th><th>ע.מ./ת.ז</th><th>אסמכתא</th><th>מספר הקצאה</th><th>כולל מע״מ</th><th>ללא מע״מ</th><th>מע״מ</th><th>מוכר %</th><th>תמונה</th><th>החלטת הסוכן</th><th>ביטחון</th><th>סטטוס</th><th>לייצוא</th><th>מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="18" class="empty">עדיין לא התקבלו מסמכים.</td></tr></tbody></table></div>
     </section>
     <p id="status" role="alert"></p>
