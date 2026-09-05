@@ -1,6 +1,13 @@
+import { RIVHIT_MAPPING } from "./rivhit-mapping.js";
+
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSION_MS = 4 * 60 * 60 * 1000;
+const MAX_AI_IMAGE_BYTES = 12 * 1024 * 1024;
 const encoder = new TextEncoder();
+
+const GEMINI_SCHEMA = { type: "OBJECT", properties: { records: { type: "ARRAY", minItems: 1, items: { type: "OBJECT", properties: {
+  document_kind: { type: "STRING" }, confidence: { type: "NUMBER" }, agent_opinion: { type: "STRING" }, date: { type: "STRING", nullable: true }, supplier_name: { type: "STRING", nullable: true }, supplier_vat_id: { type: "STRING", nullable: true }, invoice_number: { type: "STRING", nullable: true }, transaction_number: { type: "STRING", nullable: true }, allocation_number: { type: "STRING", nullable: true }, purpose: { type: "STRING", nullable: true }, total_amount: { type: "NUMBER", nullable: true }, currency: { type: "STRING", nullable: true }, form_6111_code: { type: "STRING", nullable: true }, recognized_percent: { type: "NUMBER", nullable: true }, net_amount: { type: "NUMBER", nullable: true }, vat_amount: { type: "NUMBER", nullable: true }, vat_percent: { type: "NUMBER", nullable: true }
+}, required: ["document_kind", "confidence", "agent_opinion", "date", "supplier_name", "supplier_vat_id", "invoice_number", "transaction_number", "allocation_number", "purpose", "total_amount", "currency", "form_6111_code", "recognized_percent", "net_amount", "vat_amount", "vat_percent"] } } }, required: ["records"] };
 
 function json(value, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...extraHeaders } });
@@ -26,12 +33,44 @@ function allowedOrigin(request, env) {
 
 function cors(request, env) {
   const origin = allowedOrigin(request, env);
-  return origin ? { "access-control-allow-origin": origin, vary: "Origin", "access-control-allow-headers": "content-type, x-upload-token", "access-control-allow-methods": "GET, POST, OPTIONS" } : {};
+  return origin ? { "access-control-allow-origin": origin, vary: "Origin", "access-control-allow-headers": "content-type, x-upload-token, x-business-activity", "access-control-allow-methods": "GET, POST, OPTIONS" } : {};
 }
 
 function clientRequest(request, env) {
   if (!allowedOrigin(request, env)) return json({ error: "This browser origin is not allowed." }, 403);
   return null;
+}
+
+function base64Encode(buffer) {
+  const bytes = new Uint8Array(buffer); let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  return btoa(binary);
+}
+function text(value) { return typeof value === "string" ? value.trim().slice(0, 500) || null : null; }
+function number(value) { return typeof value === "number" && Number.isFinite(value) ? value : null; }
+function percentage(value) { const result = number(value); return result === null ? null : Math.max(0, Math.min(100, result)); }
+function mappingPrompt() { return Object.entries(RIVHIT_MAPPING).map(([code, [rivhit, name]]) => `- Form 6111 ${code} → Rivhit ${rivhit}: ${name}`).join("\n"); }
+function normalizeRecord(raw) {
+  const kind = ["expense_invoice", "payment_confirmation", "income_report", "other"].includes(raw?.document_kind) ? raw.document_kind : "other";
+  const expense = kind === "expense_invoice", code = text(raw?.form_6111_code), mapped = expense && code ? RIVHIT_MAPPING[code] : null;
+  const record = { document_kind: kind, confidence: percentage(raw?.confidence) ?? 0, agent_opinion: text(raw?.agent_opinion) || "לא נמסר הסבר מהסוכן.", date: text(raw?.date), supplier_name: text(raw?.supplier_name), supplier_vat_id: text(raw?.supplier_vat_id), invoice_number: text(raw?.invoice_number), transaction_number: text(raw?.transaction_number), allocation_number: text(raw?.allocation_number), purpose: text(raw?.purpose), total_amount: number(raw?.total_amount), currency: text(raw?.currency), form_6111_code: mapped ? code : null, rivhit_code: mapped?.[0] || null, classification_name: mapped?.[1] || null, recognized_percent: percentage(raw?.recognized_percent), net_amount: number(raw?.net_amount), vat_amount: number(raw?.vat_amount), vat_percent: percentage(raw?.vat_percent), include: Boolean(expense && mapped) };
+  if (!expense) Object.assign(record, { date: null, supplier_name: null, supplier_vat_id: null, invoice_number: null, transaction_number: null, allocation_number: null, purpose: null, total_amount: null, currency: null, form_6111_code: null, rivhit_code: null, classification_name: null, recognized_percent: null, net_amount: null, vat_amount: null, vat_percent: null, include: false });
+  if (expense && !mapped) { record.include = false; record.agent_opinion += " קוד המיון שהוצע אינו נמצא במילון המאושר ולכן השורה אינה מיועדת לייצוא."; }
+  return record;
+}
+async function recognizeWithGemini(request, env) {
+  if (!env.GEMINI_API_KEY) return json({ error: "Gemini is not configured." }, 503);
+  const contentType = request.headers.get("content-type")?.split(";", 1)[0].toLowerCase();
+  if (!new Set(["image/jpeg", "image/png"]).has(contentType)) return json({ error: "Only JPG and PNG images are supported." }, 415);
+  const activity = decodeURIComponent(request.headers.get("x-business-activity") || "").trim();
+  if (!activity || activity.length > 500) return json({ error: "Business activity is required." }, 400);
+  const image = await request.arrayBuffer(); if (!image.byteLength || image.byteLength > MAX_AI_IMAGE_BYTES) return json({ error: "Image must be 12 MB or smaller." }, 413);
+  const prompt = `Analyze this financial document image for an Israeli Rivhit expense journal. Business activity: ${activity}\n\nReturn one record for each distinct document visible. document_kind must be exactly expense_invoice, payment_confirmation, income_report, or other. All non-expense documents must still get one record with a concise Hebrew agent_opinion explaining the decision. For expense_invoice, extract only visible evidence, choose one allowed full Form 6111 code, and make the best accounting decision. confidence is one overall integer from 0 to 100. Monetary values must satisfy net_amount + vat_amount = total_amount after rounding. A payment confirmation is not an expense invoice.\n\nAllowed Form 6111 → Rivhit mapping:\n${mappingPrompt()}`;
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL || "gemini-3.6-flash")}:generateContent`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY }, body: JSON.stringify({ system_instruction: { parts: [{ text: prompt }] }, contents: [{ role: "user", parts: [{ text: "Analyze this document and return the journal record." }, { inline_data: { mime_type: contentType, data: base64Encode(image) } }] }], generationConfig: { response_mime_type: "application/json", response_schema: GEMINI_SCHEMA, temperature: 0 } }) });
+  const data = await response.json();
+  if (!response.ok) { console.error("Gemini request failed", response.status, data?.error?.message); return json({ error: "Gemini could not process this document." }, 502); }
+  try { const parsed = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || ""); return json({ records: parsed.records.map(normalizeRecord) }); }
+  catch { return json({ error: "Gemini returned an invalid result." }, 502); }
 }
 
 function sessionStub(env, sessionId) {
@@ -54,7 +93,9 @@ async function webhook(request, env) {
   if (!chatId || !userId) return new Response("ok");
   const startToken = message.text?.match(/^\/start\s+([A-Za-z0-9_-]{30,})\s*$/)?.[1];
   try {
-    if (startToken) {
+    if (message.text?.trim() === "/whoami") {
+      await telegramApi(env, "sendMessage", { chat_id: chatId, text: `Your Telegram user ID: ${userId}` });
+    } else if (startToken) {
       const response = await sessionStub(env, startToken).fetch("https://session/telegram/connect", { method: "POST", body: JSON.stringify({ userId, chatId }) });
       const result = await response.json();
       await telegramApi(env, "sendMessage", { chat_id: chatId, text: result.ok ? "Connected. Send document photos now." : "No active upload session. Start a new upload session from the PC." });
@@ -95,6 +136,13 @@ export default {
       if (!response.ok) return response;
       return json({ sessionId, clientToken, telegramUrl: `https://t.me/${env.BOT_USERNAME}?start=${sessionId}`, expiresAt: Date.now() + SESSION_TTL_MS }, 201, cors(request, env));
     }
+    const recognizeMatch = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/recognize$/);
+    if (recognizeMatch) {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
+      const authorization = await sessionStub(env, recognizeMatch[1]).fetch("https://session/client/ai-authorize", { method: "POST", headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" } });
+      if (!authorization.ok) { const headers = new Headers(authorization.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(authorization.body, { status: authorization.status, headers }); }
+      const result = await recognizeWithGemini(request, env), headers = new Headers(result.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(result.body, { status: result.status, headers });
+    }
     const match = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/(events|finish|documents\/([0-9a-f-]{36})(?:\/ack)?)$/);
     if (!match) return json({ error: "Not found." }, 404, cors(request, env));
     const [, sessionId, action, documentId] = match;
@@ -129,6 +177,11 @@ export class UploadSession {
     if (!session) return json({ error: "Session expired or unauthorized." }, 401);
     const action = url.pathname.slice("/client/".length);
     if (action === "events") return this.events(session);
+    if (action === "ai-authorize") {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
+      if (!this.env.ALLOWED_TELEGRAM_USER_ID) return json({ error: "AI access is not configured." }, 503);
+      return session.telegramUserId && timingSafeEqual(String(session.telegramUserId), String(this.env.ALLOWED_TELEGRAM_USER_ID)) ? json({ ok: true }) : json({ error: "AI access is unauthorized." }, 403);
+    }
     if (action === "finish") return this.serialize(async () => {
       const current = await this.activeSession(clientToken);
       return current ? this.finish(current) : json({ error: "Session expired or unauthorized." }, 401);

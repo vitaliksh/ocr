@@ -1,6 +1,6 @@
 # Telegram temporary transfer Worker
 
-This Worker is the temporary bridge only: it never runs OCR and deletes each R2 object after the browser sends an ACK.
+This Worker temporarily bridges Telegram to the browser and deletes each R2 object after the browser sends an ACK. The next-stage Gemini endpoint receives the browser's in-memory image and does not archive it.
 
 ## One-time setup
 
@@ -13,6 +13,15 @@ This Worker is the temporary bridge only: it never runs OCR and deletes each R2 
    npx wrangler secret put TELEGRAM_BOT_TOKEN
    npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
    ```
+
+   Before enabling Gemini processing, also set these Worker secrets:
+
+   ```powershell
+   npx wrangler secret put GEMINI_API_KEY
+   npx wrangler secret put ALLOWED_TELEGRAM_USER_ID
+   ```
+
+   Send `/whoami` to `@Vitalikshbot` to receive your Telegram numeric user ID. The second secret restricts Gemini processing to that account, so a visitor to the public page cannot consume the Gemini quota.
 
 5. Replace `BOT_USERNAME` and `ALLOWED_ORIGINS` in `wrangler.toml`, deploy again, then set the Telegram webhook:
 
