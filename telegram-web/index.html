@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Upload documents from Telegram</title>
+  <title>קליטת מסמכים ל-Rivhit</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js" defer></script>
   <script src="config.js" defer></script>
@@ -11,22 +11,23 @@
 </head>
 <body>
   <main>
-    <h1>Upload documents</h1>
-    <p id="intro">Use Telegram on your phone to send photos to this browser.</p>
-    <section id="inactive" class="card">
-      <button id="start" type="button">Upload photos</button>
+    <header>
+      <h1>קליטת מסמכים ל‑Rivhit</h1>
+      <p>שלח תמונות מהטלפון דרך Telegram. כל תמונה תופיע מיד כשורה חדשה ביומן.</p>
+    </header>
+    <section id="inactive" class="card upload-card">
+      <button id="start" type="button">התחל העלאת תמונות</button>
     </section>
-    <section id="active" class="card" hidden>
-      <h2>Photo upload active</h2>
-      <p>Scan this QR code with your phone, or open Telegram.</p>
-      <canvas id="qr" width="260" height="260" aria-label="Telegram connection QR code"></canvas>
-      <p><a id="telegram-link" target="_blank" rel="noopener">Open Telegram</a></p>
-      <p id="connection" role="status">Waiting for Telegram connection…</p>
-      <div id="documents" class="documents" aria-live="polite"></div>
-      <p id="count">Received: 0</p>
-      <button id="finish" type="button">Finish</button>
+    <section id="active" class="card upload-card" hidden>
+      <div class="upload-heading"><div><h2>העלאת תמונות פעילה</h2><p id="connection" role="status">ממתין לחיבור Telegram…</p></div><button id="finish" type="button" class="secondary">סיים העלאה</button></div>
+      <div class="qr-panel"><canvas id="qr" width="260" height="260" aria-label="קוד QR לחיבור Telegram"></canvas><p>סרוק את הקוד ב‑Telegram או <a id="telegram-link" target="_blank" rel="noopener">פתח Telegram</a>.</p></div>
+    </section>
+    <section class="journal card" aria-labelledby="journal-title">
+      <div class="journal-heading"><div><h2 id="journal-title">יומן מסמכים</h2><p id="count">התקבלו: 0 מסמכים</p></div><span class="stage">שלב 1: קליטה</span></div>
+      <div class="table-wrap"><table><thead><tr><th>#</th><th>תאריך</th><th>קוד מיון</th><th>פרטים</th><th>ספק</th><th>ע.מ./ת.ז</th><th>אסמכתא</th><th>מספר הקצאה</th><th>כולל מע״מ</th><th>ללא מע״מ</th><th>מע״מ</th><th>מוכר %</th><th>תמונה</th><th>החלטת הסוכן</th><th>ביטחון</th><th>סטטוס</th><th>לייצוא</th><th>מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="18" class="empty">עדיין לא התקבלו מסמכים.</td></tr></tbody></table></div>
     </section>
     <p id="status" role="alert"></p>
   </main>
+  <dialog id="photo-dialog"><button id="close-photo" type="button" aria-label="סגור">×</button><img id="dialog-image" alt="תמונת מסמך"></dialog>
 </body>
 </html>
