@@ -7,6 +7,7 @@ function showError(message) { status.textContent = message; }
 function reset() { streamAbort?.abort(); streamAbort = null; session = null; received = new Set(); active.hidden = true; inactive.hidden = false; start.disabled = false; }
 function receivedAtText(value) { return new Intl.DateTimeFormat("he-IL", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }
 function emptyCell(text = "—", className = "") { const cell = document.createElement("td"); cell.textContent = text; if (className) cell.className = className; return cell; }
+function refreshRows() { const rows = [...records.querySelectorAll("tr")]; recordCount = rows.length; rows.forEach((row, index) => { row.cells[0].textContent = String(index + 1); }); count.textContent = `התקבלו: ${recordCount} מסמכים`; if (!recordCount) records.append(emptyRow); }
 
 start.addEventListener("click", async () => {
   if (!api) return showError("The deployment is not configured yet. Set TELEGRAM_TRANSFER_API in config.js.");
@@ -72,7 +73,7 @@ function addPendingRecord(imageUrl, receivedAt, documentId) {
   const photo = document.createElement("td"), openPhoto = document.createElement("button"); openPhoto.type = "button"; openPhoto.className = "photo-button"; openPhoto.textContent = "פתח"; openPhoto.addEventListener("click", () => { dialogImage.src = imageUrl; photoDialog.showModal(); }); photo.append(openPhoto); row.append(photo);
   row.append(emptyCell("ממתין ל‑Gemini"), emptyCell(), emptyCell("התקבל", "state received"));
   const exportCell = document.createElement("td"), include = document.createElement("input"); include.type = "checkbox"; include.disabled = true; include.title = "הייצוא יופעל לאחר עיבוד התמונה"; exportCell.append(include); row.append(exportCell);
-  const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { URL.revokeObjectURL(imageUrl); row.remove(); }); deleteCell.append(remove); row.append(deleteCell); records.append(row);
+  const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { URL.revokeObjectURL(imageUrl); row.remove(); refreshRows(); }); deleteCell.append(remove); row.append(deleteCell); records.append(row);
 }
 document.querySelector("#close-photo").addEventListener("click", () => photoDialog.close());
 photoDialog.addEventListener("click", (event) => { if (event.target === photoDialog) photoDialog.close(); });
