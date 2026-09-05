@@ -64,7 +64,7 @@ async function receiveDocument(documentId, receivedAt) {
   try {
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}`), { headers: { "X-Upload-Token": session.clientToken } });
     if (!response.ok) throw new Error("הורדת התמונה נכשלה.");
-    const blob = await response.blob(), imageUrl = URL.createObjectURL(blob), row = addPendingRecord(imageUrl, receivedAt, documentId); queueRecognition(row, blob, imageUrl, receivedAt, documentId);
+    const downloaded = await response.blob(), blob = new Blob([downloaded], { type: downloaded.type === "image/png" ? "image/png" : "image/jpeg" }), imageUrl = URL.createObjectURL(blob), row = addPendingRecord(imageUrl, receivedAt, documentId); queueRecognition(row, blob, imageUrl, receivedAt, documentId);
     const ack = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}/ack`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } });
     if (!ack.ok) throw new Error("אישור קבלת התמונה נכשל; ייתכן שהיא תישלח שוב.");
   } catch (error) { received.delete(documentId); showError(error.message); }

@@ -61,7 +61,7 @@ function normalizeRecord(raw) {
 async function recognizeWithGemini(request, env) {
   if (!env.GEMINI_API_KEY) return json({ error: "Gemini is not configured." }, 503);
   const contentType = request.headers.get("content-type")?.split(";", 1)[0].toLowerCase();
-  if (!new Set(["image/jpeg", "image/png"]).has(contentType)) return json({ error: "Only JPG and PNG images are supported." }, 415);
+  if (!new Set(["image/jpeg", "image/jpg", "image/png"]).has(contentType)) return json({ error: "Only JPG and PNG images are supported." }, 415);
   const activity = decodeURIComponent(request.headers.get("x-business-activity") || "").trim();
   if (!activity || activity.length > 500) return json({ error: "Business activity is required." }, 400);
   const image = await request.arrayBuffer(); if (!image.byteLength || image.byteLength > MAX_AI_IMAGE_BYTES) return json({ error: "Image must be 12 MB or smaller." }, 413);
