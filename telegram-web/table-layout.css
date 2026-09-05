@@ -17,7 +17,8 @@ th:nth-child(14) { width: 4%; }
 th:nth-child(15) { width: 17%; }
 th:nth-child(16) { width: 3%; }
 th:nth-child(17) { width: 5%; }
-th:nth-child(18) { width: 4%; }
+th:nth-child(18) { width: 2%; }
+th:nth-child(19) { width: 4%; }
 
 td select { width: 100%; min-width: 0; font: inherit; }
 td .photo-button { max-width: 100%; white-space: normal; }

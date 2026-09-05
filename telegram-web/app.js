@@ -11,10 +11,10 @@ function display(value) { return value === null || value === undefined || value 
 function editableCell(value) { const cell = emptyCell(display(value), "editable"); cell.contentEditable = "true"; cell.spellcheck = false; return cell; }
 function refreshRows() { const rows = [...records.querySelectorAll("tr")]; recordCount = rows.length; rows.forEach((row, index) => { row.cells[0].textContent = String(index + 1); }); count.textContent = `שורות ביומן: ${recordCount}`; if (!recordCount) records.append(emptyRow); }
 function setStatus(row, text, state = "") { const cell = row.cells[16]; cell.replaceChildren(document.createTextNode(text)); cell.className = `state ${state}`; }
-function percentSelect(value = 100) { const select = document.createElement("select"); for (const item of [100, 25]) { const option = new Option(`${item}%`, String(item), false, Number(value) === item); select.add(option); } select.addEventListener("change", () => recalculateRow(select.closest("tr"))); return select; }
+function percentSelect(value = 100, choices = [100, 25]) { const select = document.createElement("select"); for (const item of choices) { const option = new Option(`${item}%`, String(item), false, Number(value) === item); select.add(option); } select.addEventListener("change", () => recalculateRow(select.closest("tr"))); return select; }
 function classificationSelect(code = "") { const select = document.createElement("select"); select.add(new Option("—", "")); for (const [value, label] of Object.entries(window.RIVHIT_MAPPING || {})) select.add(new Option(`${value} — ${label}`, value, false, value === code)); select.addEventListener("change", () => { applyBusinessRule(select.closest("tr")); }); return select; }
 function recalculateRow(row) { const net = Number(row.dataset.rawNet || 0), vat = Number(row.dataset.rawVat || 0), vatPercent = Number(row.cells[11].querySelector("select")?.value || 100) / 100, expensePercent = Number(row.cells[12].querySelector("select")?.value || 100) / 100; row.cells[8].textContent = (net * expensePercent + vat * vatPercent).toFixed(2); }
-function applyBusinessRule(row) { const code = row.cells[2].querySelector("select")?.value, homeUtility = businessKind.value === "home" && ["809", "820"].includes(code); const vat = row.cells[11].querySelector("select"), expense = row.cells[12].querySelector("select"); if (vat) vat.value = "100"; if (expense) expense.value = homeUtility ? "25" : "100"; recalculateRow(row); }
+function applyBusinessRule(row) { const code = row.cells[2].querySelector("select")?.value, homeUtility = businessKind.value === "home" && ["809", "820"].includes(code); const expense = row.cells[12].querySelector("select"); if (expense) expense.value = homeUtility ? "25" : "100"; recalculateRow(row); }
 function applyBusinessRules() { for (const row of records.querySelectorAll("tr")) applyBusinessRule(row); }
 businessKind.addEventListener("change", applyBusinessRules);
 function updateProcessingControls() { stop.hidden = !pendingRecognitions; stop.disabled = !pendingRecognitions; }
@@ -77,7 +77,7 @@ function enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIn
   pendingRecognitions += 1; updateProcessingControls();
   recognitionQueue = recognitionQueue.then(() => recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis)).catch(() => {}).finally(() => { pendingRecognitions -= 1; updateProcessingControls(); });
 }
-function recordTarget(row) { return { date: row.cells[1].textContent, classification: row.cells[2].textContent, purpose: row.cells[3].textContent, supplier: row.cells[4].textContent, reference: row.cells[6].textContent, gross: row.cells[8].textContent }; }
+function recordTarget(row) { return { date: row.cells[1].textContent, classification: row.cells[2].textContent, purpose: row.cells[3].textContent, supplier: row.cells[4].textContent, reference: row.cells[6].textContent, gross: row.cells[8].textContent, net: row.cells[9].textContent, vat: row.cells[10].textContent }; }
 async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis = false) {
   if (stopRequested) { setStatus(row, "בוטל", "review"); row.cells[14].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); return; }
   const activity = businessActivity.value.trim(); if (!activity) { setStatus(row, "חסרה פעילות העסק", "error"); row.cells[14].textContent = "יש למלא את סוג פעילות העסק ואז להפעיל מחדש."; return; }
@@ -99,7 +99,7 @@ function applyRecord(row, record) {
   row.dataset.rawNet = String(record.net_amount || 0); row.dataset.rawVat = String(record.vat_amount || 0);
   const values = [record.date, null, record.purpose, record.supplier_name, record.supplier_vat_id, record.transaction_number || record.invoice_number, record.allocation_number, null, record.net_amount, record.vat_amount];
   values.forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 1]));
-  row.cells[2].replaceChildren(classificationSelect(record.rivhit_code || "")); row.cells[11].replaceChildren(percentSelect(100)); row.cells[12].replaceChildren(percentSelect(record.recognized_percent || 100)); applyBusinessRule(row);
+  row.cells[2].replaceChildren(classificationSelect(record.rivhit_code || "")); row.cells[11].replaceChildren(percentSelect(record.vat_recognized_percent ?? 100, [100, 25, 0])); row.cells[12].replaceChildren(percentSelect(record.recognized_percent || 100)); applyBusinessRule(row);
   row.cells[14].textContent = record.agent_opinion; row.cells[14].className = "agent-opinion"; row.cells[15].textContent = String(record.confidence) + "%";
   const include = row.cells[17].querySelector("input"); include.disabled = !record.include; include.checked = record.include;
   setStatus(row, record.include ? "מוכן לייצוא" : record.document_kind === "payment_confirmation" ? "אישור תשלום" : "לא מיועד לייצוא", record.include ? "ready" : "review"); addRerunButton(row);
