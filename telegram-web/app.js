@@ -1,5 +1,5 @@
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, "");
-const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoDialog = document.querySelector("#photo-dialog"), dialogImage = document.querySelector("#dialog-image"), businessActivity = document.querySelector("#business-activity");
+const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoDialog = document.querySelector("#photo-dialog"), dialogImage = document.querySelector("#dialog-image"), businessActivity = document.querySelector("#business-activity"), model = document.querySelector("#model");
 let session = null, streamAbort = null, received = new Set(), recordCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve();
 
 function apiUrl(path) { return `${api}${path}`; }
@@ -88,11 +88,11 @@ async function recognize(row, blob, imageUrl, receivedAt, documentId) {
   if (!session) { setStatus(row, "לא עובד", "error"); row.cells[13].textContent = "סשן ההעלאה נסגר לפני העיבוד."; return; }
   setStatus(row, "מעבד…", "processing"); row.cells[3].textContent = "Gemini מעבד את התמונה…"; row.cells[13].textContent = "ממתין להחלטת הסוכן…";
   try {
-    const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/recognize`), { method: "POST", headers: { "Content-Type": blob.type || "image/jpeg", "X-Upload-Token": session.clientToken, "X-Business-Activity": encodeURIComponent(activity) }, body: blob }); const result = await response.json();
+    const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/recognize`), { method: "POST", headers: { "Content-Type": blob.type || "image/jpeg", "X-Upload-Token": session.clientToken, "X-Business-Activity": encodeURIComponent(activity), "X-Gemini-Model": model.value }, body: blob }); const result = await response.json();
     if (!response.ok) throw new Error(result.error || "העיבוד נכשל.");
     applyRecord(row, result.records[0]);
     for (const record of result.records.slice(1)) { const extraRow = addPendingRecord(imageUrl, receivedAt, documentId); applyRecord(extraRow, record); }
-  } catch (error) { setStatus(row, "שגיאה בעיבוד", "error"); row.cells[3].textContent = "—"; row.cells[13].textContent = error.message; }
+  } catch (error) { setStatus(row, "שגיאה בעיבוד", "error"); row.cells[3].textContent = "—"; row.cells[13].textContent = error.message; const retry = document.createElement("button"); retry.type = "button"; retry.className = "retry"; retry.textContent = "נסה שוב"; retry.addEventListener("click", () => queueRecognition(row, blob, imageUrl, receivedAt, documentId)); row.cells[15].append(document.createElement("br"), retry); }
 }
 function applyRecord(row, record) {
   const values = [record.date, record.rivhit_code ? `${record.rivhit_code} — ${record.classification_name}` : null, record.purpose, record.supplier_name, record.supplier_vat_id, record.transaction_number || record.invoice_number, record.allocation_number, record.total_amount, record.net_amount, record.vat_amount, record.recognized_percent === null ? null : `${record.recognized_percent}%`];
