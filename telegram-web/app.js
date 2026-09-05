@@ -53,7 +53,7 @@ async function receiveDocument(documentId, receivedAt) {
   try {
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}`), { headers: { "X-Upload-Token": session.clientToken } }); if (!response.ok) throw new Error("הורדת התמונה נכשלה.");
     const downloaded = await response.blob(), blob = new Blob([downloaded], { type: downloaded.type === "image/png" ? "image/png" : "image/jpeg" }), imageUrl = URL.createObjectURL(blob), imageIndex = ++imageCount, row = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex);
-    row.runRecognition = () => enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, true); row.runRecognition();
+    row.runRecognition = (onlyThis = false) => enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, true, onlyThis); enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex);
     const ack = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}/ack`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }); if (!ack.ok) throw new Error("אישור קבלת התמונה נכשל; ייתכן שהיא תישלח שוב.");
   } catch (error) { received.delete(documentId); showError(error.message); }
 }
@@ -66,27 +66,29 @@ function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex) {
   const exportCell = document.createElement("td"), include = document.createElement("input"); include.type = "checkbox"; include.disabled = true; exportCell.append(include); row.append(exportCell);
   const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { row.remove(); refreshRows(); }); deleteCell.append(remove); row.append(deleteCell); records.append(row); return row;
 }
-function enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, restart = false) {
+function enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, restart = false, onlyThis = false) {
   if (restart) stopRequested = false;
   pendingRecognitions += 1; updateProcessingControls();
-  recognitionQueue = recognitionQueue.then(() => recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex)).catch(() => {}).finally(() => { pendingRecognitions -= 1; updateProcessingControls(); });
+  recognitionQueue = recognitionQueue.then(() => recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis)).catch(() => {}).finally(() => { pendingRecognitions -= 1; updateProcessingControls(); });
 }
-async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex) {
-  if (stopRequested) { setStatus(row, "בוטל", "review"); row.cells[13].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד מחדש"); return; }
+function recordTarget(row) { return { date: row.cells[1].textContent, classification: row.cells[2].textContent, purpose: row.cells[3].textContent, supplier: row.cells[4].textContent, reference: row.cells[6].textContent, gross: row.cells[8].textContent }; }
+async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis = false) {
+  if (stopRequested) { setStatus(row, "בוטל", "review"); row.cells[13].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); return; }
   const activity = businessActivity.value.trim(); if (!activity) { setStatus(row, "חסרה פעילות העסק", "error"); row.cells[13].textContent = "יש למלא את סוג פעילות העסק ואז להפעיל מחדש."; return; }
   if (!session) { setStatus(row, "לא עובד", "error"); row.cells[13].textContent = "סשן ההעלאה נסגר לפני העיבוד."; return; }
   const controller = new AbortController(); activeRecognitionController = controller; setStatus(row, "מעבד…", "processing"); row.cells[3].textContent = "Gemini מעבד את התמונה…"; row.cells[13].textContent = "ממתין להחלטת הסוכן…";
   try {
-    const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/recognize`), { method: "POST", signal: controller.signal, headers: { "Content-Type": blob.type || "image/jpeg", "X-Upload-Token": session.clientToken, "X-Business-Activity": encodeURIComponent(activity), "X-Gemini-Model": model.value }, body: blob }), result = await response.json();
+    const headers = { "Content-Type": blob.type || "image/jpeg", "X-Upload-Token": session.clientToken, "X-Business-Activity": encodeURIComponent(activity), "X-Gemini-Model": model.value }; if (onlyThis) headers["X-Target-Record"] = encodeURIComponent(JSON.stringify(recordTarget(row)));
+    const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/recognize`), { method: "POST", signal: controller.signal, headers, body: blob }), result = await response.json();
     if (!response.ok) throw new Error(result.error || "העיבוד נכשל.");
     applyRecord(row, result.records[0]);
-    for (const record of result.records.slice(1)) { const extra = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex); extra.runRecognition = () => enqueueRecognition(extra, blob, imageUrl, receivedAt, documentId, imageIndex, true); applyRecord(extra, record); }
+    if (!onlyThis) for (const record of result.records.slice(1)) { const extra = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex); extra.runRecognition = (single = false) => enqueueRecognition(extra, blob, imageUrl, receivedAt, documentId, imageIndex, true, single); applyRecord(extra, record); }
   } catch (error) {
-    if (controller.signal.aborted) { setStatus(row, "בוטל", "review"); row.cells[3].textContent = "—"; row.cells[13].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד מחדש"); }
+    if (controller.signal.aborted) { setStatus(row, "בוטל", "review"); row.cells[3].textContent = "—"; row.cells[13].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); }
     else { setStatus(row, "שגיאה בעיבוד", "error"); row.cells[3].textContent = "—"; row.cells[13].textContent = error.message; addRerunButton(row, "נסה שוב"); }
   } finally { if (activeRecognitionController === controller) activeRecognitionController = null; }
 }
-function addRerunButton(row, label = "עבד מחדש") { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.()); row.cells[15].append(document.createElement("br"), button); }
+function addRerunButton(row, label = "עבד מחדש", onlyThis = true) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.(onlyThis)); row.cells[15].append(document.createElement("br"), button); }
 function applyRecord(row, record) {
   const values = [record.date, record.rivhit_code ? `${record.rivhit_code} — ${record.classification_name}` : null, record.purpose, record.supplier_name, record.supplier_vat_id, record.transaction_number || record.invoice_number, record.allocation_number, record.total_amount, record.net_amount, record.vat_amount, record.recognized_percent === null ? null : `${record.recognized_percent}%`];
   values.forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 1]));
@@ -103,6 +105,10 @@ document.querySelector("#photo-drag").addEventListener("pointerup", () => { drag
 document.querySelector("#resize-handle").addEventListener("pointerdown", (event) => { resize = { x: event.clientX, y: event.clientY, width: photoWindow.offsetWidth, height: photoWindow.offsetHeight }; event.currentTarget.setPointerCapture(event.pointerId); });
 document.querySelector("#resize-handle").addEventListener("pointermove", (event) => { if (!resize) return; photoWindow.style.width = `${Math.max(320, resize.width + event.clientX - resize.x)}px`; photoWindow.style.height = `${Math.max(250, resize.height + event.clientY - resize.y)}px`; });
 document.querySelector("#resize-handle").addEventListener("pointerup", () => { resize = null; });
+document.querySelector("#resize-handle").addEventListener("pointercancel", () => { resize = null; });
 photoViewport.addEventListener("pointerdown", (event) => { imageDrag = { x: event.clientX, y: event.clientY, panX, panY }; photoViewport.setPointerCapture(event.pointerId); dialogImage.style.cursor = "grabbing"; });
 photoViewport.addEventListener("pointermove", (event) => { if (!imageDrag) return; panX = imageDrag.panX + event.clientX - imageDrag.x; panY = imageDrag.panY + event.clientY - imageDrag.y; updateImageTransform(); });
 photoViewport.addEventListener("pointerup", () => { imageDrag = null; dialogImage.style.cursor = "grab"; });
+photoViewport.addEventListener("pointercancel", () => { imageDrag = null; dialogImage.style.cursor = "grab"; });
+photoViewport.addEventListener("lostpointercapture", () => { imageDrag = null; dialogImage.style.cursor = "grab"; });
+window.addEventListener("keydown", (event) => { if (!event.ctrlKey || (event.key !== "+" && event.key !== "-" && event.key !== "=")) return; if (photoWindow.hidden) return; event.preventDefault(); zoom = event.key === "-" ? Math.max(0.5, zoom - 0.25) : Math.min(4, zoom + 0.25); updateImageTransform(); });

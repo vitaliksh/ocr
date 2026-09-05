@@ -34,7 +34,7 @@ function allowedOrigin(request, env) {
 
 function cors(request, env) {
   const origin = allowedOrigin(request, env);
-  return origin ? { "access-control-allow-origin": origin, vary: "Origin", "access-control-allow-headers": "content-type, x-upload-token, x-business-activity, x-gemini-model", "access-control-allow-methods": "GET, POST, OPTIONS" } : {};
+  return origin ? { "access-control-allow-origin": origin, vary: "Origin", "access-control-allow-headers": "content-type, x-upload-token, x-business-activity, x-gemini-model, x-target-record", "access-control-allow-methods": "GET, POST, OPTIONS" } : {};
 }
 
 function clientRequest(request, env) {
@@ -67,8 +67,11 @@ async function recognizeWithGemini(request, env) {
   if (!activity || activity.length > 500) return json({ error: "Business activity is required." }, 400);
   const selectedModel = request.headers.get("x-gemini-model") || env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   if (!GEMINI_MODELS.has(selectedModel)) return json({ error: "Unsupported Gemini model." }, 400);
+  let targetRecord = null;
+  try { const rawTarget = request.headers.get("x-target-record"); if (rawTarget) targetRecord = JSON.parse(decodeURIComponent(rawTarget)); } catch { return json({ error: "Invalid target record." }, 400); }
   const image = await request.arrayBuffer(); if (!image.byteLength || image.byteLength > MAX_AI_IMAGE_BYTES) return json({ error: "Image must be 12 MB or smaller." }, 413);
-  const prompt = `Analyze this financial document image for an Israeli Rivhit expense journal. Business activity: ${activity}\n\nReturn one record for each distinct document visible. document_kind must be exactly expense_invoice, payment_confirmation, income_report, or other. All non-expense documents must still get one record with a concise Hebrew agent_opinion explaining the decision. For expense_invoice, extract only visible evidence, choose one allowed full Form 6111 code, and make the best accounting decision. confidence is one overall integer from 0 to 100. Monetary values must satisfy net_amount + vat_amount = total_amount after rounding. A payment confirmation is not an expense invoice.\n\nAllowed Form 6111 → Rivhit mapping:\n${mappingPrompt()}`;
+  const scope = targetRecord ? `Return exactly ONE record: the document matching this existing journal record. Do not return other documents from the same image. Existing record (it may contain user edits): ${JSON.stringify(targetRecord)}` : "Return one record for EACH spatially separate receipt, invoice, or payment document visible in the image. A partially visible but readable receipt still counts as a separate document; never omit it merely because other documents share the same photo.";
+  const prompt = `Analyze this financial document image for an Israeli Rivhit expense journal. Business activity: ${activity}\n\n${scope}\n\ndocument_kind must be exactly expense_invoice, payment_confirmation, income_report, or other. All non-expense documents must still get one record with a concise Hebrew agent_opinion explaining the decision. For expense_invoice, extract only visible evidence, choose one allowed full Form 6111 code, and make the best accounting decision. confidence is one overall integer from 0 to 100. Monetary values must satisfy net_amount + vat_amount = total_amount after rounding. A payment confirmation is not an expense invoice.\n\nAllowed Form 6111 → Rivhit mapping:\n${mappingPrompt()}`;
   const payload = JSON.stringify({ system_instruction: { parts: [{ text: prompt }] }, contents: [{ role: "user", parts: [{ text: "Analyze this document and return the journal record." }, { inline_data: { mime_type: contentType, data: base64Encode(image) } }] }], generationConfig: { response_mime_type: "application/json", response_schema: GEMINI_SCHEMA, temperature: 0 } });
   let response, data;
   for (let attempt = 0; attempt < 4; attempt += 1) {
