@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>קליטת מסמכים ל-Rivhit</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="workspace.css">
   <link rel="stylesheet" href="table-layout.css">
   <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js" defer></script>
   <script src="config.js" defer></script>
   <script src="rivhit-mapping.js" defer></script>
-  <script src="app.js" defer></script>
+  <script type="module" src="app.js"></script>
   <script src="table-columns.js" defer></script>
 </head>
 <body>
@@ -17,21 +18,24 @@
     <header>
       <h1>קליטת מסמכים ל‑Rivhit</h1>
       <p>שלח תמונות מהטלפון דרך Telegram. כל תמונה תופיע מיד כשורה חדשה ביומן.</p>
-      <div class="settings"><label class="business-label" for="business-activity">סוג פעילות העסק <input id="business-activity" value="שיעורי ספורט ופילאטיס פרטיים" maxlength="500" required></label><label class="model-label" for="business-kind">סוג העסק <select id="business-kind"><option value="home" selected>עסק בבית פרטי</option><option value="office">עסק במשרד</option></select></label><label class="model-label" for="model">מודל Gemini <select id="model"><option value="gemini-3.5-flash-lite" selected>gemini-3.5-flash-lite</option><option value="gemini-3.6-flash">gemini-3.6-flash</option><option value="gemini-3.5-flash">gemini-3.5-flash</option><option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option></select></label><button id="stop-processing" type="button" class="stop" hidden>עצור עיבוד</button></div>
+      <div class="settings"><strong id="current-client">לא נבחר לקוח</strong><button id="open-client-dialog" type="button" class="secondary">בחירת לקוח</button><button id="open-settings-dialog" type="button" class="secondary">הגדרות</button><button id="stop-processing" type="button" class="stop" hidden>עצור עיבוד</button></div>
     </header>
     <section id="inactive" class="card upload-card">
-      <button id="start" type="button">התחל העלאת תמונות</button>
+      <button id="start" type="button" disabled>התחל העלאת תמונות</button><p id="upload-requirements" class="upload-requirements" role="status"></p>
     </section>
     <section id="active" class="card upload-card" hidden>
       <div class="upload-heading"><div><h2>העלאת תמונות פעילה</h2><p id="connection" role="status">ממתין לחיבור Telegram…</p></div><button id="finish" type="button" class="secondary">סיים העלאה</button></div>
       <div class="qr-panel"><canvas id="qr" width="260" height="260" aria-label="קוד QR לחיבור Telegram"></canvas><p>סרוק את הקוד ב‑Telegram או <a id="telegram-link" target="_blank" rel="noopener">פתח Telegram</a>.</p></div>
     </section>
     <section class="journal card" aria-labelledby="journal-title">
-      <div class="journal-heading"><div><h2 id="journal-title">יומן מסמכים</h2><p id="count">שורות ביומן: 0</p></div><span class="stage">שלב 2: עיבוד אוטומטי</span></div>
+      <div class="journal-heading"><div><h2 id="journal-title">יומן מסמכים</h2><p id="count">שורות ביומן: 0</p></div><div class="journal-actions"><button id="open-package" type="button" class="secondary">טעינת חבילה שמורה</button><button id="create-pdf" type="button">יצירת חבילת PDF</button><span class="stage">שלב 2: עיבוד אוטומטי</span></div></div>
       <div class="table-wrap"><table><thead><tr><th>#</th><th>תאריך</th><th>קוד מיון</th><th>פרטים</th><th>ספק</th><th>ע.מ./ת.ז</th><th>אסמכתא</th><th>מספר הקצאה</th><th>כולל מע״מ</th><th>ללא מע״מ</th><th>מע״מ</th><th>% מוכר מע״מ</th><th>% מוכר כהוצאה</th><th>תמונה</th><th>החלטת הסוכן</th><th>ביטחון</th><th>סטטוס</th><th>לייצוא</th><th>מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="19" class="empty">עדיין לא התקבלו מסמכים.</td></tr></tbody></table></div>
     </section>
     <p id="status" role="alert"></p>
   </main>
+  <dialog id="client-dialog" class="workspace-dialog"><form method="dialog"><header><h2>בחירת לקוח</h2><button value="cancel" aria-label="סגור" class="dialog-close">×</button></header><p id="workspace-summary">בחר לקוח, פתח תיקייה קיימת או צור לקוח חדש.</p><label>לקוח <select id="workspace-select" aria-label="לקוח"><option>טוען לקוחות…</option></select></label><div id="new-client-form" class="new-client-form" hidden><label>שם הלקוח <input id="new-client-name" maxlength="120"></label><label>סוג פעילות העסק <input id="new-client-activity" maxlength="500"></label><button id="create-client" type="button">בחירת תיקיית אב ויצירת לקוח</button></div><div class="client-fields"><label>סוג פעילות העסק <input id="business-activity" maxlength="500" required></label><label>סוג העסק <select id="business-kind"><option value="home">עסק בבית פרטי</option><option value="office">עסק במשרד</option></select></label></div><div class="dialog-actions"><button id="delete-client" type="button" class="delete">מחיקת הלקוח וכל נתוניו</button><button id="grant-delete-access" type="button" class="secondary" hidden>חיבור הרשאה למחיקה</button><span></span><button value="cancel" class="secondary">ביטול</button><button id="confirm-client" type="button">אישור</button></div></form></dialog>
+  <dialog id="system-settings-dialog" class="workspace-dialog"><form method="dialog"><header><h2>הגדרות מערכת</h2><button value="cancel" aria-label="סגור" class="dialog-close">×</button></header><label class="model-label" for="model">מודל Gemini <select id="model"><option value="gemini-3.5-flash-lite" selected>gemini-3.5-flash-lite</option><option value="gemini-3.6-flash">gemini-3.6-flash</option><option value="gemini-3.5-flash">gemini-3.5-flash</option><option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option></select></label><div class="template-setting"><button id="select-template" type="button" class="secondary">בחירת תבנית Rivhit כללית</button><p id="template-summary">תבנית Rivhit כללית טרם נבחרה.</p></div><div class="dialog-actions"><span></span><button value="cancel">סגור</button></div></form></dialog>
+  <dialog id="upload-mode-dialog" class="workspace-dialog"><form method="dialog"><header><h2>טעינת תמונות לחבילה שנפתחה</h2><button value="cancel" aria-label="סגור" class="dialog-close">×</button></header><p>הטבלה שנפתחה נשמרת נעולה. האם להוסיף תמונות ורשומות לחבילה הקיימת, או להתחיל טבלה חדשה?</p><div class="dialog-actions"><button id="add-to-existing" type="button">הוספה לטבלה הקיימת</button><button id="start-new-table" type="button" class="secondary">טבלה חדשה</button><span></span><button value="cancel" class="secondary">ביטול</button></div></form></dialog>
   <section id="photo-window" class="photo-window" hidden aria-label="תמונת מסמך"><header id="photo-drag"><strong id="photo-title">תמונת מסמך</strong><span class="window-controls"><button id="close-photo" type="button" aria-label="סגור">×</button><span class="zoom-controls"><button id="zoom-out" type="button" aria-label="הקטן">−</button><button id="zoom-in" type="button" aria-label="הגדל">+</button></span></span></header><div id="photo-viewport"><img id="dialog-image" alt="תמונת מסמך" draggable="false"></div><i id="resize-handle" aria-label="שנה גודל"></i></section>
 </body>
 </html>

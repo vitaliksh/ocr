@@ -9,8 +9,9 @@ uploads/
 *.gif
 *.webp
 *.json
-!telegram-worker/package.json
-!telegram-worker/package-lock.json
+!cloudflare-worker/package.json
+!cloudflare-worker/package-lock.json
+!telegram-web/package.json
 processed_documents/
 .server-*.pid
 examples/

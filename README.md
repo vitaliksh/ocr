@@ -1,26 +1,40 @@
-# Direct photo-to-Rivhit converter
+# Rivhit document intake
 
-Local Windows application that sends each JPG/PNG financial document to Gemini once, creates Rivhit expense rows, and exports a Windows-1255 TXT file. It is a prototype for human-reviewed bookkeeping, not tax or accounting advice.
+Browser application for receiving invoice images through Telegram, extracting
+draft expense records with Gemini, reviewing them in a Rivhit journal and
+creating local accounting artefacts. It is a bookkeeping aid; a qualified
+bookkeeper remains responsible for the final tax treatment and Rivhit import.
 
-## Run
+The live browser UI is hosted on GitHub Pages. Telegram transport and Gemini
+vision processing run in a Cloudflare Worker. Client data, completed PDFs,
+Rivhit TXT files and history stay on the Windows PC in local workspaces.
 
-1. Copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
-2. Keep a validated, business-specific 186-column Rivhit expense template named `PKUDA_AI_TEST.TXT` in the project root. This local file is deliberately Git-ignored because it may contain private accounting data.
-3. Run `D:\projects\ocr\run.ps1`.
-4. Open `http://127.0.0.1:8010/`, enter the business activity, select photos, review the generated rows, and create the TXT.
+## Project map
 
-The Git repository intentionally contains no receipt photos, generated TXT files, API keys, or business-specific template data.
+- `telegram-web/` — static GitHub Pages application.
+- `cloudflare-worker/` — deployable Cloudflare Worker, Durable Object and R2
+  configuration.
+- `agent-prompts/` — human-readable prompts that the deployed agents use.
+- `6111_to_Rivhit.xlsx` — approved public mapping from full Form 6111 codes to
+  three-digit Rivhit codes.
+- `docs/ARCHITECTURE.md` — product boundary, data ownership and current status.
+- `docs/RIVHIT_IMPORT_SPEC.md` — non-negotiable TXT import contract.
 
-## Repository contents
+Secrets and real accounting data are deliberately not committed. In particular,
+do not commit Telegram tokens, Gemini keys, invoice images, generated exports,
+or the private canonical Rivhit template.
 
-- `app.py` — local HTTP server, Gemini client, validation, Rivhit generation, exchange-rate lookup.
-- `web/` — browser UI.
-- `6111_to_Rivhit.xlsx` — approved non-private mapping of full Form 6111 codes to three-digit Rivhit codes.
-- `ocr_instructions.md` — runtime system instructions sent to Gemini.
-- `docs/OPERATING_RULES.md` — architecture, import rules, privacy rules, and verification requirements.
+## Development checks
 
-See [operating rules](docs/OPERATING_RULES.md) before changing the import format or Gemini prompt.
+```powershell
+Set-Location D:\projects\ocr\telegram-web
+npm test
+npm run check
 
-## Telegram photo transfer (current development stage)
+Set-Location D:\projects\ocr\cloudflare-worker
+npm run check
+```
 
-The independent temporary transfer client is in [`telegram-web/`](telegram-web/) and its Cloudflare Worker is in [`telegram-worker/`](telegram-worker/). It deliberately transfers photos only; it does not contain Gemini or Rivhit logic. Follow the Worker [setup guide](telegram-worker/README.md) to create the bot, configure the secrets, and deploy the browser page.
+See the [architecture](docs/ARCHITECTURE.md) before changing data flow, prompts
+or export behaviour. Worker setup and deployment are documented in
+[`cloudflare-worker/README.md`](cloudflare-worker/README.md).

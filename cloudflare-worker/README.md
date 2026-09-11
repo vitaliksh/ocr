@@ -1,6 +1,9 @@
-# Telegram temporary transfer Worker
+# Cloudflare Worker
 
-This Worker temporarily bridges Telegram to the browser and deletes each R2 object after the browser sends an ACK. The next-stage Gemini endpoint receives the browser's in-memory image and does not archive it.
+This is the deployable cloud component of Rivhit document intake. It bridges
+Telegram to the browser through short-lived sessions and sends an in-memory
+image to Gemini for pass-1 extraction. It never keeps completed client
+workspaces, PDFs, TXT exports or history.
 
 ## One-time setup
 
@@ -31,8 +34,13 @@ This Worker temporarily bridges Telegram to the browser and deletes each R2 obje
    Invoke-RestMethod -Method Post -Uri "https://api.telegram.org/botYOUR_BOT_TOKEN/setWebhook" -Body @{url="$workerUrl/telegram/webhook";secret_token=$secret}
    ```
 
-The public Worker URL is not a secret. Copy it to `telegram-web/config.js`, set the GitHub Pages origin in `ALLOWED_ORIGINS`, and publish the `telegram-web` directory as GitHub Pages.
+The public Worker URL is not a secret. Copy it to `telegram-web/config.js`, set
+the GitHub Pages origin in `ALLOWED_ORIGINS`, and publish the `telegram-web`
+directory as GitHub Pages.
 
 ## Manual test
 
-Open the hosted page, select **Upload photos**, scan the QR code, send two photos through Telegram, and confirm that both thumbnails appear. Press **Finish**, then send one more photo: the bot must reject it.
+Open the hosted page, select a local workspace and the canonical template,
+start upload, scan the QR code, send two photos through Telegram, and confirm
+that both rows appear. Press **Finish**, then send one more photo: the bot must
+reject it.

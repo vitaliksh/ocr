@@ -1,0 +1,9 @@
+{
+  "name": "rivhit-telegram-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check app.js && node --check workspace.js && node --check workspace-core.js"
+  }
+}
