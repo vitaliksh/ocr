@@ -1,33 +1,59 @@
 import { setupWorkspaceControls } from "./workspace.js";
-import { createPackageDirectory, makePackageManifest, makeSourceText, writeFile } from "./document-package.js";
+import { writeFile } from "./document-package.js";
 import { buildPdfReport } from "./pdf-report.js";
+import { createDraftExportDirectory, finalizeDeclaration, readClosedHistory, readSourceImage, saveDraft, saveSourceImage } from "./declaration-store.js";
+import { buildRivhitImport, draftExportManifest } from "./rivhit-export.js";
+import { relevantHistory } from "./history-ranker.js";
 
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, "");
-const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), clientDialog = document.querySelector("#client-dialog"), systemSettingsDialog = document.querySelector("#system-settings-dialog"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements");
-let workspace = null, committedWorkspace = null, canonicalTemplate = null, session = null, streamAbort = null, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false;
+const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), closeDeclarationButton = document.querySelector("#close-declaration"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements"), workspacesDrawer = document.querySelector("#workspaces-drawer"), workspacesBackdrop = document.querySelector("#workspaces-backdrop"), openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"), closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer");
+let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, streamAbort = null, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null;
 
 function apiUrl(path) { return `${api}${path}`; }
 function showError(message) { status.textContent = message; }
-function updateStartAvailability() { start.disabled = !committedWorkspace || !canonicalTemplate; uploadRequirements.textContent = !committedWorkspace ? "יש לבחור לקוח ולאשר את פרטיו לפני העלאת תמונות." : !canonicalTemplate ? "יש לבחור בהגדרות תבנית Rivhit כללית לפני העלאת תמונות." : ""; }
-setupWorkspaceControls({
-  select: document.querySelector("#workspace-select"), templateButton: document.querySelector("#select-template"), creationPanel: document.querySelector("#new-client-form"), createButton: document.querySelector("#create-client"), deleteButton: document.querySelector("#delete-client"), grantDeleteAccessButton: document.querySelector("#grant-delete-access"), clientNameInput: document.querySelector("#new-client-name"), clientActivityInput: document.querySelector("#new-client-activity"), summary: workspaceSummary, templateSummary: document.querySelector("#template-summary"),
-  onWorkspace: (selected) => { workspace = selected; businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind; applyBusinessRules(); status.textContent = ""; },
+function hasCanonicalTemplate() { return workspaceControls?.hasCanonicalTemplate?.() || Boolean(canonicalTemplate); }
+function updateStartAvailability() { const open = currentDeclaration?.status === "open"; start.disabled = !dataRoot || !open || !hasCanonicalTemplate(); closeDeclarationButton.disabled = !open || !committedWorkspace || !hasCanonicalTemplate(); uploadRequirements.textContent = !dataRoot ? "יש לבחור תחילה תיקיית נתונים בסביבות העבודה." : !currentDeclaration ? "יש לבחור הצהרה לפני העלאת תמונות." : !open ? "ההצהרה סגורה ואי אפשר להוסיף אליה תמונות." : !hasCanonicalTemplate() ? "יש לבחור בסביבות העבודה תבנית Rivhit כללית לפני העלאת תמונות." : ""; }
+async function activateDeclaration(selected) {
+  if (currentDeclaration && currentDeclaration.declarationId !== selected.declaration.declarationId && records.querySelector("tr[data-document-id]") && !window.confirm("לעבור להצהרה אחרת? הטיוטה הנוכחית תישמר מקומית.")) return false;
+  await saveCurrentDraft();
+  workspace = committedWorkspace = selected.workspace; currentDeclaration = selected.declaration; currentDeclarationDirectory = selected.directory; businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind;
+  records.replaceChildren(); recordCount = 0; imageCount = 0; received = new Set();
+  for (const saved of selected.draft?.rows || []) { try { restoreRow(saved, await readSourceImage(selected.directory, saved.imageFile)); } catch (error) { throw new Error(`לא ניתן לשחזר תמונה ${saved.imageFile || ""}: ${error.message}`); } }
+  refreshRows(); setTableLocked(currentDeclaration.status !== "open"); currentClient.textContent = `לקוח: ${workspace.config.clientName} · הצהרה: ${currentDeclaration.month}`; applyBusinessRules(); status.textContent = currentDeclaration.status === "open" ? "" : "ההצהרה סגורה לקריאה בלבד."; updateStartAvailability(); setWorkspacesDrawer(false); return true;
+}
+function updateWorkspace(selected) { if (workspace?.config.clientId === selected.config.clientId) workspace = { ...workspace, config: selected.config }; if (committedWorkspace?.config.clientId === selected.config.clientId) { committedWorkspace = { ...committedWorkspace, config: selected.config }; businessActivity.value = selected.config.businessActivity; businessKind.value = selected.config.businessKind; applyBusinessRules(); } }
+function clearActiveClient(clientId) { if (workspace?.config.clientId === clientId) workspace = null; if (committedWorkspace?.config.clientId === clientId) { committedWorkspace = null; currentDeclaration = null; currentClient.textContent = "לא נבחרה הצהרה"; updateStartAvailability(); } }
+const workspaceControls = setupWorkspaceControls({
+  clientList: document.querySelector("#client-list"), showNewButton: document.querySelector("#show-new-client"), openExistingButton: document.querySelector("#open-existing-client"), archivedToggle: document.querySelector("#toggle-archived-clients"), dataRootButton: document.querySelector("#select-data-root"), dataRootSummary: document.querySelector("#data-root-summary"), templateButton: document.querySelector("#select-template"), creationPanel: document.querySelector("#new-client-form"), createButton: document.querySelector("#create-client"), deleteButton: document.querySelector("#delete-client"), archiveButton: document.querySelector("#archive-client"), restoreButton: document.querySelector("#restore-client"), saveClientButton: document.querySelector("#save-client-settings"), clientMenu: document.querySelector("#client-menu"), clientMenuName: document.querySelector("#client-menu-name"), clientNameInput: document.querySelector("#new-client-name"), clientActivityInput: document.querySelector("#new-client-activity"), clientKindInput: document.querySelector("#new-client-kind"), businessActivityInput: businessActivity, businessKindInput: businessKind, summary: workspaceSummary, templateSummary: document.querySelector("#template-summary"),
+  onDataRoot: (selected) => { dataRoot = selected; updateStartAvailability(); },
+  onDeclaration: activateDeclaration,
+  onUpdated: updateWorkspace,
+  onArchived: (selected) => { clearActiveClient(selected.config.clientId); },
   onTemplate: (selected) => { canonicalTemplate = selected; updateStartAvailability(); },
-  onDeleted: (clientId) => { if (workspace?.config.clientId === clientId) workspace = null; if (committedWorkspace?.config.clientId === clientId) { committedWorkspace = null; currentClient.textContent = "לא נבחר לקוח"; updateStartAvailability(); } },
+  onDeleted: clearActiveClient,
   onError: showError
 });
 updateStartAvailability();
-document.querySelector("#open-client-dialog").addEventListener("click", () => { workspace = committedWorkspace; if (workspace) { businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind; } clientDialog.showModal(); });
-document.querySelector("#open-settings-dialog").addEventListener("click", () => systemSettingsDialog.showModal());
-document.querySelector("#confirm-client").addEventListener("click", async () => { try { if (!workspace) throw new Error("יש לבחור לקוח."); await workspace.saveSettings({ businessActivity: businessActivity.value.trim(), businessKind: businessKind.value }); workspace.config.businessActivity = businessActivity.value.trim(); workspace.config.businessKind = businessKind.value; committedWorkspace = workspace; currentClient.textContent = `לקוח: ${workspace.config.clientName}`; applyBusinessRules(); updateStartAvailability(); clientDialog.close(); } catch (error) { showError(`לא ניתן לשמור את הגדרות הלקוח: ${error.message}`); } });
-clientDialog.addEventListener("close", () => { if (clientDialog.returnValue !== "confirmed") { workspace = committedWorkspace; if (workspace) { businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind; } } });
+function setWorkspacesDrawer(open) {
+  if (!open) { workspace = committedWorkspace; workspaceControls?.clearPending(); if (workspace) { businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind; } }
+  if (open) { workspacesDrawer.hidden = false; workspacesBackdrop.hidden = false; requestAnimationFrame(() => { workspacesDrawer.classList.add("is-open"); workspacesBackdrop.classList.add("is-open"); }); }
+  else { workspacesDrawer.classList.remove("is-open"); workspacesBackdrop.classList.remove("is-open"); }
+  workspacesDrawer.setAttribute("aria-hidden", String(!open)); openWorkspacesDrawer.setAttribute("aria-expanded", String(open)); document.body.classList.toggle("drawer-open", open);
+  if (open) closeWorkspacesDrawer.focus(); else { window.setTimeout(() => { if (!workspacesDrawer.classList.contains("is-open")) { workspacesDrawer.hidden = true; workspacesBackdrop.hidden = true; } }, 200); openWorkspacesDrawer.focus(); }
+}
+openWorkspacesDrawer.addEventListener("click", async () => { workspace = committedWorkspace; workspaceControls?.showActiveClients(); if (workspace) { businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind; } setWorkspacesDrawer(true); try { await workspaceControls?.refreshFromUserAction(); } catch (error) { showError("לא ניתן לרענן את רשימת הלקוחות: " + error.message); } });
+closeWorkspacesDrawer.addEventListener("click", () => setWorkspacesDrawer(false));
+workspacesBackdrop.addEventListener("click", () => setWorkspacesDrawer(false));
+window.addEventListener("keydown", (event) => { if (event.key === "Escape" && workspacesDrawer.classList.contains("is-open")) { event.preventDefault(); setWorkspacesDrawer(false); } });
 function reset() { streamAbort?.abort(); streamAbort = null; session = null; received = new Set(); active.hidden = true; inactive.hidden = false; updateStartAvailability(); }
+async function saveCurrentDraft() { if (!currentDeclaration || currentDeclaration.status !== "open" || !currentDeclarationDirectory) return; clearTimeout(draftSaveTimer); try { await saveDraft(currentDeclarationDirectory, currentDeclaration, [...records.querySelectorAll("tr[data-document-id]")].map(rowSnapshot)); } catch (error) { showError("לא ניתן לשמור טיוטה מקומית: " + error.message); throw error; } }
+function queueDraftSave() { if (!currentDeclaration || currentDeclaration.status !== "open" || !currentDeclarationDirectory) return; clearTimeout(draftSaveTimer); draftSaveTimer = setTimeout(() => { saveCurrentDraft().catch(() => {}); }, 250); }
 function receivedAtText(value) { const date = new Date(value); return Number.isNaN(date.valueOf()) ? String(value || "—") : new Intl.DateTimeFormat("he-IL", { dateStyle: "short", timeStyle: "short" }).format(date); }
 function emptyCell(text = "—", className = "") { const cell = document.createElement("td"); cell.textContent = text; if (className) cell.className = className; return cell; }
 function display(value) { return value === null || value === undefined || value === "" ? "—" : String(value); }
 function editableCell(value) { const cell = emptyCell(display(value), "editable"); cell.contentEditable = "true"; cell.spellcheck = false; return cell; }
 function setTableLocked(locked) { tableLocked = locked; records.classList.toggle("table-locked", locked); for (const cell of records.querySelectorAll(".editable")) cell.contentEditable = locked ? "false" : "true"; for (const control of records.querySelectorAll("select,input,.delete,.retry")) control.disabled = locked; }
-function refreshRows() { const rows = [...records.querySelectorAll("tr")]; recordCount = rows.length; rows.forEach((row, index) => { row.cells[0].textContent = String(index + 1); }); count.textContent = `שורות ביומן: ${recordCount}`; if (!recordCount) records.append(emptyRow); }
+function refreshRows() { const rows = [...records.querySelectorAll("tr[data-document-id]")]; recordCount = rows.length; rows.forEach((row, index) => { row.cells[0].textContent = String(index + 1); }); count.textContent = `שורות ביומן: ${recordCount}`; if (!recordCount) records.append(emptyRow); }
 function setStatus(row, text, state = "") { const cell = row.cells[16]; cell.replaceChildren(document.createTextNode(text)); cell.className = `state ${state}`; }
 function percentSelect(value = 100, choices = [100, 25]) { const select = document.createElement("select"); for (const item of choices) { const option = new Option(`${item}%`, String(item), false, Number(value) === item); select.add(option); } select.addEventListener("change", () => recalculateRow(select.closest("tr"))); return select; }
 function classificationSelect(code = "") { const select = document.createElement("select"); select.add(new Option("—", "")); for (const [value, label] of Object.entries(window.RIVHIT_MAPPING || {})) select.add(new Option(`${value} — ${label}`, value, false, value === code)); select.addEventListener("change", () => { applyBusinessRule(select.closest("tr")); }); return select; }
@@ -40,7 +66,7 @@ function updateImageTransform() { dialogImage.style.transform = `translate(${pan
 function openPhoto(imageUrl, imageIndex) { dialogImage.src = imageUrl; photoTitle.textContent = `תמונה #${imageIndex}`; zoom = 1; panX = 0; panY = 0; updateImageTransform(); photoWindow.hidden = false; if (!photoWindow.style.left) { photoWindow.style.left = `${Math.max(20, (window.innerWidth - photoWindow.offsetWidth) / 2)}px`; photoWindow.style.top = "60px"; } }
 
 async function startUpload() {
-  if (!workspace) return showError("יש לבחור תחילה סביבת עבודה מקומית ללקוח.");
+  if (!currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור תחילה הצהרה פתוחה.");
   if (!api) return showError("הפרסום עדיין לא הוגדר.");
   start.disabled = true; status.textContent = "";
   try { const response = await fetch(apiUrl("/v1/sessions"), { method: "POST" }), data = await response.json(); if (!response.ok) throw new Error(data.error || "לא ניתן היה ליצור חיבור העלאה."); session = data; inactive.hidden = true; active.hidden = false; telegramLink.href = data.telegramUrl; new QRious({ element: document.querySelector("#qr"), value: data.telegramUrl, size: 260, level: "M" }); openEvents(); }
@@ -48,7 +74,7 @@ async function startUpload() {
 }
 start.addEventListener("click", () => { if (tableLocked) { uploadModeDialog.showModal(); return; } startUpload(); });
 addToExisting.addEventListener("click", () => { setTableLocked(false); uploadModeDialog.close(); startUpload(); });
-startNewTable.addEventListener("click", () => { records.replaceChildren(); recordCount = 0; imageCount = 0; received = new Set(); refreshRows(); setTableLocked(false); uploadModeDialog.close(); startUpload(); });
+startNewTable.addEventListener("click", () => { uploadModeDialog.close(); showError("בהצהרה חודשית אין טבלה חדשה: בחר הצהרה אחרת בסביבות העבודה."); });
 finish.addEventListener("click", async () => {
   if (!session) return;
   if (pendingRecognitions) return showError(`ממתינים לסיום עיבוד של ${pendingRecognitions} תמונות לפני סגירת ההעלאה.`);
@@ -80,7 +106,8 @@ async function receiveDocument(documentId, receivedAt) {
   if (!session || received.has(documentId)) return; received.add(documentId); const imageIndex = ++imageCount;
   try {
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}`), { headers: { "X-Upload-Token": session.clientToken } }); if (!response.ok) throw new Error("הורדת התמונה נכשלה.");
-    const downloaded = await response.blob(), blob = new Blob([downloaded], { type: downloaded.type === "image/png" ? "image/png" : "image/jpeg" }), imageUrl = URL.createObjectURL(blob), row = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, null, blob);
+    const downloaded = await response.blob(), blob = new Blob([downloaded], { type: downloaded.type === "image/png" ? "image/png" : "image/jpeg" }), extension = blob.type === "image/png" ? "png" : "jpg", imageFile = `${String(imageIndex).padStart(3, "0")}.${extension}`, imageUrl = URL.createObjectURL(blob);
+    await saveSourceImage(currentDeclarationDirectory, imageFile, blob); const row = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, null, blob); row.dataset.imageFile = imageFile; queueDraftSave();
     row.runRecognition = (onlyThis = false) => enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, true, onlyThis); enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex);
     const ack = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}/ack`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }); if (!ack.ok) throw new Error("אישור קבלת התמונה נכשל; ייתכן שהיא תישלח שוב.");
   } catch (error) { received.delete(documentId); showError(error.message); }
@@ -92,7 +119,7 @@ function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, insertAf
   const photo = document.createElement("td"), open = document.createElement("button"); open.type = "button"; open.className = "photo-button"; open.textContent = `תמונה #${imageIndex}`; open.addEventListener("click", () => openPhoto(imageUrl, imageIndex)); photo.append(open); row.append(photo);
   row.append(emptyCell("ממתין ל‑Gemini", "agent-opinion"), emptyCell(), emptyCell("התקבל", "state received"));
   const exportCell = document.createElement("td"), include = document.createElement("input"); include.type = "checkbox"; include.disabled = true; exportCell.append(include); row.append(exportCell);
-  const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { row.remove(); refreshRows(); }); deleteCell.append(remove); row.append(deleteCell); if (insertAfter?.parentNode === records) records.insertBefore(row, insertAfter.nextSibling); else records.append(row); refreshRows(); return row;
+  const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { row.remove(); refreshRows(); queueDraftSave(); }); deleteCell.append(remove); row.append(deleteCell); if (insertAfter?.parentNode === records) records.insertBefore(row, insertAfter.nextSibling); else records.append(row); refreshRows(); return row;
 }
 function enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, restart = false, onlyThis = false) {
   if (restart) stopRequested = false;
@@ -110,13 +137,22 @@ async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/recognize`), { method: "POST", signal: controller.signal, headers, body: blob }), result = await response.json();
     if (!response.ok) throw new Error(result.error || "העיבוד נכשל.");
     applyRecord(row, result.records[0]);
-    if (!onlyThis) for (const record of result.records.slice(1)) { const lastForImage = [...records.querySelectorAll("tr")].filter((candidate) => candidate.dataset.documentId === documentId).at(-1); const extra = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, lastForImage, blob); extra.runRecognition = (single = false) => enqueueRecognition(extra, blob, imageUrl, receivedAt, documentId, imageIndex, true, single); applyRecord(extra, record); }
+    if (!onlyThis) for (const record of result.records.slice(1)) { const lastForImage = [...records.querySelectorAll("tr")].filter((candidate) => candidate.dataset.documentId === documentId).at(-1); const extra = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, lastForImage, blob); extra.dataset.imageFile = row.dataset.imageFile || ""; extra.runRecognition = (single = false) => enqueueRecognition(extra, blob, imageUrl, receivedAt, documentId, imageIndex, true, single); applyRecord(extra, record); }
   } catch (error) {
     if (controller.signal.aborted) { setStatus(row, "בוטל", "review"); row.cells[3].textContent = "—"; row.cells[14].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); }
     else { setStatus(row, "שגיאה בעיבוד", "error"); row.cells[3].textContent = "—"; row.cells[14].textContent = error.message; addRerunButton(row, "נסה שוב"); }
   } finally { if (activeRecognitionController === controller) activeRecognitionController = null; }
 }
 function addRerunButton(row, label = "עבד מחדש", onlyThis = true) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.(onlyThis)); row.cells[16].append(document.createElement("br"), button); }
+async function refineWithHistory(row) {
+  if (!session || !committedWorkspace) return showError("יש להתחיל העלאת תמונות לפני שיפור לפי היסטוריה.");
+  try {
+    const history = relevantHistory(rowSnapshot(row), await readClosedHistory(committedWorkspace.directory)); if (!history.length) return showError("אין היסטוריה סגורה ורלוונטית לשורה זו.");
+    const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/refine-history`), { method: "POST", headers: { "Content-Type": "application/json", "X-Upload-Token": session.clientToken, "X-Gemini-Model": model.value }, body: JSON.stringify({ draft: rowSnapshot(row), history }) }), result = await response.json(); if (!response.ok) throw new Error(result.error || "השיפור נכשל.");
+    if (result.rivhit_code) row.cells[2].querySelector("select").value = result.rivhit_code; if (result.vat_recognized_percent !== null) row.cells[11].querySelector("select").value = String(result.vat_recognized_percent); if (result.recognized_percent !== null) row.cells[12].querySelector("select").value = String(result.recognized_percent); applyBusinessRule(row); row.cells[14].textContent = result.agent_opinion; row.cells[15].textContent = String(result.confidence) + "%"; setStatus(row, result.review_state === "ready" ? "מוכן לייצוא" : "נדרש עיון", result.review_state); queueDraftSave();
+  } catch (error) { showError("לא ניתן לשפר לפי היסטוריה: " + error.message); }
+}
+function addHistoryButton(row) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = "שפר לפי היסטוריה"; button.addEventListener("click", () => refineWithHistory(row)); row.cells[16].append(document.createElement("br"), button); }
 function applyRecord(row, record) {
   row.dataset.rawNet = String(record.net_amount || 0); row.dataset.rawVat = String(record.vat_amount || 0); row.highlights = Array.isArray(record.highlight_regions) ? record.highlight_regions : [];
   const values = [record.date, null, record.purpose, record.supplier_name, record.supplier_vat_id, record.transaction_number || record.invoice_number, record.allocation_number, null, record.net_amount, record.vat_amount];
@@ -124,12 +160,12 @@ function applyRecord(row, record) {
   row.cells[2].replaceChildren(classificationSelect(record.rivhit_code || "")); row.cells[11].replaceChildren(percentSelect(record.vat_recognized_percent ?? 100, [100, 25, 0])); row.cells[12].replaceChildren(percentSelect(record.recognized_percent || 100)); applyBusinessRule(row);
   row.cells[14].textContent = record.agent_opinion; row.cells[14].className = "agent-opinion"; row.cells[15].textContent = String(record.confidence) + "%";
   const include = row.cells[17].querySelector("input"); include.disabled = false; include.checked = record.include;
-  setStatus(row, record.include ? row.highlights.length ? "מוכן לייצוא" : "מוכן, חסרים סימונים" : record.document_kind === "payment_confirmation" ? "אישור תשלום" : "לא מיועד לייצוא", record.include && row.highlights.length ? "ready" : "review"); addRerunButton(row);
+  setStatus(row, record.include ? row.highlights.length ? "מוכן לייצוא" : "מוכן, חסרים סימונים" : record.document_kind === "payment_confirmation" ? "אישור תשלום" : "לא מיועד לייצוא", record.include && row.highlights.length ? "ready" : "review"); addRerunButton(row); addHistoryButton(row); queueDraftSave();
 }
 function cellValue(cell) { return cell.querySelector("select")?.value ?? cell.textContent.trim().replace(/^—$/, ""); }
 function rowSnapshot(row) {
   return {
-    documentId: row.dataset.documentId || "", imageIndex: Number(row.dataset.imageIndex || 0), receivedAt: row.dataset.receivedAt || new Date().toISOString(),
+    documentId: row.dataset.documentId || "", imageIndex: Number(row.dataset.imageIndex || 0), imageFile: row.dataset.imageFile || "", receivedAt: row.dataset.receivedAt || new Date().toISOString(),
     values: Array.from({ length: 12 }, (_, index) => cellValue(row.cells[index + 1])), rawNet: row.dataset.rawNet || "0", rawVat: row.dataset.rawVat || "0", highlights: row.highlights || [],
     active: Boolean(row.cells[17].querySelector("input")?.checked), agentOpinion: row.cells[14].textContent.trim(), confidence: row.cells[15].textContent.trim(),
     statusText: row.cells[16].childNodes[0]?.textContent?.trim() || row.cells[16].textContent.trim(), statusClass: row.cells[16].className.replace(/^state\s*/, "")
@@ -137,30 +173,42 @@ function rowSnapshot(row) {
 }
 function restoreRow(saved, blob) {
   const imageUrl = URL.createObjectURL(blob), row = addPendingRecord(imageUrl, saved.receivedAt || new Date().toISOString(), saved.documentId || "saved", saved.imageIndex || 0, null, blob), values = Array.isArray(saved.values) ? saved.values : [];
-  row.dataset.rawNet = String(saved.rawNet || 0); row.dataset.rawVat = String(saved.rawVat || 0); row.highlights = Array.isArray(saved.highlights) ? saved.highlights : [];
+  row.dataset.imageFile = saved.imageFile || ""; row.dataset.rawNet = String(saved.rawNet || 0); row.dataset.rawVat = String(saved.rawVat || 0); row.highlights = Array.isArray(saved.highlights) ? saved.highlights : [];
   values.slice(0, 12).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 1]));
   row.cells[2].replaceChildren(classificationSelect(values[1] || "")); row.cells[11].replaceChildren(percentSelect(values[10] || 100, [100, 25, 0])); row.cells[12].replaceChildren(percentSelect(values[11] || 100));
   row.cells[14].textContent = saved.agentOpinion || "—"; row.cells[14].className = "agent-opinion"; row.cells[15].textContent = saved.confidence || "—";
   const include = row.cells[17].querySelector("input"); include.disabled = false; include.checked = Boolean(saved.active); setStatus(row, saved.active && !row.highlights.length ? "מוכן, חסרים סימונים" : saved.statusText || (saved.active ? "מוכן לייצוא" : "לא מיועד לייצוא"), saved.active && !row.highlights.length ? "review" : saved.statusClass || (saved.active ? "ready" : "review"));
-  row.runRecognition = (onlyThis = true) => { if (!session) return showError("יש להתחיל העלאת תמונות כדי לעבד מחדש שורה מהארכיון."); enqueueRecognition(row, blob, imageUrl, saved.receivedAt || Date.now(), saved.documentId || "saved", saved.imageIndex || 0, true, onlyThis); }; addRerunButton(row);
+  row.runRecognition = (onlyThis = true) => { if (!session) return showError("יש להתחיל העלאת תמונות כדי לעבד מחדש שורה מהארכיון."); enqueueRecognition(row, blob, imageUrl, saved.receivedAt || Date.now(), saved.documentId || "saved", saved.imageIndex || 0, true, onlyThis); }; addRerunButton(row); addHistoryButton(row);
 }
+records.addEventListener("input", queueDraftSave);
+records.addEventListener("change", queueDraftSave);
 createPdf.addEventListener("click", async () => {
-  if (!committedWorkspace) return showError("יש לבחור תחילה לקוח.");
-  const allRows = [...records.querySelectorAll("tr[data-document-id]")]; if (!allRows.length) return showError("אין שורות לשמירה.");
-  const snapshots = allRows.map(rowSnapshot), activeRows = snapshots.filter((row) => row.active), reportRows = allRows.map((row, index) => ({ ...snapshots[index], imageBlob: row.documentImage, tableRow: index + 1 })).filter((row) => row.active); if (!activeRows.length) return showError("יש לסמן לפחות שורה פעילה אחת ל-PDF.");
-  const missingMarkers = reportRows.filter((row) => !row.highlights?.length).map((row) => row.tableRow); if (missingMarkers.length) return showError(`לא ניתן ליצור PDF מסומן: חסרים סימונים בשורות הפעילות ${missingMarkers.join(", ")}. יש לבחור הוספה לטבלה הקיימת ולעבד שורות אלה מחדש.`);
-  if (snapshots.some((_, index) => !allRows[index].documentImage)) return showError("לא נמצאה תמונה מקורית לאחת השורות; יש לעבד אותה מחדש לפני השמירה.");
-  createPdf.disabled = true; status.textContent = "יוצר PDF ושומר חבילה מקומית…";
+  if (!committedWorkspace || !currentDeclaration || currentDeclaration.status !== "open" || !currentDeclarationDirectory) return showError("יש לבחור הצהרה פתוחה לפני הייצוא.");
+  const allRows = [...records.querySelectorAll("tr[data-document-id]")]; if (!allRows.length) return showError("אין שורות לייצוא.");
+  const snapshots = allRows.map((row, index) => ({ ...rowSnapshot(row), tableRow: index + 1 })), reportRows = allRows.map((row, index) => ({ ...snapshots[index], imageBlob: row.documentImage })).filter((row) => row.active);
+  if (!reportRows.length) return showError("יש לסמן לפחות שורה פעילה לייצוא.");
+  const missingImage = reportRows.find((row) => !row.imageBlob); if (missingImage) return showError("לא נמצאה תמונה מקורית לאחת השורות הפעילות.");
+  createPdf.disabled = true; status.textContent = "יוצר ייצוא טיוטה…";
   try {
-    const createdAt = new Date(), { directory, name } = await createPackageDirectory(committedWorkspace.directory, createdAt), images = await directory.getDirectoryHandle("images", { create: true }), imageFiles = new Map();
-    for (let index = 0; index < allRows.length; index += 1) { const row = allRows[index], snapshot = snapshots[index], key = `${snapshot.imageIndex}-${row.documentImage.type}`; if (!imageFiles.has(key)) { const extension = row.documentImage.type === "image/png" ? "png" : "jpg", fileName = `${String(snapshot.imageIndex || imageFiles.size + 1).padStart(3, "0")}.${extension}`; await writeFile(images, fileName, row.documentImage); imageFiles.set(key, fileName); } snapshot.imageFile = imageFiles.get(key); snapshot.imageType = row.documentImage.type || "image/jpeg"; }
-    const pdf = await buildPdfReport({ clientName: committedWorkspace.config.clientName, createdAt, rows: reportRows });
-    await Promise.all([writeFile(directory, "source.txt", makeSourceText(snapshots)), writeFile(directory, "table.json", JSON.stringify(makePackageManifest({ client: committedWorkspace.config, createdAt, rows: snapshots }), null, 2)), writeFile(directory, "document.pdf", pdf)]);
-    status.textContent = `החבילה נשמרה: ${name}`;
-  } catch (error) { if (error.name !== "AbortError") showError(`לא ניתן ליצור את החבילה: ${error.message}`); }
+    await saveCurrentDraft(); const createdAt = new Date(), templateText = new TextDecoder("windows-1255").decode(await (await canonicalTemplate.getFile()).arrayBuffer()), importText = buildRivhitImport({ templateText, rows: snapshots, mapping: window.RIVHIT_MAPPING }), pdf = await buildPdfReport({ clientName: committedWorkspace.config.clientName, createdAt, rows: reportRows }), { directory, name } = await createDraftExportDirectory(currentDeclarationDirectory, createdAt), manifest = draftExportManifest({ declaration: currentDeclaration, client: committedWorkspace.config, createdAt, rows: snapshots });
+    await Promise.all([writeFile(directory, "invoices.pdf", pdf), writeFile(directory, "import.txt", importText), writeFile(directory, "manifest.json", JSON.stringify(manifest, null, 2))]);
+    status.textContent = `ייצוא טיוטה נשמר: ${name}`;
+  } catch (error) { if (error.name !== "AbortError") showError(`לא ניתן ליצור ייצוא טיוטה: ${error.message}`); }
   finally { createPdf.disabled = false; }
 });
-openPackage.addEventListener("click", async () => {
+closeDeclarationButton.addEventListener("click", async () => {
+  if (!committedWorkspace || !currentDeclaration || currentDeclaration.status !== "open" || !currentDeclarationDirectory) return showError("יש לבחור הצהרה פתוחה לפני הסגירה.");
+  const allRows = [...records.querySelectorAll("tr[data-document-id]")], snapshots = allRows.map((row, index) => ({ ...rowSnapshot(row), tableRow: index + 1 })), reportRows = allRows.map((row, index) => ({ ...snapshots[index], imageBlob: row.documentImage })).filter((row) => row.active);
+  if (!reportRows.length) return showError("יש לסמן לפחות שורה פעילה לפני סגירת ההצהרה.");
+  if (!window.confirm("לסגור את ההצהרה? הפעולה תיצור ייצוא סופי, תעדכן את ההיסטוריה ותנעל את הטבלה.")) return;
+  closeDeclarationButton.disabled = true; status.textContent = "סוגר הצהרה…";
+  try {
+    await saveCurrentDraft(); const createdAt = new Date(), templateText = new TextDecoder("windows-1255").decode(await (await canonicalTemplate.getFile()).arrayBuffer()), importText = buildRivhitImport({ templateText, rows: snapshots, mapping: window.RIVHIT_MAPPING }), pdf = await buildPdfReport({ clientName: committedWorkspace.config.clientName, createdAt, rows: reportRows }), { directory, name } = await createDraftExportDirectory(currentDeclarationDirectory, createdAt), manifest = draftExportManifest({ declaration: currentDeclaration, client: committedWorkspace.config, createdAt, rows: snapshots, kind: "final-export" });
+    await Promise.all([writeFile(directory, "invoices.pdf", pdf), writeFile(directory, "import.txt", importText), writeFile(directory, "manifest.json", JSON.stringify(manifest, null, 2))]);
+    currentDeclaration = await finalizeDeclaration({ clientDirectory: committedWorkspace.directory, declarationDirectory: currentDeclarationDirectory, declaration: currentDeclaration, finalExport: name, rows: snapshots }); setTableLocked(true); updateStartAvailability(); status.textContent = `ההצהרה נסגרה. הייצוא הסופי נשמר: ${name}`;
+  } catch (error) { if (error.name !== "AbortError") showError(`לא ניתן לסגור את ההצהרה: ${error.message}`); updateStartAvailability(); }
+});
+openPackage?.addEventListener("click", async () => {
   try {
     const directory = await window.showDirectoryPicker({ mode: "readwrite", startIn: "documents" }), manifestFile = await (await directory.getFileHandle("table.json")).getFile(), manifest = JSON.parse(await manifestFile.text());
     if (!Array.isArray(manifest.rows) || !manifest.client) throw new Error("קובץ table.json אינו חבילת מסמכים תקינה.");

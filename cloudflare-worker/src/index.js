@@ -87,6 +87,23 @@ async function recognizeWithGemini(request, env) {
   catch { return json({ error: "Gemini returned an invalid result." }, 502); }
 }
 
+const PASS2_SCHEMA = { type: "OBJECT", properties: { form_6111_code: { type: "STRING", nullable: true }, recognized_percent: { type: "NUMBER" }, vat_recognized_percent: { type: "NUMBER" }, confidence: { type: "NUMBER" }, review_state: { type: "STRING" }, agent_opinion: { type: "STRING" } }, required: ["form_6111_code", "recognized_percent", "vat_recognized_percent", "confidence", "review_state", "agent_opinion"] };
+async function refineWithHistory(request, env) {
+  if (!env.GEMINI_API_KEY) return json({ error: "Gemini is not configured." }, 503);
+  let input;
+  try { input = await request.json(); } catch { return json({ error: "Invalid history-refinement request." }, 400); }
+  const draft = input?.draft, history = Array.isArray(input?.history) ? input.history.slice(0, 8) : null;
+  if (!draft || !history || !history.length) return json({ error: "A draft row and 1–8 history records are required." }, 400);
+  const selectedModel = request.headers.get("x-gemini-model") || env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+  if (!GEMINI_MODELS.has(selectedModel)) return json({ error: "Unsupported Gemini model." }, 400);
+  const prompt = `You are Gemini pass 2 for an Israeli Rivhit expense journal. Improve accounting judgement using a draft row and closed-history guidance. Never change, reinterpret, infer, or return any document source fact: date, supplier, supplier ID, document reference, allocation number, raw net, VAT, gross, or currency. History is guidance, not proof. Return only the allowed fields in the response schema. form_6111_code must be one of the approved mappings below or null. review_state must be ready or review. Give a concise Hebrew agent_opinion.\n\nDraft row:\n${JSON.stringify(draft)}\n\nRelevant closed history (text-only):\n${JSON.stringify(history)}\n\nApproved mapping:\n${mappingPrompt()}`;
+  const payload = JSON.stringify({ system_instruction: { parts: [{ text: prompt }] }, contents: [{ role: "user", parts: [{ text: "Refine this draft accounting judgement." }] }], generationConfig: { response_mime_type: "application/json", response_schema: PASS2_SCHEMA, temperature: 0 } });
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY }, body: payload }); let data;
+  try { data = await response.json(); } catch { data = null; }
+  if (!response.ok) return json({ error: "Gemini could not refine this row." }, 502);
+  try { const raw = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || ""), code = text(raw.form_6111_code), mapped = code ? RIVHIT_MAPPING[code] : null; return json({ rivhit_code: mapped?.[0] || null, recognized_percent: percentage(raw.recognized_percent), vat_recognized_percent: percentage(raw.vat_recognized_percent), confidence: percentage(raw.confidence), review_state: raw.review_state === "ready" ? "ready" : "review", agent_opinion: text(raw.agent_opinion) || "לא נמסר הסבר מהסוכן." }); } catch { return json({ error: "Gemini returned an invalid refinement." }, 502); }
+}
+
 function sessionStub(env, sessionId) {
   return env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(sessionId));
 }
@@ -156,6 +173,13 @@ export default {
       const authorization = await sessionStub(env, recognizeMatch[1]).fetch("https://session/client/ai-authorize", { method: "POST", headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" } });
       if (!authorization.ok) { const headers = new Headers(authorization.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(authorization.body, { status: authorization.status, headers }); }
       const result = await recognizeWithGemini(request, env), headers = new Headers(result.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(result.body, { status: result.status, headers });
+    }
+    const refineMatch = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/refine-history$/);
+    if (refineMatch) {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
+      const authorization = await sessionStub(env, refineMatch[1]).fetch("https://session/client/ai-authorize", { method: "POST", headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" } });
+      if (!authorization.ok) { const headers = new Headers(authorization.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(authorization.body, { status: authorization.status, headers }); }
+      const result = await refineWithHistory(request, env), headers = new Headers(result.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(result.body, { status: result.status, headers });
     }
     const match = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/(events|finish|documents\/([0-9a-f-]{36})(?:\/ack)?)$/);
     if (!match) return json({ error: "Not found." }, 404, cors(request, env));

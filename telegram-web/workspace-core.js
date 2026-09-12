@@ -18,5 +18,5 @@ export function normalizeWorkspaceConfig(value) {
   const businessActivity = String(value.businessActivity ?? "").trim();
   const businessKind = String(value.businessKind ?? "").trim();
   if (!clientName || !businessActivity || !["home", "office"].includes(businessKind)) return { valid: false, error: "בקובץ הגדרות הלקוח חסרים נתונים או שיש בו ערכים לא חוקיים." };
-  return { valid: true, config: { schemaVersion: 1, clientId: String(value.clientId ?? ""), clientName, businessActivity, businessKind } };
+  return { valid: true, config: { schemaVersion: 1, clientId: String(value.clientId ?? ""), clientName, businessActivity, businessKind, archived: Boolean(value.archived) } };
 }

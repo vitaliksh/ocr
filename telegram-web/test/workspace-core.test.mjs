@@ -16,7 +16,7 @@ test("отклоняет пустой и шаблон с неверным кол
 
 test("нормализует корректную конфигурацию клиента", () => {
   const result = normalizeWorkspaceConfig({ clientId: "id", clientName: " Клиент ", businessActivity: " Спорт ", businessKind: "home" });
-  assert.deepEqual(result, { valid: true, config: { schemaVersion: 1, clientId: "id", clientName: "Клиент", businessActivity: "Спорт", businessKind: "home" } });
+  assert.deepEqual(result, { valid: true, config: { schemaVersion: 1, clientId: "id", clientName: "Клиент", businessActivity: "Спорт", businessKind: "home", archived: false } });
 });
 
 test("отклоняет конфигурацию без обязательных данных", () => {

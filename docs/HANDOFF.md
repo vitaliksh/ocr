@@ -1,93 +1,118 @@
 # Handoff — Rivhit document intake
 
 **Updated:** 11 September 2026
+**Repository:** https://github.com/vitaliksh/ocr
+**Current committed source:** 3e09140 (Add current project handoff)
+**Working tree:** intentionally contains uncommitted drawer/workspace changes in telegram-web/. They have passed the checks below and must be preserved.
 
-**Repository:** `https://github.com/vitaliksh/ocr`
-**Current source commit:** `4e596e2` (`Document Cloudflare production recovery`)
+## Product goal
 
-## Goal
+Provide a simple PC workflow for Rivhit bookkeeping:
 
-Provide a simple PC interface for Rivhit bookkeeping:
-
-1. The user selects a local client workspace in the browser.
-2. They send invoice images from an iPhone through the Telegram bot.
-3. The browser receives each image and Gemini pass 1 extracts draft journal
-   records.
-4. The user reviews and edits the table.
-5. A future text-only Gemini pass 2 uses a few relevant confirmed records to
-   improve the accounting decision, never document-source facts.
-6. **Compile** creates a marked PDF and a Rivhit TXT, then records confirmed
-   rows in the client's local history.
+1. The bookkeeper works with a local client workspace in a browser.
+2. The client sends invoice images from an iPhone through the Telegram bot.
+3. Gemini pass 1 extracts draft journal rows.
+4. The bookkeeper reviews and edits the rows.
+5. The current month's declaration can be exported to PDF and Rivhit TXT repeatedly while it is still a draft.
+6. A separate explicit action closes that monthly declaration. Only closing makes it final and appends confirmed rows to the client's local history.
+7. A future text-only Gemini pass 2 uses relevant closed history records to improve accounting decisions, never source facts.
 
 The product is a bookkeeping aid, not tax or accounting advice.
 
 ## Current deployed architecture
 
-| Component | Location | Role |
+| Component | Location | Responsibility |
 | --- | --- | --- |
-| Browser UI | `https://vitaliksh.github.io/ocr/` | Static GitHub Pages frontend |
-| Worker API | `https://rivhit-telegram-transfer.vitaliksh.workers.dev` | Telegram sessions, temporary R2 transport and Gemini pass 1 |
-| Telegram bot | `@Vitalikshbot` | Smartphone image intake |
-| Production Worker baseline | Git tag `cloudflare-production-2026-09-05` | Worker version `e803c859-d9a4-4bad-9500-62006280ee93` |
+| Browser UI | https://vitaliksh.github.io/ocr/ | UI, local file access, review table |
+| Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram session, temporary R2 transport, Gemini pass 1 |
+| Telegram bot | @Vitalikshbot | Smartphone image intake |
+| Production Worker baseline | Git tag cloudflare-production-2026-09-05 | Worker version e803c859-d9a4-4bad-9500-62006280ee93 |
 
-The worker source is in `cloudflare-worker/`; the static client is in
-`telegram-web/`. The browser holds received images in memory. Worker R2 objects
-are temporary and deleted after browser ACK, Finish or expiry. Do not add cloud
-persistence for client history, PDFs or TXT files.
+The Worker source is cloudflare-worker/; the static browser client is telegram-web/. Browser-held images are deleted from Worker R2 after ACK, Finish, or expiry. Do not add cloud persistence for client data, declaration drafts, PDFs, TXT exports, or history.
 
 ## Security
 
-Never print, commit or request these values:
+Never print, commit, request, or put into browser storage:
 
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_WEBHOOK_SECRET`
-- `GEMINI_API_KEY`
-- `ALLOWED_TELEGRAM_USER_ID`
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_WEBHOOK_SECRET
+- GEMINI_API_KEY
+- ALLOWED_TELEGRAM_USER_ID
 
-They are Cloudflare Worker secrets. Their values must also exist in an approved
-password manager; Cloudflare cannot reveal them after creation. Public URL,
-Worker name, R2 bucket and GitHub Pages URL are safe to document.
+They are Cloudflare Worker secrets. Their values also belong in an approved password manager; Cloudflare cannot reveal them after creation.
 
 ## Repository map
 
-- `telegram-web/` — browser UI; contains the currently tested exploratory
-  workspace/PDF-package foundation.
-- `cloudflare-worker/` — Worker source, Wrangler configuration, setup guide and
-  production recovery checklist.
-- `agent-prompts/gemini-pass-1.md` — human-readable current Gemini prompt.
-- `6111_to_Rivhit.xlsx` — approved 6111 → Rivhit mapping.
-- `docs/ARCHITECTURE.md` — approved product boundary and target workspace model.
-- `docs/RIVHIT_IMPORT_SPEC.md` — mandatory 186-column TXT contract.
+- telegram-web/ — browser UI and current local workspace foundation.
+- cloudflare-worker/ — Worker source, Wrangler configuration, setup, and deployment recovery instructions.
+- agent-prompts/gemini-pass-1.md — human-readable current Gemini prompt.
+- 6111_to_Rivhit.xlsx — approved 6111 → Rivhit mapping.
+- docs/ARCHITECTURE.md — older architecture note. It still needs updating to the declaration model below.
+- docs/RIVHIT_IMPORT_SPEC.md — mandatory 186-column TXT contract.
+- docs/HANDOFF.md — this document; it is the current source of product and implementation context.
 
-The obsolete local Python application, its old UI, duplicate handoff notes and
-old OCR prompt were removed deliberately. Do not restore them.
+The obsolete local Python application, its old UI, duplicate handoff notes, and old OCR prompt were deliberately removed. Do not restore them.
 
-## What exists now
+## What works today
 
-- Secure Telegram browser session, QR connection, temporary image transport and
-  ACK deletion.
-- Gemini pass 1 with Israeli Rivhit mapping, mixed/zero VAT handling,
-  row-specific rerun and normalized boxes for document number, total and VAT.
-- Review table, editable fields, classification and recognition controls,
-  image viewer, image-order handling and persisted column widths.
-- An exploratory local workspace dialog, template validation, marked PDF
-  package creation and package reopening. It has unit tests.
+- Secure Telegram browser sessions, QR connection, temporary image transport, ACK deletion, and Worker-side Gemini pass 1.
+- Review table: editable source fields, classification, recognition controls, image viewer, image ordering, and persisted column widths.
+- Current exploratory PDF-package creation/reopening, with unit tests. This is not the final declaration format.
+- Local root selection through the browser File System Access API:
 
-## What is not done
+  ~~~text
+  Rivhit data/
+  ├─ common/
+  │  └─ PKUDA_AI_TEST.TXT
+  └─ clients/
+  ~~~
 
-- The agreed right-side client/workspace drawer and common local data root.
-- Durable `history.jsonl` and relevant-record search.
-- Gemini pass 2.
-- Rivhit `import.txt` generation and the atomic Compile transaction.
-- Archive/delete UX, recovery of interrupted work and full regression coverage.
+- A right-side drawer for workspaces:
+  - round hamburger control in the upper-right corner;
+  - flat active-client list read from the selected root's clients/ folder;
+  - immediate activation when an active client is clicked;
+  - create client inside clients/, no second folder picker;
+  - open an old external client folder only as a transition path;
+  - Gemini model and canonical template settings inside the drawer;
+  - canonical template is copied to common/PKUDA_AI_TEST.TXT;
+  - archived-client view, restoration, client activity/type editing, and permanent deletion confirmation;
+  - refresh of filesystem permission and client list when the drawer opens after Ctrl-F5.
 
-Do not describe the existing PDF-package prototype as the final workspace
-format. It saves `document.pdf`, `source.txt`, `table.json` and copied images;
-the agreed final structure is below.
+Current client management is implemented in telegram-web/workspace.js. The active list is intentionally derived from the filesystem, not IndexedDB. IndexedDB only remembers the local root handle and the common template handle.
 
-## Agreed local workspace model
+## Important current UI behavior
 
-```text
+- A data root must be selected once. Its picker hides after successful selection; the selected root name remains visible.
+- A selected active client immediately becomes the current client and closes the drawer.
+- An archived client cannot be made active. It must be restored through its ⋯ menu.
+- Archiving leaves the drawer open and clears that client as active.
+- A compact summary currently shows the selected client's count of closed history records and up to three recent export folder names.
+
+The user has approved this behavior.
+
+## Revised product model: monthly declarations
+
+This supersedes the older target concept of independent timestamp batches.
+
+Each client has exactly one declaration for each calendar month. While the declaration is open:
+
+- Images may arrive through Telegram any number of times.
+- All images and rows accumulate in the same monthly declaration table.
+- PDF and TXT may be generated as many times as needed.
+- Generating an export does not close the declaration and does not append to history.
+
+Closing a declaration is a separate, explicit, dangerous business action:
+
+- it finalizes the latest declaration state;
+- it appends confirmed records to history.jsonl exactly once;
+- it prevents additions and edits;
+- reopening it later requires a separate special approval flow, not a silent edit.
+
+The browser must persist an open declaration locally, including its draft table and source images, so it survives browser restarts. No draft content goes to the cloud.
+
+### Intended local data layout
+
+~~~text
 Rivhit data/
 ├─ common/
 │  └─ PKUDA_AI_TEST.TXT
@@ -95,56 +120,114 @@ Rivhit data/
    └─ <client>/
       ├─ workspace.json
       ├─ history.jsonl
-      └─ batches/
-         └─ YYYY-MM-DD_HH-mm/
-            ├─ invoices.pdf
-            ├─ import.txt
-            └─ manifest.json
-```
+      └─ declarations/
+         └─ YYYY-MM/
+            ├─ declaration.json       # draft or closed; metadata and state
+            ├─ draft-table.json       # only while open; persisted table state
+            ├─ images/                # only while open; local source images
+            └─ exports/
+               └─ YYYY-MM-DD_HH-mm/
+                  ├─ invoices.pdf
+                  ├─ import.txt
+                  └─ manifest.json
+~~~
 
-The common canonical template is selected once and is never uploaded. A client
-workspace stores business name, activity, business type and future concise
-accounting notes. `history.jsonl` is append-only: one confirmed record per JSON
-line, written only after a successful Compile.
+The exact temporary-draft cleanup rule after closing should be implemented deliberately. The final export and manifest must remain. Do not delete source data until recovery/audit needs have been decided.
 
-The client UI should be a compact hidden right-side drawer with a flat client
-list and actions to create, select, archive and permanently delete. It is not a
-CRM and must not become a file manager or a nested client tree.
+### Intended drawer behavior
 
-## Next implementation order
+The current flat list is a working transitional UI. The next declaration UI must be tree-like:
 
-1. Replace the exploratory workspace dialog with the right-side drawer and one
-   common data-root selection.
-2. Implement safe **Compile**: validate active completed rows; create PDF, TXT
-   and manifest; only then append confirmed rows to `history.jsonl`.
-3. Implement local history ranking and pass 2. Send only 3–8 concise relevant
-   confirmed cases, without the image.
-4. Add archive/delete, recovery and the required regression coverage.
+~~~text
+Rivhit data
+└─ Client A
+   ├─ Declaration · 2026-09 · draft
+   ├─ Declaration · 2026-08 · closed
+   └─ Declaration · 2026-07 · closed
+~~~
 
-Pass 2 may change classification, recognized percentages, confidence, review
-status and explanation. It must not change date, supplier, supplier ID,
-document references, raw net/VAT/gross amounts or currency.
+Clicking a client should expand its declarations rather than immediately activate it. Selection of a declaration should open its table. The current-client activation behavior will need to be revised along with the declaration model; do not merely add visual nesting over the old client-only workflow.
+
+## Data and AI boundaries
+
+Pass 1 receives an image, business activity, and the approved mapping. It extracts source facts, makes an initial classification decision, and returns source-field boxes.
+
+Pass 2 will receive a draft row and only 3–8 relevant closed history records, without the image. It may tune classification, recognised percentages, confidence, review state, and explanation. It must not alter document-source facts:
+
+- date;
+- supplier;
+- supplier ID;
+- document references;
+- raw net, VAT, and gross amounts;
+- currency.
+
+History is guidance, never proof.
+
+## What is not done
+
+- Monthly declaration storage, draft persistence, recovery, and the declaration tree UI.
+- Repeated draft exports in declarations/YYYY-MM/exports/.
+- Separate close-declaration transaction and safe special reopen flow.
+- Final Rivhit import.txt generation from the mandatory 186-column contract.
+- Atomic finalization: validate closed declaration → create final export/manifest → append history.jsonl exactly once → mark closed.
+- Gemini pass 2 and local relevant-history ranking.
+- Regression coverage for File System Access and declaration lifecycle.
+- Full migration/removal of the exploratory package format.
+
+## Required implementation order
+
+1. Replace the current client-only selection flow with the monthly declaration model and tree UI.
+   - Add declaration.json, draft-table.json, draft image persistence, and month identity YYYY-MM.
+   - A client can have one open declaration per month.
+   - Opening a client reveals declarations; selecting a declaration opens its persisted table.
+2. Implement repeatable draft export for an open declaration.
+   - Every export is a timestamped directory inside exports/.
+   - It produces invoices.pdf, import.txt, and manifest.json.
+   - It never appends history and never closes the declaration.
+3. Implement explicit close-declaration transaction and protected reopen policy.
+   - Validate active rows.
+   - Make the final export.
+   - Append confirmed rows to history.jsonl exactly once.
+   - Mark declaration closed only after all preceding writes succeed.
+4. Add local history ranking and Gemini pass 2.
+5. Add interrupted-draft recovery, comprehensive regression tests, and only then retire the obsolete exploratory package format.
+
+## Existing exploratory package warning
+
+The old buttons and code paths named PDF package / package reopening create a prototype containing document.pdf, source.txt, table.json, and copied images. It is not the final declaration format and must not be described as complete Compile support.
+
+When replacing it, preserve useful code only where it fits the new declaration model. In particular, do not keep writing final data into ad hoc batches/ directories.
 
 ## Validation and deployment
 
-```powershell
+Run after browser changes:
+
+~~~powershell
 Set-Location D:\projects\ocr\telegram-web
 npm test
 npm run check
+~~~
 
+Current automated test count: 10.
+
+Run after Worker changes:
+
+~~~powershell
 Set-Location D:\projects\ocr\cloudflare-worker
 npm run check
-```
+~~~
 
-Browser changes are published by the GitHub Pages workflow after a push to
-`main`. Worker code is **not** automatically deployed. To deploy it after a
-reviewed release:
+GitHub Pages publishes browser changes after a push to main. Worker code is not automatically deployed. For a reviewed Worker release:
 
-```powershell
+~~~powershell
 Set-Location D:\projects\ocr\cloudflare-worker
 node node_modules\wrangler\bin\wrangler.js deploy
-```
+~~~
 
-After any Worker release, update `cloudflare-worker/DEPLOYMENT.md`, create a
-new annotated `cloudflare-production-YYYY-MM-DD` tag and push it. The detailed
-non-secret recovery procedure is in that file.
+After every Worker deployment:
+
+1. Update cloudflare-worker/DEPLOYMENT.md.
+2. Create a new annotated cloudflare-production-YYYY-MM-DD tag.
+3. Push the tag.
+
+Use cloudflare-worker/DEPLOYMENT.md for the non-secret recovery procedure.
