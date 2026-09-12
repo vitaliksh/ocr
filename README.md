@@ -11,7 +11,7 @@ Rivhit TXT files and history stay on the Windows PC in local workspaces.
 
 ## Project map
 
-- `telegram-web/` — static GitHub Pages application.
+- `telegram-web/` — static GitHub Pages application; `pdf-import.js` renders a manually selected local PDF page-by-page before the existing image recognition flow.
 - `cloudflare-worker/` — deployable Cloudflare Worker, Durable Object and R2
   configuration.
 - `agent-prompts/` — human-readable prompts that the deployed agents use.

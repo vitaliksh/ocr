@@ -18,14 +18,14 @@
     <header class="app-header">
       <button id="open-workspaces-drawer" type="button" class="app-menu-toggle" aria-label="פתח סביבות עבודה" aria-controls="workspaces-drawer" aria-expanded="false"><span aria-hidden="true">☰</span></button>
       <h1>קליטת מסמכים ל‑Rivhit</h1>
-      <p>שלח תמונות מהטלפון דרך Telegram. כל תמונה תופיע מיד כשורה חדשה ביומן.</p>
+      <p>שלח תמונות מהטלפון דרך Telegram או בחר קובץ PDF מהמחשב. כל עמוד יופיע מיד כשורה חדשה ביומן.</p>
       <div class="settings"><strong id="current-client">לא נבחר לקוח</strong><button id="stop-processing" type="button" class="stop" hidden>עצור עיבוד</button></div>
     </header>
     <section id="inactive" class="card upload-card">
       <button id="start" type="button" disabled>התחל העלאת תמונות</button><p id="upload-requirements" class="upload-requirements" role="status"></p>
     </section>
     <section id="active" class="card upload-card" hidden>
-      <div class="upload-heading"><div><h2>העלאת תמונות פעילה</h2><p id="connection" role="status">ממתין לחיבור Telegram…</p></div><button id="finish" type="button" class="secondary">סיים העלאה</button></div>
+      <div class="upload-heading"><div><h2>העלאת מסמכים פעילה</h2><p id="connection" role="status">ממתין לחיבור Telegram…</p></div><span class="upload-actions"><button id="import-pdf" type="button" class="secondary">בחירת PDF מהמחשב</button><button id="finish" type="button" class="secondary">סיים העלאה</button></span></div>
       <div class="qr-panel"><canvas id="qr" width="260" height="260" aria-label="קוד QR לחיבור Telegram"></canvas><p>סרוק את הקוד ב‑Telegram או <a id="telegram-link" target="_blank" rel="noopener">פתח Telegram</a>.</p></div>
     </section>
     <section class="journal card" aria-labelledby="journal-title">

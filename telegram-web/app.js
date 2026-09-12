@@ -1,13 +1,14 @@
 import { setupWorkspaceControls } from "./workspace.js";
 import { writeFile } from "./document-package.js";
 import { buildPdfReport } from "./pdf-report.js";
+import { pdfSourceFileName, renderPdfPages, validatePdfFile } from "./pdf-import.js";
 import { createDraftExportDirectory, finalizeDeclaration, readClosedHistory, readSourceImage, saveDraft, saveSourceImage } from "./declaration-store.js";
 import { buildRivhitImport, draftExportManifest } from "./rivhit-export.js";
 import { relevantHistory } from "./history-ranker.js";
 
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, "");
-const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), closeDeclarationButton = document.querySelector("#close-declaration"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements"), workspacesDrawer = document.querySelector("#workspaces-drawer"), workspacesBackdrop = document.querySelector("#workspaces-backdrop"), openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"), closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer"), registerPasskey = document.querySelector("#register-passkey"), passkeySummary = document.querySelector("#passkey-summary"), passkeyEnrollmentDialog = document.querySelector("#passkey-enrollment-dialog"), passkeyEnrollmentStatus = document.querySelector("#passkey-enrollment-status"), passkeyTelegramLink = document.querySelector("#passkey-telegram-link"), continuePasskeyEnrollment = document.querySelector("#continue-passkey-enrollment"), cancelPasskeyEnrollment = document.querySelector("#cancel-passkey-enrollment"), cancelPasskeyEnrollmentAction = document.querySelector("#cancel-passkey-enrollment-action");
-let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, streamAbort = null, enrollmentSession = null, enrollmentAbort = null, enrollmentInProgress = false, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null, passkeyGrant = null;
+const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), importPdf = document.querySelector("#import-pdf"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), closeDeclarationButton = document.querySelector("#close-declaration"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements"), workspacesDrawer = document.querySelector("#workspaces-drawer"), workspacesBackdrop = document.querySelector("#workspaces-backdrop"), openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"), closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer"), registerPasskey = document.querySelector("#register-passkey"), passkeySummary = document.querySelector("#passkey-summary"), passkeyEnrollmentDialog = document.querySelector("#passkey-enrollment-dialog"), passkeyEnrollmentStatus = document.querySelector("#passkey-enrollment-status"), passkeyTelegramLink = document.querySelector("#passkey-telegram-link"), continuePasskeyEnrollment = document.querySelector("#continue-passkey-enrollment"), cancelPasskeyEnrollment = document.querySelector("#cancel-passkey-enrollment"), cancelPasskeyEnrollmentAction = document.querySelector("#cancel-passkey-enrollment-action");
+let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, telegramConnected = false, streamAbort = null, enrollmentSession = null, enrollmentAbort = null, enrollmentInProgress = false, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null, passkeyGrant = null;
 
 function apiUrl(path) { return `${api}${path}`; }
 function showError(message) { status.textContent = message; }
@@ -25,7 +26,7 @@ async function activateDeclaration(selected) {
   await saveCurrentDraft();
   workspace = committedWorkspace = selected.workspace; currentDeclaration = selected.declaration; currentDeclarationDirectory = selected.directory; businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind;
   records.replaceChildren(); recordCount = 0; imageCount = 0; received = new Set();
-  for (const saved of selected.draft?.rows || []) { try { restoreRow(saved, await readSourceImage(selected.directory, saved.imageFile)); } catch (error) { throw new Error(`לא ניתן לשחזר תמונה ${saved.imageFile || ""}: ${error.message}`); } }
+  for (const saved of selected.draft?.rows || []) { try { restoreRow(saved, await readSourceImage(selected.directory, saved.imageFile)); imageCount = Math.max(imageCount, Number(saved.imageIndex) || 0); } catch (error) { throw new Error(`לא ניתן לשחזר תמונה ${saved.imageFile || ""}: ${error.message}`); } }
   refreshRows(); setTableLocked(currentDeclaration.status !== "open"); currentClient.textContent = `לקוח: ${workspace.config.clientName} · הצהרה: ${currentDeclaration.month}`; applyBusinessRules(); status.textContent = currentDeclaration.status === "open" ? "" : "ההצהרה סגורה לקריאה בלבד."; updateStartAvailability(); setWorkspacesDrawer(false); return true;
 }
 function updateWorkspace(selected) { if (workspace?.config.clientId === selected.config.clientId) workspace = { ...workspace, config: selected.config }; if (committedWorkspace?.config.clientId === selected.config.clientId) { committedWorkspace = { ...committedWorkspace, config: selected.config }; businessActivity.value = selected.config.businessActivity; businessKind.value = selected.config.businessKind; applyBusinessRules(); } }
@@ -67,7 +68,7 @@ openWorkspacesDrawer.addEventListener("click", async () => { workspace = committ
 closeWorkspacesDrawer.addEventListener("click", () => setWorkspacesDrawer(false));
 workspacesBackdrop.addEventListener("click", () => setWorkspacesDrawer(false));
 window.addEventListener("keydown", (event) => { if (event.key === "Escape" && workspacesDrawer.classList.contains("is-open")) { event.preventDefault(); setWorkspacesDrawer(false); } });
-function reset() { streamAbort?.abort(); streamAbort = null; session = null; received = new Set(); active.hidden = true; inactive.hidden = false; updateStartAvailability(); }
+function reset() { streamAbort?.abort(); streamAbort = null; session = null; telegramConnected = false; received = new Set(); active.hidden = true; inactive.hidden = false; updateStartAvailability(); }
 async function finishEnrollmentSession() {
   const closingSession = enrollmentSession;
   enrollmentAbort?.abort(); enrollmentAbort = null; enrollmentSession = null;
@@ -103,7 +104,7 @@ async function startUpload(purpose = "upload") {
   if (!currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור תחילה הצהרה פתוחה.");
   if (!api) return showError("הפרסום עדיין לא הוגדר.");
   start.disabled = true; status.textContent = "";
-  try { const response = await fetch(apiUrl("/v1/sessions"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ purpose }) }), data = await response.json(); if (!response.ok) throw new Error(data.error || "לא ניתן היה ליצור חיבור העלאה."); session = data; inactive.hidden = true; active.hidden = false; telegramLink.href = data.telegramUrl; new QRious({ element: document.querySelector("#qr"), value: data.telegramUrl, size: 260, level: "M" }); openEvents(); }
+  try { const response = await fetch(apiUrl("/v1/sessions"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ purpose }) }), data = await response.json(); if (!response.ok) throw new Error(data.error || "לא ניתן היה ליצור חיבור העלאה."); session = data; telegramConnected = false; inactive.hidden = true; active.hidden = false; telegramLink.href = data.telegramUrl; new QRious({ element: document.querySelector("#qr"), value: data.telegramUrl, size: 260, level: "M" }); openEvents(); }
   catch (error) { showError(error.message); updateStartAvailability(); }
 }
 start.addEventListener("click", () => { if (tableLocked) { uploadModeDialog.showModal(); return; } startUpload(); });
@@ -131,8 +132,8 @@ async function openEvents() {
 function consumeEvent(message) {
   const type = message.match(/^event: (.+)$/m)?.[1], text = message.match(/^data: (.+)$/m)?.[1]; if (!type || !text) return;
   const data = JSON.parse(text);
-  if (type === "ready") { connection.textContent = data.connected ? "Telegram מחובר. אפשר לשלוח תמונות." : "ממתין לחיבור Telegram…"; data.documents.forEach((item) => receiveDocument(item.documentId, item.receivedAt)); }
-  if (type === "connected") connection.textContent = "Telegram מחובר. אפשר לשלוח תמונות.";
+  if (type === "ready") { telegramConnected = Boolean(data.connected); connection.textContent = data.connected ? "Telegram מחובר. אפשר לשלוח תמונות או לבחור PDF מהמחשב." : "ממתין לחיבור Telegram…"; data.documents.forEach((item) => receiveDocument(item.documentId, item.receivedAt)); }
+  if (type === "connected") { telegramConnected = true; connection.textContent = "Telegram מחובר. אפשר לשלוח תמונות או לבחור PDF מהמחשב."; }
   if (type === "document") receiveDocument(data.documentId, data.receivedAt);
   if (type === "finished") reset();
 }
@@ -160,6 +161,29 @@ async function receiveDocument(documentId, receivedAt) {
     const ack = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/documents/${documentId}/ack`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }); if (!ack.ok) throw new Error("אישור קבלת התמונה נכשל; ייתכן שהיא תישלח שוב.");
   } catch (error) { received.delete(documentId); showError(error.message); }
 }
+async function choosePdfFile() {
+  if (!session || !telegramConnected || !currentDeclarationDirectory || currentDeclaration?.status !== "open") return showError("יש לסרוק תחילה את קוד Telegram ולבחור הצהרה פתוחה.");
+  const input = document.createElement("input"); input.type = "file"; input.accept = "application/pdf,.pdf";
+  input.addEventListener("change", async () => {
+    const file = input.files?.[0]; if (!file) return;
+    try { validatePdfFile(file); await importPdfFile(file); } catch (error) { showError(error.message); }
+  }, { once: true }); input.click();
+}
+async function importPdfFile(file) {
+  const sourceId = crypto.randomUUID(), receivedAt = new Date().toISOString(); importPdf.disabled = true; stopRequested = false;
+  try {
+    await saveSourceImage(currentDeclarationDirectory, pdfSourceFileName(new Date(), sourceId), file);
+    await renderPdfPages(file, { shouldStop: () => stopRequested, onPage: async ({ pageNumber, pageCount, image }) => {
+      status.textContent = `מייבא PDF: עמוד ${pageNumber} מתוך ${pageCount}…`;
+      const imageIndex = ++imageCount, documentId = `pdf-${sourceId}-${pageNumber}`, imageFile = `${String(imageIndex).padStart(3, "0")}.jpg`, imageUrl = URL.createObjectURL(image);
+      await saveSourceImage(currentDeclarationDirectory, imageFile, image); const row = addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, null, image); row.dataset.imageFile = imageFile;
+      row.runRecognition = (onlyThis = false) => enqueueRecognition(row, image, imageUrl, receivedAt, documentId, imageIndex, true, onlyThis);
+      await enqueueRecognition(row, image, imageUrl, receivedAt, documentId, imageIndex);
+    }});
+    status.textContent = stopRequested ? "ייבוא ה‑PDF נעצר. העמודים שכבר נוספו נשמרו בטיוטה." : "ייבוא ה‑PDF הושלם.";
+  } finally { importPdf.disabled = false; queueDraftSave(); }
+}
+importPdf.addEventListener("click", choosePdfFile);
 function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, insertAfter = null, imageBlob = null) {
   emptyRow?.remove(); recordCount += 1; count.textContent = `שורות ביומן: ${recordCount}`;
   const row = document.createElement("tr"); row.dataset.documentId = documentId; row.dataset.imageIndex = String(imageIndex); row.dataset.receivedAt = String(receivedAt); row.documentImage = imageBlob;
@@ -172,7 +196,7 @@ function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, insertAf
 function enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, restart = false, onlyThis = false) {
   if (restart) stopRequested = false;
   pendingRecognitions += 1; updateProcessingControls();
-  recognitionQueue = recognitionQueue.then(() => recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis)).catch(() => {}).finally(() => { pendingRecognitions -= 1; updateProcessingControls(); });
+  recognitionQueue = recognitionQueue.then(() => recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis)).catch(() => {}).finally(() => { pendingRecognitions -= 1; updateProcessingControls(); }); return recognitionQueue;
 }
 function recordTarget(row) { return { date: row.cells[1].textContent, classification: row.cells[2].textContent, purpose: row.cells[3].textContent, supplier: row.cells[4].textContent, reference: row.cells[6].textContent, gross: row.cells[8].textContent, net: row.cells[9].textContent, vat: row.cells[10].textContent }; }
 async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis = false) {

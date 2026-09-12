@@ -42,10 +42,15 @@ For every expense_invoice, locate the exact printed values used for its
 document number, total_amount, and vat_amount. Return each location directly
 in document_number_box, total_amount_box, and vat_amount_box as
 [ymin, xmin, ymax, xmax], normalized from 0 to 1000 against the full original
-image. A readable extracted value normally requires a box. Use null only when
-that specific value is absent or calculated rather than visibly printed. Boxes
-must tightly enclose the value and belong to this record if several documents
-share the image. For non-expense records return null for all three boxes.
+image. Each box must cover only the printed value characters (and an attached
+currency sign when printed), not its label, table cell, surrounding whitespace,
+or another value. The box must be tight on all four sides and the normalized
+coordinate order is top, left, bottom, right. Verify that the text inside each
+returned box is exactly the value used in the matching output field; if it
+cannot be verified visually, return null. A readable extracted value normally
+requires a box. Use null only when that specific value is absent or calculated
+rather than visibly printed. Boxes must belong to this record if several
+documents share the image. For non-expense records return null for all three boxes.
 
 Allowed Form 6111 → Rivhit mapping:
 {{approved_mapping}}

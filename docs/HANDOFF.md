@@ -3,7 +3,8 @@
 **Updated:** 12 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
 **Windows Hello functional release:** `cloudflare-production-2026-09-12-6` — Add passkey Worker tests and controlled invalid-signature rejection
-**Working tree:** clean after the release.
+**PDF intake release:** `cloudflare-production-2026-09-12-7` — Manual local PDF intake, improved source-value prompt and transparent PDF markers
+**Working tree:** PDF intake and marker release prepared for publication; PDF examples remain local and untracked.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
 ## Product and non-negotiable boundaries
@@ -29,7 +30,7 @@ Use a local, non-synchronised folder (for example `C:\Rivhit data`) as the activ
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-12-6` | Worker version `67aa43c0-a19c-468a-85e5-ca266234773f` |
+| Production Worker release | tag `cloudflare-production-2026-09-12-7` | Worker version `e7612f6c-47bd-4331-958f-567af1b588ef` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -100,7 +101,7 @@ Rivhit data/
          └─ YYYY-MM/
             ├─ declaration.json         # open/closed state and metadata
             ├─ draft-table.json          # persisted rows
-            ├─ images/                   # local original images
+            ├─ images/                   # local original images and imported source PDFs
             └─ exports/
                └─ YYYY-MM-DD_HH-mm/
                   ├─ invoices.pdf
@@ -116,10 +117,12 @@ Select a valid 186-column Rivhit TXT template. The browser copies the chosen fil
 
 - Select a data root once using File System Access API; use Chrome or Edge.
 - Create, archive, restore, edit, and permanently delete clients from the workspace drawer.
+- Creating a client immediately creates and shows its current-month open draft declaration in the same expanded drawer.
 - The `…` client action opens a separate modal, not content inside the drawer.
 - Each client can have monthly declarations (`YYYY-MM`).
 - Selecting a declaration loads its persisted table and local source images.
 - An open declaration accepts more uploads and allows edits and repeated exports.
+- An active Telegram-authorized upload session also accepts one manually selected local PDF at a time. Its original PDF and rendered JPEG pages remain in the local declaration; each page follows the existing pass-1 image path.
 - Closing validates the active rows, makes a final export, appends history once using `declarationId`, and locks the declaration.
 - A closed declaration opens as a visible read-only table; it is not blank.
 - The obsolete controls for opening an existing package / loading a saved table were removed from the active workflow.
@@ -135,6 +138,7 @@ Select a valid 186-column Rivhit TXT template. The browser copies the chosen fil
 ### Pass 1 and pass 2
 
 - Pass 1 sends a temporary document image, business activity, and the approved mapping to Gemini. It returns source facts, classification, confidence, explanation, and source-value boxes.
+- The PDF report draws the document-number box in yellow and total/VAT boxes in green, using transparent padded fills without borders so the source text stays readable even when a source box is imperfect.
 - Pass 2 sends only the current draft row and 1–8 relevant closed-history records, all text-only.
 - The local ranker favours matching supplier VAT ID/supplier, then classification/description. It excludes images, raw monetary values, and other prohibited source data from the history context.
 - Pass 2 may change classification, recognition percentages, confidence, review state, and agent opinion. It must not change date, supplier, supplier ID, document references, allocation number, raw net/VAT/gross amounts, or currency.
@@ -184,7 +188,7 @@ npm test
 npm run check
 ~~~
 
-Expected automated browser tests currently: **20 passing**.
+Expected automated browser tests currently: **23 passing**.
 
 After Worker changes:
 
