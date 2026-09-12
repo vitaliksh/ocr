@@ -55,11 +55,11 @@ They are Worker secrets and should also be held in an approved password manager.
 
 The prior pass-2 QR requirement was intentionally replaced. Telegram is now needed only once to prove ownership while enrolling a PC's Windows Hello credential. This is a separate **חיבור המחשב לשיפור AI** action in the workspace settings; it requires a selected data root, but not a client or open declaration.
 
-- The private key stays inside Windows Hello/the platform authenticator.
+- The private key never reaches the browser application or Worker. It is held by the selected platform authenticator; on Vitalik's PC, Edge created it in Microsoft Password Manager, which may securely sync it according to that account's passkey settings.
 - The Worker Durable Object `DEVICE_REGISTRY` stores only public key material, signature counter, transport metadata, a short-lived challenge, and a five-minute authorization grant.
 - Browser `localStorage` holds only the public credential identifier (`rivhit-passkey-credential-id-v1`), not a secret or private key.
 - Later use of **שפר לפי היסטוריה** requests Windows Hello and does not create a Telegram session, QR code, or bot message. The obsolete Telegram `history-refinement` path was removed.
-- A valid Windows Hello grant can be reused for five minutes, allowing several refinements without repeated system prompts. After expiry, Windows Hello is requested again.
+- A valid Windows Hello grant is held only in page memory for five minutes, allowing several refinements without repeated system prompts. A page refresh clears that grant and requests Hello again; after five minutes without a refresh, Hello is also requested again.
 
 The Relying Party is deliberately fixed to `vitaliksh.github.io`; WebAuthn works on the published GitHub Pages origin, not an arbitrary local host.
 
@@ -139,9 +139,9 @@ Select a valid 186-column Rivhit TXT template. The browser copies the chosen fil
 - If no relevant closed history exists, the Improve button remains and the UI reports that fact. No QR or Windows Hello prompt is needed.
 - Improve buttons remain after success or a no-history response, so the user can repeat pass 2 with another model.
 
-## Windows Hello user test
+## Windows Hello production test — completed
 
-This must be tested manually on the production page because it uses the user's authenticator and Telegram account.
+Vitalik completed this flow on the production page on 12 September 2026 in Edge/Windows 11. Telegram connected successfully, Microsoft Password Manager created and saved the passkey, and pass-2 prompted for Hello once after a page refresh, then reused the in-memory grant for further refinements.
 
 1. Open https://vitaliksh.github.io/ocr/ and force refresh with `Ctrl+F5`.
 2. Select a data root, then open **סביבות עבודה**.
@@ -158,11 +158,10 @@ If the browser says the credential is no longer registered, the UI clears the lo
 
 ## Known limitations / next logical work
 
-1. **Manual end-to-end passkey test is still required.** Compilation and deployment passed, but only Vitalik can validate the real Windows Hello + Telegram interaction.
-2. Add automated Worker tests for registration/authentication routes, counter updates, grant expiry, and rejection of invalid signatures. Current browser unit tests do not exercise WebAuthn hardware.
-3. Update `docs/ARCHITECTURE.md` to reflect declarations, history and passkeys.
-4. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
-5. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
+1. Add automated Worker tests for registration/authentication routes, counter updates, grant expiry, and rejection of invalid signatures. Current browser unit tests do not exercise WebAuthn hardware.
+2. Update `docs/ARCHITECTURE.md` to reflect declarations, history and passkeys.
+3. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
+4. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
 
 ## Validation commands
 
