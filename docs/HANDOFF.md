@@ -147,7 +147,7 @@ This must be tested manually on the production page because it uses the user's a
 2. Select a data root, then open **סביבות עבודה**.
 3. Press **חיבור המחשב לשיפור AI**. A client or declaration is not required.
 4. Scan the shown QR in Telegram and press Start. The bot should say that Windows Hello setup is required and that no photo should be sent.
-5. Complete the Windows Hello prompt on the PC.
+5. In the browser, press **המשך ל‑Windows Hello**, then complete the Windows Hello prompt on the PC. This explicit click is required by the browser before it may open the authenticator.
 6. The drawer should now say that the computer is connected. The separate connection dialog closes automatically; no upload screen is opened.
 7. Select a row that has relevant closed history and press **שפר לפי היסטוריה**.
 8. Windows Hello should appear. There must be no QR and no Telegram message.

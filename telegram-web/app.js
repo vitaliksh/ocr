@@ -148,7 +148,7 @@ async function openEnrollmentEvents(targetSession) {
 function consumeEnrollmentEvent(message, targetSession) {
   const type = message.match(/^event: (.+)$/m)?.[1], text = message.match(/^data: (.+)$/m)?.[1]; if (!type || !text || enrollmentSession !== targetSession) return;
   const data = JSON.parse(text);
-  if ((type === "ready" && data.connected) || type === "connected") completePasskeyEnrollment(targetSession);
+  if ((type === "ready" && data.connected) || type === "connected") { passkeyEnrollmentStatus.textContent = "Telegram מחובר. לחץ על 'המשך ל‑Windows Hello' כדי לאשר במחשב."; continuePasskeyEnrollment.disabled = false; }
 }
 async function receiveDocument(documentId, receivedAt) {
   if (!session || received.has(documentId)) return; received.add(documentId); const imageIndex = ++imageCount;
