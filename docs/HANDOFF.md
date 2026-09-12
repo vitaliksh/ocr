@@ -163,6 +163,14 @@ If the browser says the credential is no longer registered, the UI clears the lo
 3. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
 4. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
 
+## Proposed next steps
+
+1. **Lock down the tested security flow.** Add Worker-level tests for the passkey registration, authentication, expired-grant and invalid-signature cases. Keep the current manual production check as a small release checklist because a real platform authenticator cannot be covered by unit tests.
+2. **Make device recovery explicit.** Add a compact management view for connected computers: show non-secret metadata (creation date, authenticator type and last successful use where available), let Vitalik revoke a lost/retired computer after a fresh Windows Hello approval, and make “connect this computer again” clearly create a replacement credential. Do not expose credential IDs, tokens or keys in the UI.
+3. **Document the shipped architecture.** Bring `docs/ARCHITECTURE.md` in line with the local declarations/history model, temporary R2 delivery, Gemini boundaries and one-time Telegram-to-passkey enrolment. Treat `HANDOFF.md` as authoritative until that is complete.
+4. **Decide closed-declaration recovery before building it.** If reopening is needed, require an explicit reason, create an immutable audit entry and preserve the former final export. Never silently make a closed declaration editable.
+5. **Collect real bookkeeping feedback before larger UI work.** Prioritise only observed friction in client selection, monthly declaration switching, review and export; retain the local-first and Hebrew UI constraints.
+
 ## Validation commands
 
 After browser changes:
