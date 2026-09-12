@@ -197,15 +197,17 @@ async function completePasskeyEnrollment(targetSession = enrollmentSession) {
   enrollmentInProgress = true;
   continuePasskeyEnrollment.disabled = true;
   passkeyEnrollmentStatus.textContent = "Telegram מחובר. אשר ב‑Windows Hello במחשב.";
+  let step = "פתיחת Windows Hello";
   try {
     const optionsResponse = await fetch(apiUrl(`/v1/sessions/${targetSession.sessionId}/passkeys/registration-options`), { method: "POST", headers: { "X-Upload-Token": targetSession.clientToken } }), options = await optionsResponse.json();
     if (!optionsResponse.ok) throw new Error(options.error || "לא ניתן להתחיל הגדרת Windows Hello.");
     const credential = await navigator.credentials.create({ publicKey: publicKeyOptions(options, "create") });
     if (!credential) throw new Error("Windows Hello לא הושלם.");
+    step = "שמירת Windows Hello";
     const response = await fetch(apiUrl(`/v1/sessions/${targetSession.sessionId}/passkeys/register`), { method: "POST", headers: { "Content-Type": "application/json", "X-Upload-Token": targetSession.clientToken }, body: JSON.stringify(credentialJson(credential)) }), result = await response.json();
     if (!response.ok) throw new Error(result.error || "לא ניתן לשמור את Windows Hello.");
     localStorage.setItem(passkeyStorageKey, result.credentialId); updatePasskeySummary(); await finishEnrollmentSession(); passkeyEnrollmentDialog.close(); status.textContent = "המחשב חובר. שיפור AI יבקש Windows Hello בלבד, ללא Telegram.";
-  } catch (error) { passkeyEnrollmentStatus.textContent = "Windows Hello לא הושלם. אפשר לנסות שוב או לבטל."; showError("לא ניתן לחבר את המחשב: " + error.message); continuePasskeyEnrollment.disabled = false; }
+  } catch (error) { const detail = error?.message || error?.name || "שגיאה לא ידועה"; passkeyEnrollmentStatus.textContent = `${step} נכשלה: ${detail}. אפשר לנסות שוב או לבטל.`; showError("לא ניתן לחבר את המחשב: " + detail); continuePasskeyEnrollment.disabled = false; }
   finally { enrollmentInProgress = false; if (!enrollmentSession) registerPasskey.disabled = false; }
 }
 continuePasskeyEnrollment.addEventListener("click", () => completePasskeyEnrollment());
