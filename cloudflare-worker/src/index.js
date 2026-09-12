@@ -332,7 +332,10 @@ export class UploadSession {
 export class DeviceRegistry {
   constructor(state) { this.state = state; }
   async fetch(request) {
-    const action = new URL(request.url).pathname.slice("/passkeys/".length);
+    // Calls to a Durable Object use https://passkeys/<action>: "passkeys" is
+    // the hostname, not part of pathname. Accept the prefixed form as well
+    // so internal routing cannot turn begin-registration into an unknown action.
+    const action = new URL(request.url).pathname.replace(/^\/(?:passkeys\/)?/, "");
     if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
     try {
       if (action === "begin-registration") return this.beginRegistration();

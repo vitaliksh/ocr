@@ -2,7 +2,7 @@
 
 **Updated:** 12 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Windows Hello functional release:** `cloudflare-production-2026-09-12-4` — Simplify one-time Windows Hello computer connection
+**Windows Hello functional release:** `cloudflare-production-2026-09-12-5` — Fix Durable Object passkey action routing
 **Working tree:** clean after the release.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
@@ -27,7 +27,7 @@ Never add cloud persistence for client workspaces, declarations, source images, 
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-12-4` | Worker version `ebd19b78-a590-4c63-a128-7129108ca0be` |
+| Production Worker release | tag `cloudflare-production-2026-09-12-5` | Worker version `efc95cbc-b4b2-4d1f-a707-228fae0c18ca` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 

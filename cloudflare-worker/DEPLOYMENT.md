@@ -9,9 +9,9 @@ redeploy the Cloudflare component. It is safe to keep in Git.
 | --- | --- |
 | Worker name | `rivhit-telegram-transfer` |
 | Public URL | `https://rivhit-telegram-transfer.vitaliksh.workers.dev` |
-| Cloudflare version ID | `ebd19b78-a590-4c63-a128-7129108ca0be` |
-| Source commit | `cloudflare-production-2026-09-12-4` tag |
-| Git tag | `cloudflare-production-2026-09-12-4` |
+| Cloudflare version ID | `efc95cbc-b4b2-4d1f-a707-228fae0c18ca` |
+| Source commit | `cloudflare-production-2026-09-12-5` tag |
+| Git tag | `cloudflare-production-2026-09-12-5` |
 | Durable Objects | `UPLOAD_SESSION` / `UploadSession`; `DEVICE_REGISTRY` / `DeviceRegistry` |
 | R2 bucket | `rivhit-temporary-photos` |
 
