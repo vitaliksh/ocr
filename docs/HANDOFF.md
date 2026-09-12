@@ -1,130 +1,104 @@
 # Handoff — Rivhit document intake
 
-**Updated:** 11 September 2026
+**Updated:** 12 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Current committed source:** 3e09140 (Add current project handoff)
-**Working tree:** intentionally contains uncommitted drawer/workspace changes in telegram-web/. They have passed the checks below and must be preserved.
+**Current commit:** `51f268b` — Add Windows Hello auth for history refinement
+**Working tree:** clean after the release.
+**Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
-## Product goal
+## Product and non-negotiable boundaries
 
-Provide a simple PC workflow for Rivhit bookkeeping:
+This is a local-first browser application for preparing Israeli Rivhit expense-journal imports. It is a bookkeeping aid, not accounting or tax advice.
 
-1. The bookkeeper works with a local client workspace in a browser.
-2. The client sends invoice images from an iPhone through the Telegram bot.
-3. Gemini pass 1 extracts draft journal rows.
-4. The bookkeeper reviews and edits the rows.
-5. The current month's declaration can be exported to PDF and Rivhit TXT repeatedly while it is still a draft.
-6. A separate explicit action closes that monthly declaration. Only closing makes it final and appends confirmed rows to the client's local history.
-7. A future text-only Gemini pass 2 uses relevant closed history records to improve accounting decisions, never source facts.
+1. The bookkeeper selects a local data root and a client declaration in Chrome/Edge on the PC.
+2. The client sends invoice photos from an iPhone to the Telegram bot.
+3. Gemini pass 1 extracts journal draft rows from the images.
+4. The bookkeeper reviews and can edit every row before export.
+5. Open monthly declarations can be exported repeatedly as PDF + Rivhit TXT.
+6. Closing a declaration makes a final export, appends confirmed text-only history exactly once, and locks the table.
+7. Gemini pass 2 can improve accounting judgement from relevant closed local history, but must never change source facts from the image.
 
-The product is a bookkeeping aid, not tax or accounting advice.
+Never add cloud persistence for client workspaces, declarations, source images, draft tables, PDFs, TXT files, exports, or history. These remain in the selected local folder.
 
-## Current deployed architecture
+## Live production components
 
-| Component | Location | Responsibility |
+| Component | Location | Purpose |
 | --- | --- | --- |
-| Browser UI | https://vitaliksh.github.io/ocr/ | UI, local file access, review table |
-| Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram session, temporary R2 transport, Gemini pass 1 |
-| Telegram bot | @Vitalikshbot | Smartphone image intake |
-| Production Worker baseline | Git tag cloudflare-production-2026-09-12-3 | Worker version 9a7f31b5-1e7f-4042-95bc-c6082b22bdf5 |
+| Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
+| Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
+| Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
+| Production Worker release | tag `cloudflare-production-2026-09-12-3` | Worker version `9a7f31b5-1e7f-4042-95bc-c6082b22bdf5` |
 
-The Worker source is cloudflare-worker/; the static browser client is telegram-web/. Browser-held images are deleted from Worker R2 after ACK, Finish, or expiry. Do not add cloud persistence for client data, declaration drafts, PDFs, TXT exports, or history. Windows Hello passkeys store only their public key, signature counter, and short-lived authorization grant in a Worker Durable Object; the private key never leaves the device.
+The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
-## Security
+## Security model
+
+### Secrets
 
 Never print, commit, request, or put into browser storage:
 
-- TELEGRAM_BOT_TOKEN
-- TELEGRAM_WEBHOOK_SECRET
-- GEMINI_API_KEY
-- ALLOWED_TELEGRAM_USER_ID
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `GEMINI_API_KEY`
+- `ALLOWED_TELEGRAM_USER_ID`
 
-They are Cloudflare Worker secrets. Their values also belong in an approved password manager; Cloudflare cannot reveal them after creation.
+They are Worker secrets and should also be held in an approved password manager. Cloudflare cannot reveal an existing secret value.
+
+### Images and sessions
+
+- Telegram upload sessions are random, short-lived Durable Objects.
+- The browser receives a temporary image from R2, saves it locally, then ACKs it; R2 deletes it on ACK, Finish, or expiry.
+- Only the allowed Telegram account may invoke Gemini.
+- Session tokens and passkey grants are opaque random values; do not log them.
+
+### Windows Hello for pass 2
+
+The prior pass-2 QR requirement was intentionally replaced. Telegram is now needed only once to prove ownership while enrolling a PC's Windows Hello credential.
+
+- The private key stays inside Windows Hello/the platform authenticator.
+- The Worker Durable Object `DEVICE_REGISTRY` stores only public key material, signature counter, transport metadata, a short-lived challenge, and a five-minute authorization grant.
+- Browser `localStorage` holds only the public credential identifier (`rivhit-passkey-credential-id-v1`), not a secret or private key.
+- Later use of **שפר לפי היסטוריה** requests Windows Hello and does not create a Telegram session, QR code, or bot message.
+- A valid Windows Hello grant can be reused for five minutes, allowing several refinements without repeated system prompts. After expiry, Windows Hello is requested again.
+
+The Relying Party is deliberately fixed to `vitaliksh.github.io`; WebAuthn works on the published GitHub Pages origin, not an arbitrary local host.
 
 ## Repository map
 
-- telegram-web/ — browser UI and current local workspace foundation.
-- cloudflare-worker/ — Worker source, Wrangler configuration, setup, and deployment recovery instructions.
-- agent-prompts/gemini-pass-1.md — human-readable current Gemini prompt.
-- 6111_to_Rivhit.xlsx — approved 6111 → Rivhit mapping.
-- docs/ARCHITECTURE.md — older architecture note. It still needs updating to the declaration model below.
-- docs/RIVHIT_IMPORT_SPEC.md — mandatory 186-column TXT contract.
-- docs/HANDOFF.md — this document; it is the current source of product and implementation context.
+- `telegram-web/` — static browser application.
+  - `app.js` — main UI, upload, review table, declaration actions, passkey client flow.
+  - `workspace.js` — File System Access workspace/client/declaration drawer.
+  - `declaration-core.js`, `declaration-store.js` — declaration lifecycle and local persistence.
+  - `history-ranker.js` — text-only local history selection for pass 2.
+  - `rivhit-export.js` — CP1255, mandatory 186-column Rivhit TXT creation and date normalization.
+  - `pdf-report.js` — local PDF report generation.
+- `cloudflare-worker/` — deployable Worker.
+  - `src/index.js` — routes, Telegram transport, Gemini calls, `UploadSession` and `DeviceRegistry` Durable Objects.
+  - `wrangler.toml` — bindings and Durable Object migrations (`v1` UploadSession, `v2` DeviceRegistry).
+  - `DEPLOYMENT.md` — non-secret recovery and production-version record.
+- `docs/RIVHIT_IMPORT_SPEC.md` — the 186-column import contract.
+- `6111_to_Rivhit.xlsx` — approved 6111 → Rivhit mapping.
+- `agent-prompts/gemini-pass-1.md` — readable version of the pass-1 prompt.
 
-The obsolete local Python application, its old UI, duplicate handoff notes, and old OCR prompt were deliberately removed. Do not restore them.
+`docs/ARCHITECTURE.md` is older and is not authoritative where it conflicts with this file. The obsolete Python application and exploratory package flow were deliberately removed; do not restore them.
 
-## What works today
+## Local data model
 
-- Secure Telegram browser sessions, QR connection, temporary image transport, ACK deletion, and Worker-side Gemini pass 1.
-- Review table: editable source fields, classification, recognition controls, image viewer, image ordering, and persisted column widths.
-- Current exploratory PDF-package creation/reopening, with unit tests. This is not the final declaration format.
-- Local root selection through the browser File System Access API:
-
-  ~~~text
-  Rivhit data/
-  ├─ common/
-  │  └─ PKUDA_AI_TEST.TXT
-  └─ clients/
-  ~~~
-
-- A right-side drawer for workspaces:
-  - round hamburger control in the upper-right corner;
-  - flat active-client list read from the selected root's clients/ folder;
-  - immediate activation when an active client is clicked;
-  - create client inside clients/, no second folder picker;
-  - open an old external client folder only as a transition path;
-  - Gemini model and canonical template settings inside the drawer;
-  - canonical template is copied to common/PKUDA_AI_TEST.TXT;
-  - archived-client view, restoration, client activity/type editing, and permanent deletion confirmation;
-  - refresh of filesystem permission and client list when the drawer opens after Ctrl-F5.
-
-Current client management is implemented in telegram-web/workspace.js. The active list is intentionally derived from the filesystem, not IndexedDB. IndexedDB only remembers the local root handle and the common template handle.
-
-## Important current UI behavior
-
-- A data root must be selected once. Its picker hides after successful selection; the selected root name remains visible.
-- A selected active client immediately becomes the current client and closes the drawer.
-- An archived client cannot be made active. It must be restored through its ⋯ menu.
-- Archiving leaves the drawer open and clears that client as active.
-- A compact summary currently shows the selected client's count of closed history records and up to three recent export folder names.
-
-The user has approved this behavior.
-
-## Revised product model: monthly declarations
-
-This supersedes the older target concept of independent timestamp batches.
-
-Each client has exactly one declaration for each calendar month. While the declaration is open:
-
-- Images may arrive through Telegram any number of times.
-- All images and rows accumulate in the same monthly declaration table.
-- PDF and TXT may be generated as many times as needed.
-- Generating an export does not close the declaration and does not append to history.
-
-Closing a declaration is a separate, explicit, dangerous business action:
-
-- it finalizes the latest declaration state;
-- it appends confirmed records to history.jsonl exactly once;
-- it prevents additions and edits;
-- reopening it later requires a separate special approval flow, not a silent edit.
-
-The browser must persist an open declaration locally, including its draft table and source images, so it survives browser restarts. No draft content goes to the cloud.
-
-### Intended local data layout
+The selected data root is structured as follows:
 
 ~~~text
 Rivhit data/
 ├─ common/
-│  └─ PKUDA_AI_TEST.TXT
+│  └─ PKUDA_AI_TEST.TXT                 # canonical 186-column Rivhit template
 └─ clients/
    └─ <client>/
       ├─ workspace.json
-      ├─ history.jsonl
+      ├─ history.jsonl                  # text-only confirmed history
       └─ declarations/
          └─ YYYY-MM/
-            ├─ declaration.json       # draft or closed; metadata and state
-            ├─ draft-table.json       # only while open; persisted table state
-            ├─ images/                # only while open; local source images
+            ├─ declaration.json         # open/closed state and metadata
+            ├─ draft-table.json          # persisted rows
+            ├─ images/                   # local original images
             └─ exports/
                └─ YYYY-MM-DD_HH-mm/
                   ├─ invoices.pdf
@@ -132,75 +106,68 @@ Rivhit data/
                   └─ manifest.json
 ~~~
 
-The exact temporary-draft cleanup rule after closing should be implemented deliberately. The final export and manifest must remain. Do not delete source data until recovery/audit needs have been decided.
+The canonical template must be selected from `PKUDA/_AI/_TEST.TXT` (or another valid 186-column template). The browser copies it to `common/PKUDA_AI_TEST.TXT`.
 
-### Intended drawer behavior
+## Implemented behavior
 
-The current flat list is a working transitional UI. The next declaration UI must be tree-like:
+### Workspaces and declarations
 
-~~~text
-Rivhit data
-└─ Client A
-   ├─ Declaration · 2026-09 · draft
-   ├─ Declaration · 2026-08 · closed
-   └─ Declaration · 2026-07 · closed
-~~~
+- Select a data root once using File System Access API; use Chrome or Edge.
+- Create, archive, restore, edit, and permanently delete clients from the workspace drawer.
+- The `…` client action opens a separate modal, not content inside the drawer.
+- Each client can have monthly declarations (`YYYY-MM`).
+- Selecting a declaration loads its persisted table and local source images.
+- An open declaration accepts more uploads and allows edits and repeated exports.
+- Closing validates the active rows, makes a final export, appends history once using `declarationId`, and locks the declaration.
+- A closed declaration opens as a visible read-only table; it is not blank.
+- The obsolete controls for opening an existing package / loading a saved table were removed from the active workflow.
 
-Clicking a client should expand its declarations rather than immediately activate it. Selection of a declaration should open its table. The current-client activation behavior will need to be revised along with the declaration model; do not merely add visual nesting over the old client-only workflow.
+### Export
 
-## Data and AI boundaries
+- Draft export creates `invoices.pdf`, `import.txt`, and `manifest.json` under the declaration's timestamped `exports/` folder.
+- Export does not require image markers when a row is intentionally eligible without them.
+- TXT is Windows-1255 / CP1255 and has 186 columns.
+- Dates accept `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY`, and `DD.MM.YYYY`; output is normalized to Rivhit format.
+- Rows marked **לא מיועד לייצוא** are skipped by validation and export.
 
-Pass 1 receives an image, business activity, and the approved mapping. It extracts source facts, makes an initial classification decision, and returns source-field boxes.
+### Pass 1 and pass 2
 
-Pass 2 will receive a draft row and only 3–8 relevant closed history records, without the image. It may tune classification, recognised percentages, confidence, review state, and explanation. It must not alter document-source facts:
+- Pass 1 sends a temporary document image, business activity, and the approved mapping to Gemini. It returns source facts, classification, confidence, explanation, and source-value boxes.
+- Pass 2 sends only the current draft row and 1–8 relevant closed-history records, all text-only.
+- The local ranker favours matching supplier VAT ID/supplier, then classification/description. It excludes images, raw monetary values, and other prohibited source data from the history context.
+- Pass 2 may change classification, recognition percentages, confidence, review state, and agent opinion. It must not change date, supplier, supplier ID, document references, allocation number, raw net/VAT/gross amounts, or currency.
+- If no relevant closed history exists, the Improve button remains and the UI reports that fact. No QR or Windows Hello prompt is needed.
+- Improve buttons remain after success or a no-history response, so the user can repeat pass 2 with another model.
 
-- date;
-- supplier;
-- supplier ID;
-- document references;
-- raw net, VAT, and gross amounts;
-- currency.
+## Windows Hello user test
 
-History is guidance, never proof.
+This must be tested manually on the production page because it uses the user's authenticator and Telegram account.
 
-## What is not done
+1. Open https://vitaliksh.github.io/ocr/ and force refresh with `Ctrl+F5`.
+2. Select an **open** declaration, then open **סביבות עבודה**.
+3. Press **הגדרת Windows Hello לשיפור AI**.
+4. Scan the shown QR in Telegram and press Start. The bot should say that Windows Hello setup is required and that no photo should be sent.
+5. Complete the Windows Hello prompt on the PC.
+6. The drawer should now say that Windows Hello is configured for this computer. Finish/close the temporary upload screen if it remains visible.
+7. Select a row that has relevant closed history and press **שפר לפי היסטוריה**.
+8. Windows Hello should appear. There must be no QR and no Telegram message.
+9. After approval, verify that only allowed pass-2 fields can change and the Improve button remains available.
+10. Click Improve again: it may run without another Hello prompt for up to five minutes. After five minutes, Hello should be requested again.
 
-- Monthly declaration storage, draft persistence, recovery, and the declaration tree UI.
-- Repeated draft exports in declarations/YYYY-MM/exports/.
-- Separate close-declaration transaction and safe special reopen flow.
-- Final Rivhit import.txt generation from the mandatory 186-column contract.
-- Atomic finalization: validate closed declaration → create final export/manifest → append history.jsonl exactly once → mark closed.
-- Gemini pass 2 and local relevant-history ranking.
-- Regression coverage for File System Access and declaration lifecycle.
-- Full migration/removal of the exploratory package format.
+If the browser says the credential is no longer registered, the UI clears the local identifier. Enrol Windows Hello again through the workspace drawer. If `navigator.credentials` is unavailable, use current Chrome or Edge on Windows 11.
 
-## Required implementation order
+## Known limitations / next logical work
 
-1. Replace the current client-only selection flow with the monthly declaration model and tree UI.
-   - Add declaration.json, draft-table.json, draft image persistence, and month identity YYYY-MM.
-   - A client can have one open declaration per month.
-   - Opening a client reveals declarations; selecting a declaration opens its persisted table.
-2. Implement repeatable draft export for an open declaration.
-   - Every export is a timestamped directory inside exports/.
-   - It produces invoices.pdf, import.txt, and manifest.json.
-   - It never appends history and never closes the declaration.
-3. Implement explicit close-declaration transaction and protected reopen policy.
-   - Validate active rows.
-   - Make the final export.
-   - Append confirmed rows to history.jsonl exactly once.
-   - Mark declaration closed only after all preceding writes succeed.
-4. Add local history ranking and Gemini pass 2.
-5. Add interrupted-draft recovery, comprehensive regression tests, and only then retire the obsolete exploratory package format.
+1. **Manual end-to-end passkey test is still required.** Compilation and deployment passed, but only Vitalik can validate the real Windows Hello + Telegram interaction.
+2. Add automated Worker tests for registration/authentication routes, counter updates, grant expiry, and rejection of invalid signatures. Current browser unit tests do not exercise WebAuthn hardware.
+3. Add resilient user-facing recovery for a cancelled or expired passkey enrollment (for example a dedicated Cancel button that also ends the temporary session).
+4. Update `docs/ARCHITECTURE.md` to reflect declarations, history and passkeys.
+5. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
+6. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
 
-## Existing exploratory package warning
+## Validation commands
 
-The old buttons and code paths named PDF package / package reopening create a prototype containing document.pdf, source.txt, table.json, and copied images. It is not the final declaration format and must not be described as complete Compile support.
-
-When replacing it, preserve useful code only where it fits the new declaration model. In particular, do not keep writing final data into ad hoc batches/ directories.
-
-## Validation and deployment
-
-Run after browser changes:
+After browser changes:
 
 ~~~powershell
 Set-Location D:\projects\ocr\telegram-web
@@ -208,26 +175,34 @@ npm test
 npm run check
 ~~~
 
-Current automated test count: 10.
+Expected automated browser tests currently: **20 passing**.
 
-Run after Worker changes:
+After Worker changes:
 
 ~~~powershell
 Set-Location D:\projects\ocr\cloudflare-worker
 npm run check
 ~~~
 
-GitHub Pages publishes browser changes after a push to main. Worker code is not automatically deployed. For a reviewed Worker release:
+This runs `wrangler deploy --dry-run` and must list both Durable Objects. Then manually test the changed production flow.
+
+## Deployment procedure
+
+Browser-only changes: commit and push `main`; wait for GitHub Pages, then request the page with a cache-busting query parameter to confirm the deployed asset contains the change.
+
+Worker changes:
 
 ~~~powershell
 Set-Location D:\projects\ocr\cloudflare-worker
-node node_modules\wrangler\bin\wrangler.js deploy
+npx wrangler deploy
 ~~~
 
-After every Worker deployment:
+After successful Worker deployment:
 
-1. Update cloudflare-worker/DEPLOYMENT.md.
-2. Create a new annotated cloudflare-production-YYYY-MM-DD tag.
-3. Push the tag.
+1. Record the returned Worker version in `cloudflare-worker/DEPLOYMENT.md`.
+2. Run browser tests and Worker dry-run.
+3. Commit the source and documentation.
+4. Create and push a new annotated `cloudflare-production-YYYY-MM-DD-N` tag.
+5. Confirm the browser and Worker manual flow on production.
 
-Use cloudflare-worker/DEPLOYMENT.md for the non-secret recovery procedure.
+Do not run destructive Git commands (`reset --hard`, broad checkout, etc.) in a dirty worktree. Preserve unrelated user changes.
