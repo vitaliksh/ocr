@@ -9,9 +9,9 @@ redeploy the Cloudflare component. It is safe to keep in Git.
 | --- | --- |
 | Worker name | `rivhit-telegram-transfer` |
 | Public URL | `https://rivhit-telegram-transfer.vitaliksh.workers.dev` |
-| Cloudflare version ID | `a4055113-a263-4c8a-b888-ab94fd9a55cc` |
-| Source commit | `7fad00ae72fec5e66df6ab582dcd857a0ee5f1c3` |
-| Git tag | `cloudflare-production-2026-09-12` |
+| Cloudflare version ID | `39ab0bee-a7ae-43a6-882f-bf67b7589934` |
+| Source commit | `ecace674c49576eb6afab2a4b70ffff3f9bbdd4e` |
+| Git tag | `cloudflare-production-2026-09-12-2` |
 | Durable Object | `UPLOAD_SESSION` / `UploadSession` |
 | R2 bucket | `rivhit-temporary-photos` |
 
@@ -45,7 +45,7 @@ node node_modules\wrangler\bin\wrangler.js deployments list
 To inspect the exact production source locally, use:
 
 ```powershell
-git switch --detach cloudflare-production-2026-09-12
+git switch --detach cloudflare-production-2026-09-12-2
 ```
 
 Do not deploy from that detached checkout. Return to `main`, review the
