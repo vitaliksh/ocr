@@ -143,6 +143,8 @@ Select a valid 186-column Rivhit TXT template. The browser copies the chosen fil
 
 Vitalik completed this flow on the production page on 12 September 2026 in Edge/Windows 11. Telegram connected successfully, Microsoft Password Manager created and saved the passkey, and pass-2 prompted for Hello once after a page refresh, then reused the in-memory grant for further refinements.
 
+After Worker release `cloudflare-production-2026-09-12-6`, Vitalik repeated the pass-2 production check: Edge accepted the Windows Hello PIN, reused the grant for the expected five-minute period, prompted once again after six minutes, prompted again after a page refresh, and preserved every pass-2-protected source field. The passkey authorization flow is therefore manually accepted alongside its automated Worker tests.
+
 1. Open https://vitaliksh.github.io/ocr/ and force refresh with `Ctrl+F5`.
 2. Select a data root, then open **סביבות עבודה**.
 3. Press **חיבור המחשב לשיפור AI**. A client or declaration is not required.
