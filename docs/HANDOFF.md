@@ -2,7 +2,7 @@
 
 **Updated:** 12 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Windows Hello functional release:** `cloudflare-production-2026-09-12-5` — Fix Durable Object passkey action routing
+**Windows Hello functional release:** `cloudflare-production-2026-09-12-6` — Add passkey Worker tests and controlled invalid-signature rejection
 **Working tree:** clean after the release.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
@@ -27,7 +27,7 @@ Never add cloud persistence for client workspaces, declarations, source images, 
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-12-5` | Worker version `efc95cbc-b4b2-4d1f-a707-228fae0c18ca` |
+| Production Worker release | tag `cloudflare-production-2026-09-12-6` | Worker version `67aa43c0-a19c-468a-85e5-ca266234773f` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -80,7 +80,7 @@ The Relying Party is deliberately fixed to `vitaliksh.github.io`; WebAuthn works
 - `6111_to_Rivhit.xlsx` — approved 6111 → Rivhit mapping.
 - `agent-prompts/gemini-pass-1.md` — readable version of the pass-1 prompt.
 
-`docs/ARCHITECTURE.md` is older and is not authoritative where it conflicts with this file. The obsolete Python application and exploratory package flow were deliberately removed; do not restore them.
+`docs/ARCHITECTURE.md` describes the same shipped architecture. This handoff remains the release and operational record. The obsolete Python application and exploratory package flow were deliberately removed; do not restore them.
 
 ## Local data model
 
@@ -161,17 +161,14 @@ If the browser says the credential is no longer registered, the UI clears the lo
 ## Known limitations / next logical work
 
 1. Keep the automated Worker passkey tests current: they cover registration/authentication state, counter updates, grant expiry, and invalid signatures. A real platform authenticator remains a short production release check.
-2. Update `docs/ARCHITECTURE.md` to reflect declarations, history and passkeys.
-3. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
-4. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
+2. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
+3. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
 
 ## Proposed next steps
 
-1. **Lock down the tested security flow.** Add Worker-level tests for the passkey registration, authentication, expired-grant and invalid-signature cases. Keep the current manual production check as a small release checklist because a real platform authenticator cannot be covered by unit tests.
-2. **Make device recovery explicit.** Add a compact management view for connected computers: show non-secret metadata (creation date, authenticator type and last successful use where available), let Vitalik revoke a lost/retired computer after a fresh Windows Hello approval, and make “connect this computer again” clearly create a replacement credential. Do not expose credential IDs, tokens or keys in the UI.
-3. **Document the shipped architecture.** Bring `docs/ARCHITECTURE.md` in line with the local declarations/history model, temporary R2 delivery, Gemini boundaries and one-time Telegram-to-passkey enrolment. Treat `HANDOFF.md` as authoritative until that is complete.
-4. **Decide closed-declaration recovery before building it.** If reopening is needed, require an explicit reason, create an immutable audit entry and preserve the former final export. Never silently make a closed declaration editable.
-5. **Collect real bookkeeping feedback before larger UI work.** Prioritise only observed friction in client selection, monthly declaration switching, review and export; retain the local-first and Hebrew UI constraints.
+1. **Make device recovery explicit.** Add a compact management view for connected computers: show non-secret metadata (creation date, authenticator type and last successful use where available), let Vitalik revoke a lost/retired computer after a fresh Windows Hello approval, and make “connect this computer again” clearly create a replacement credential. Do not expose credential IDs, tokens or keys in the UI.
+2. **Decide closed-declaration recovery before building it.** If reopening is needed, require an explicit reason, create an immutable audit entry and preserve the former final export. Never silently make a closed declaration editable.
+3. **Collect real bookkeeping feedback before larger UI work.** Prioritise only observed friction in client selection, monthly declaration switching, review and export; retain the local-first and Hebrew UI constraints.
 
 ## Validation commands
 
