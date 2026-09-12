@@ -129,7 +129,7 @@ async function webhook(request, env) {
     } else if (startToken) {
       const response = await sessionStub(env, startToken).fetch("https://session/telegram/connect", { method: "POST", body: JSON.stringify({ userId, chatId }) });
       const result = await response.json();
-      await telegramApi(env, "sendMessage", { chat_id: chatId, text: result.ok ? "Connected. Send document photos now." : "No active upload session. Start a new upload session from the PC." });
+      await telegramApi(env, "sendMessage", { chat_id: chatId, text: result.ok ? result.purpose === "history-refinement" ? "Connected. Your PC is improving an existing draft from local history; do not send a photo." : "Connected. Send document photos now." : "No active upload session. Start a new upload session from the PC." });
     } else if (Array.isArray(message.photo) && message.photo.length) {
       // The session is discovered from the temporary Telegram-user binding, not a client-supplied id.
       const list = await env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(`telegram-user:${userId}`)).fetch("https://session/telegram/lookup", { method: "POST" });
@@ -161,9 +161,10 @@ export default {
     const rejected = clientRequest(request, env);
     if (rejected) return rejected;
     if (url.pathname === "/v1/sessions" && request.method === "POST") {
+      let purpose = "upload"; try { purpose = (await request.json())?.purpose === "history-refinement" ? "history-refinement" : "upload"; } catch {}
       const sessionId = randomToken();
       const clientToken = randomToken();
-      const response = await sessionStub(env, sessionId).fetch("https://session/create", { method: "POST", body: JSON.stringify({ sessionId, clientToken, now: Date.now() }) });
+      const response = await sessionStub(env, sessionId).fetch("https://session/create", { method: "POST", body: JSON.stringify({ sessionId, clientToken, purpose, now: Date.now() }) });
       if (!response.ok) return response;
       return json({ sessionId, clientToken, telegramUrl: `https://t.me/${env.BOT_USERNAME}?start=${sessionId}`, expiresAt: Date.now() + SESSION_TTL_MS }, 201, cors(request, env));
     }
@@ -232,9 +233,9 @@ export class UploadSession {
     });
     return this.download(session, match[1]);
   }
-  async create({ sessionId, clientToken, now }) {
+  async create({ sessionId, clientToken, purpose = "upload", now }) {
     if (await this.state.storage.get("session")) return json({ error: "Session already exists." }, 409);
-    const session = { sessionId, clientToken, createdAt: now, expiresAt: now + SESSION_TTL_MS, maxExpiresAt: now + MAX_SESSION_MS, telegramUserId: null, telegramChatId: null, documents: [] };
+    const session = { sessionId, clientToken, purpose, createdAt: now, expiresAt: now + SESSION_TTL_MS, maxExpiresAt: now + MAX_SESSION_MS, telegramUserId: null, telegramChatId: null, documents: [] };
     await this.state.storage.put("session", session);
     await this.state.storage.setAlarm(session.expiresAt);
     return json({ ok: true }, 201);
@@ -253,7 +254,7 @@ export class UploadSession {
     const userStub = this.env.UPLOAD_SESSION.get(this.env.UPLOAD_SESSION.idFromName(`telegram-user:${userId}`));
     await userStub.fetch("https://session/bind", { method: "POST", body: session.sessionId });
     this.broadcast({ type: "connected" });
-    return json({ ok: true });
+    return json({ ok: true, purpose: session.purpose });
   }
   async receivePhoto({ userId, updateId, photos }) {
     const session = await this.activeSession();

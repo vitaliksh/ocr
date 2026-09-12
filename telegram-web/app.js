@@ -7,7 +7,7 @@ import { relevantHistory } from "./history-ranker.js";
 
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, "");
 const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), closeDeclarationButton = document.querySelector("#close-declaration"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements"), workspacesDrawer = document.querySelector("#workspaces-drawer"), workspacesBackdrop = document.querySelector("#workspaces-backdrop"), openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"), closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer");
-let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, streamAbort = null, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null;
+let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, streamAbort = null, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null, pendingHistoryRow = null;
 
 function apiUrl(path) { return `${api}${path}`; }
 function showError(message) { status.textContent = message; }
@@ -65,11 +65,11 @@ function updateProcessingControls() { stop.hidden = !pendingRecognitions; stop.d
 function updateImageTransform() { dialogImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`; }
 function openPhoto(imageUrl, imageIndex) { dialogImage.src = imageUrl; photoTitle.textContent = `תמונה #${imageIndex}`; zoom = 1; panX = 0; panY = 0; updateImageTransform(); photoWindow.hidden = false; if (!photoWindow.style.left) { photoWindow.style.left = `${Math.max(20, (window.innerWidth - photoWindow.offsetWidth) / 2)}px`; photoWindow.style.top = "60px"; } }
 
-async function startUpload() {
+async function startUpload(purpose = "upload") {
   if (!currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור תחילה הצהרה פתוחה.");
   if (!api) return showError("הפרסום עדיין לא הוגדר.");
   start.disabled = true; status.textContent = "";
-  try { const response = await fetch(apiUrl("/v1/sessions"), { method: "POST" }), data = await response.json(); if (!response.ok) throw new Error(data.error || "לא ניתן היה ליצור חיבור העלאה."); session = data; inactive.hidden = true; active.hidden = false; telegramLink.href = data.telegramUrl; new QRious({ element: document.querySelector("#qr"), value: data.telegramUrl, size: 260, level: "M" }); openEvents(); }
+  try { const response = await fetch(apiUrl("/v1/sessions"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ purpose }) }), data = await response.json(); if (!response.ok) throw new Error(data.error || "לא ניתן היה ליצור חיבור העלאה."); session = data; inactive.hidden = true; active.hidden = false; telegramLink.href = data.telegramUrl; new QRious({ element: document.querySelector("#qr"), value: data.telegramUrl, size: 260, level: "M" }); openEvents(); }
   catch (error) { showError(error.message); updateStartAvailability(); }
 }
 start.addEventListener("click", () => { if (tableLocked) { uploadModeDialog.showModal(); return; } startUpload(); });
@@ -98,7 +98,7 @@ function consumeEvent(message) {
   const type = message.match(/^event: (.+)$/m)?.[1], text = message.match(/^data: (.+)$/m)?.[1]; if (!type || !text) return;
   const data = JSON.parse(text);
   if (type === "ready") { connection.textContent = data.connected ? "Telegram מחובר. אפשר לשלוח תמונות." : "ממתין לחיבור Telegram…"; data.documents.forEach((item) => receiveDocument(item.documentId, item.receivedAt)); }
-  if (type === "connected") connection.textContent = "Telegram מחובר. אפשר לשלוח תמונות.";
+  if (type === "connected") { connection.textContent = pendingHistoryRow ? "Telegram מחובר. משפר לפי היסטוריה…" : "Telegram מחובר. אפשר לשלוח תמונות."; if (pendingHistoryRow) { const row = pendingHistoryRow; pendingHistoryRow = null; refineWithHistory(row); } }
   if (type === "document") receiveDocument(data.documentId, data.receivedAt);
   if (type === "finished") reset();
 }
@@ -146,14 +146,15 @@ async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex
 function addRerunButton(row, label = "עבד מחדש", onlyThis = true) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.(onlyThis)); row.cells[16].append(document.createElement("br"), button); }
 async function refineWithHistory(row) {
   if (!committedWorkspace || !currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור הצהרה פתוחה לפני שיפור לפי היסטוריה.");
-  if (!session) { status.textContent = "יש לחבר את Telegram באמצעות קוד ה‑QR, ואז ללחוץ שוב על «שפר לפי היסטוריה». אין צורך לשלוח תמונה חדשה."; return startUpload(); }
+  const history = relevantHistory(rowSnapshot(row), await readClosedHistory(committedWorkspace.directory));
+  if (!history.length) { addHistoryButton(row); return showError("אין היסטוריה סגורה ורלוונטית לשורה זו."); }
+  if (!session) { pendingHistoryRow = row; status.textContent = "יש לחבר את Telegram באמצעות קוד ה‑QR. לאחר החיבור השיפור יבוצע אוטומטית; אין צורך לשלוח תמונה."; return startUpload("history-refinement"); }
   try {
-    const history = relevantHistory(rowSnapshot(row), await readClosedHistory(committedWorkspace.directory)); if (!history.length) return showError("אין היסטוריה סגורה ורלוונטית לשורה זו.");
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/refine-history`), { method: "POST", headers: { "Content-Type": "application/json", "X-Upload-Token": session.clientToken, "X-Gemini-Model": model.value }, body: JSON.stringify({ draft: rowSnapshot(row), history }) }), result = await response.json(); if (!response.ok) throw new Error(result.error || "השיפור נכשל.");
     if (result.rivhit_code) row.cells[2].querySelector("select").value = result.rivhit_code; if (result.vat_recognized_percent !== null) row.cells[11].querySelector("select").value = String(result.vat_recognized_percent); if (result.recognized_percent !== null) row.cells[12].querySelector("select").value = String(result.recognized_percent); applyBusinessRule(row); row.cells[14].textContent = result.agent_opinion; row.cells[15].textContent = String(result.confidence) + "%"; setStatus(row, result.review_state === "ready" ? "מוכן לייצוא" : "נדרש עיון", result.review_state); queueDraftSave();
   } catch (error) { showError("לא ניתן לשפר לפי היסטוריה: " + error.message); }
 }
-function addHistoryButton(row) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = "שפר לפי היסטוריה"; button.addEventListener("click", () => refineWithHistory(row)); row.cells[16].append(document.createElement("br"), button); }
+function addHistoryButton(row) { if (row.cells[16].querySelector(".history-refine")) return; const button = document.createElement("button"); button.type = "button"; button.className = "retry history-refine"; button.textContent = "שפר לפי היסטוריה"; button.addEventListener("click", () => refineWithHistory(row)); row.cells[16].append(document.createElement("br"), button); }
 function applyRecord(row, record) {
   row.dataset.rawNet = String(record.net_amount || 0); row.dataset.rawVat = String(record.vat_amount || 0); row.highlights = Array.isArray(record.highlight_regions) ? record.highlight_regions : [];
   const values = [record.date, null, record.purpose, record.supplier_name, record.supplier_vat_id, record.transaction_number || record.invoice_number, record.allocation_number, null, record.net_amount, record.vat_amount];
