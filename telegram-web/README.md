@@ -15,6 +15,11 @@ package format as the final workspace contract; see
 No image, PDF, TXT or client history is sent from this client to GitHub Pages.
 The Worker receives images only for temporary delivery and Gemini processing.
 
+For history refinement, connect each PC once from **חיבור המחשב לשיפור AI**:
+scan its temporary Telegram QR, then approve Windows Hello. Later refinements
+use Windows Hello only; they never open Telegram or expose a Gemini key in the
+browser.
+
 ## Local check
 
 From the repository root:

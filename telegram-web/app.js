@@ -6,14 +6,14 @@ import { buildRivhitImport, draftExportManifest } from "./rivhit-export.js";
 import { relevantHistory } from "./history-ranker.js";
 
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, "");
-const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), closeDeclarationButton = document.querySelector("#close-declaration"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements"), workspacesDrawer = document.querySelector("#workspaces-drawer"), workspacesBackdrop = document.querySelector("#workspaces-backdrop"), openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"), closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer"), registerPasskey = document.querySelector("#register-passkey"), passkeySummary = document.querySelector("#passkey-summary");
-let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, streamAbort = null, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null, pendingHistoryRow = null, pendingPasskeyEnrollment = false, passkeyGrant = null;
+const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), closeDeclarationButton = document.querySelector("#close-declaration"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements"), workspacesDrawer = document.querySelector("#workspaces-drawer"), workspacesBackdrop = document.querySelector("#workspaces-backdrop"), openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"), closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer"), registerPasskey = document.querySelector("#register-passkey"), passkeySummary = document.querySelector("#passkey-summary"), passkeyEnrollmentDialog = document.querySelector("#passkey-enrollment-dialog"), passkeyEnrollmentStatus = document.querySelector("#passkey-enrollment-status"), passkeyTelegramLink = document.querySelector("#passkey-telegram-link"), continuePasskeyEnrollment = document.querySelector("#continue-passkey-enrollment"), cancelPasskeyEnrollment = document.querySelector("#cancel-passkey-enrollment"), cancelPasskeyEnrollmentAction = document.querySelector("#cancel-passkey-enrollment-action");
+let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, streamAbort = null, enrollmentSession = null, enrollmentAbort = null, enrollmentInProgress = false, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null, passkeyGrant = null;
 
 function apiUrl(path) { return `${api}${path}`; }
 function showError(message) { status.textContent = message; }
 const passkeyStorageKey = "rivhit-passkey-credential-id-v1";
 function passkeyCredentialId() { return localStorage.getItem(passkeyStorageKey) || ""; }
-function updatePasskeySummary() { const configured = Boolean(passkeyCredentialId()); passkeySummary.textContent = configured ? "Windows Hello מוגדר במחשב זה. שיפור AI יבקש אישור Windows Hello בלבד." : "לא הוגדר Windows Hello. נדרש חיבור Telegram חד־פעמי להגדרה."; registerPasskey.textContent = configured ? "הגדרה מחדש של Windows Hello" : "הגדרת Windows Hello לשיפור AI"; }
+function updatePasskeySummary() { const configured = Boolean(passkeyCredentialId()); passkeySummary.textContent = configured ? "המחשב מחובר. שיפור AI יבקש אישור Windows Hello בלבד, ללא Telegram." : "המחשב טרם חובר. נדרש חיבור Telegram חד־פעמי בלבד."; registerPasskey.textContent = configured ? "חיבור מחדש של מחשב זה" : "חיבור המחשב לשיפור AI"; }
 function fromBase64Url(value) { const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - value.length % 4) % 4), binary = atob(padded), bytes = new Uint8Array(binary.length); for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index); return bytes.buffer; }
 function publicKeyOptions(options, kind) { const output = structuredClone(options); output.challenge = fromBase64Url(output.challenge); if (kind === "create") { output.user.id = fromBase64Url(output.user.id); for (const credential of output.excludeCredentials || []) credential.id = fromBase64Url(credential.id); } else for (const credential of output.allowCredentials || []) credential.id = fromBase64Url(credential.id); return output; }
 function credentialJson(credential) { if (credential.toJSON) return credential.toJSON(); const response = credential.response, encode = (value) => btoa(String.fromCharCode(...new Uint8Array(value))).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", ""); return { id: credential.id, rawId: encode(credential.rawId), type: credential.type, response: { clientDataJSON: encode(response.clientDataJSON), ...(response.attestationObject ? { attestationObject: encode(response.attestationObject) } : { authenticatorData: encode(response.authenticatorData), signature: encode(response.signature), userHandle: response.userHandle ? encode(response.userHandle) : undefined }) }, clientExtensionResults: credential.getClientExtensionResults(), authenticatorAttachment: credential.authenticatorAttachment || undefined };
@@ -44,10 +44,17 @@ updateStartAvailability();
 updatePasskeySummary();
 registerPasskey.addEventListener("click", async () => {
   if (!window.PublicKeyCredential || !navigator.credentials?.create) return showError("דפדפן זה אינו תומך ב‑Windows Hello.");
-  if (!currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור הצהרה פתוחה לפני הגדרת Windows Hello.");
-  pendingPasskeyEnrollment = true;
-  status.textContent = "יש לחבר Telegram פעם אחת באמצעות קוד ה‑QR. לאחר מכן יופיע אישור Windows Hello במחשב.";
-  await startUpload("passkey-enrollment");
+  if (!dataRoot) return showError("יש לבחור תחילה תיקיית נתונים בסביבות העבודה.");
+  if (!api) return showError("הפרסום עדיין לא הוגדר.");
+  if (enrollmentSession) return;
+  registerPasskey.disabled = true;
+  try {
+    const response = await fetch(apiUrl("/v1/sessions"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ purpose: "passkey-enrollment" }) }), data = await response.json();
+    if (!response.ok) throw new Error(data.error || "לא ניתן להתחיל חיבור מחשב.");
+    enrollmentSession = data; passkeyEnrollmentStatus.textContent = "סרוק את הקוד ב‑Telegram כדי לאשר את חיבור המחשב."; passkeyTelegramLink.href = data.telegramUrl; continuePasskeyEnrollment.disabled = true;
+    new QRious({ element: document.querySelector("#passkey-qr"), value: data.telegramUrl, size: 260, level: "M" });
+    passkeyEnrollmentDialog.showModal(); openEnrollmentEvents(data);
+  } catch (error) { showError(error.message); registerPasskey.disabled = false; }
 });
 function setWorkspacesDrawer(open) {
   if (!open) { workspace = committedWorkspace; workspaceControls?.clearPending(); if (workspace) { businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind; } }
@@ -61,6 +68,18 @@ closeWorkspacesDrawer.addEventListener("click", () => setWorkspacesDrawer(false)
 workspacesBackdrop.addEventListener("click", () => setWorkspacesDrawer(false));
 window.addEventListener("keydown", (event) => { if (event.key === "Escape" && workspacesDrawer.classList.contains("is-open")) { event.preventDefault(); setWorkspacesDrawer(false); } });
 function reset() { streamAbort?.abort(); streamAbort = null; session = null; received = new Set(); active.hidden = true; inactive.hidden = false; updateStartAvailability(); }
+async function finishEnrollmentSession() {
+  const closingSession = enrollmentSession;
+  enrollmentAbort?.abort(); enrollmentAbort = null; enrollmentSession = null;
+  if (!closingSession) return;
+  try { await fetch(apiUrl(`/v1/sessions/${closingSession.sessionId}/finish`), { method: "POST", headers: { "X-Upload-Token": closingSession.clientToken } }); } catch {}
+}
+async function cancelEnrollment() {
+  await finishEnrollmentSession();
+  enrollmentInProgress = false;
+  passkeyEnrollmentDialog.close(); registerPasskey.disabled = false;
+  status.textContent = "חיבור המחשב בוטל. אפשר להתחיל שוב בכל עת.";
+}
 async function saveCurrentDraft() { if (!currentDeclaration || currentDeclaration.status !== "open" || !currentDeclarationDirectory) return; clearTimeout(draftSaveTimer); try { await saveDraft(currentDeclarationDirectory, currentDeclaration, [...records.querySelectorAll("tr[data-document-id]")].map(rowSnapshot)); } catch (error) { showError("לא ניתן לשמור טיוטה מקומית: " + error.message); throw error; } }
 function queueDraftSave() { if (!currentDeclaration || currentDeclaration.status !== "open" || !currentDeclarationDirectory) return; clearTimeout(draftSaveTimer); draftSaveTimer = setTimeout(() => { saveCurrentDraft().catch(() => {}); }, 250); }
 function receivedAtText(value) { const date = new Date(value); return Number.isNaN(date.valueOf()) ? String(value || "—") : new Intl.DateTimeFormat("he-IL", { dateStyle: "short", timeStyle: "short" }).format(date); }
@@ -113,9 +132,23 @@ function consumeEvent(message) {
   const type = message.match(/^event: (.+)$/m)?.[1], text = message.match(/^data: (.+)$/m)?.[1]; if (!type || !text) return;
   const data = JSON.parse(text);
   if (type === "ready") { connection.textContent = data.connected ? "Telegram מחובר. אפשר לשלוח תמונות." : "ממתין לחיבור Telegram…"; data.documents.forEach((item) => receiveDocument(item.documentId, item.receivedAt)); }
-  if (type === "connected") { connection.textContent = pendingPasskeyEnrollment ? "Telegram מחובר. מגדיר Windows Hello…" : pendingHistoryRow ? "Telegram מחובר. משפר לפי היסטוריה…" : "Telegram מחובר. אפשר לשלוח תמונות."; if (pendingPasskeyEnrollment) { pendingPasskeyEnrollment = false; enrollPasskey(); } else if (pendingHistoryRow) { const row = pendingHistoryRow; pendingHistoryRow = null; refineWithHistory(row); } }
+  if (type === "connected") connection.textContent = "Telegram מחובר. אפשר לשלוח תמונות.";
   if (type === "document") receiveDocument(data.documentId, data.receivedAt);
   if (type === "finished") reset();
+}
+async function openEnrollmentEvents(targetSession) {
+  enrollmentAbort?.abort(); enrollmentAbort = new AbortController();
+  try {
+    const response = await fetch(apiUrl(`/v1/sessions/${targetSession.sessionId}/events`), { headers: { "X-Upload-Token": targetSession.clientToken }, signal: enrollmentAbort.signal });
+    if (!response.ok || !response.body) throw new Error("לא ניתן להמתין לחיבור Telegram.");
+    const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = "";
+    while (enrollmentSession === targetSession) { const { value, done } = await reader.read(); if (done) break; buffer += decoder.decode(value, { stream: true }); const messages = buffer.split("\n\n"); buffer = messages.pop() || ""; messages.forEach((message) => consumeEnrollmentEvent(message, targetSession)); }
+  } catch (error) { if (!enrollmentAbort?.signal.aborted && enrollmentSession === targetSession) passkeyEnrollmentStatus.textContent = "החיבור נותק. אפשר לבטל ולנסות שוב."; }
+}
+function consumeEnrollmentEvent(message, targetSession) {
+  const type = message.match(/^event: (.+)$/m)?.[1], text = message.match(/^data: (.+)$/m)?.[1]; if (!type || !text || enrollmentSession !== targetSession) return;
+  const data = JSON.parse(text);
+  if ((type === "ready" && data.connected) || type === "connected") completePasskeyEnrollment(targetSession);
 }
 async function receiveDocument(documentId, receivedAt) {
   if (!session || received.has(documentId)) return; received.add(documentId); const imageIndex = ++imageCount;
@@ -159,21 +192,26 @@ async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex
   } finally { if (activeRecognitionController === controller) activeRecognitionController = null; }
 }
 function addRerunButton(row, label = "עבד מחדש", onlyThis = true) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.(onlyThis)); row.cells[16].append(document.createElement("br"), button); }
-async function enrollPasskey() {
-  if (!session) return;
-  registerPasskey.disabled = true;
+async function completePasskeyEnrollment(targetSession = enrollmentSession) {
+  if (!targetSession || enrollmentSession !== targetSession || enrollmentInProgress) return;
+  enrollmentInProgress = true;
+  continuePasskeyEnrollment.disabled = true;
+  passkeyEnrollmentStatus.textContent = "Telegram מחובר. אשר ב‑Windows Hello במחשב.";
   try {
-    const optionsResponse = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/passkeys/registration-options`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }), options = await optionsResponse.json();
+    const optionsResponse = await fetch(apiUrl(`/v1/sessions/${targetSession.sessionId}/passkeys/registration-options`), { method: "POST", headers: { "X-Upload-Token": targetSession.clientToken } }), options = await optionsResponse.json();
     if (!optionsResponse.ok) throw new Error(options.error || "לא ניתן להתחיל הגדרת Windows Hello.");
     const credential = await navigator.credentials.create({ publicKey: publicKeyOptions(options, "create") });
     if (!credential) throw new Error("Windows Hello לא הושלם.");
-    const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/passkeys/register`), { method: "POST", headers: { "Content-Type": "application/json", "X-Upload-Token": session.clientToken }, body: JSON.stringify(credentialJson(credential)) }), result = await response.json();
+    const response = await fetch(apiUrl(`/v1/sessions/${targetSession.sessionId}/passkeys/register`), { method: "POST", headers: { "Content-Type": "application/json", "X-Upload-Token": targetSession.clientToken }, body: JSON.stringify(credentialJson(credential)) }), result = await response.json();
     if (!response.ok) throw new Error(result.error || "לא ניתן לשמור את Windows Hello.");
-    localStorage.setItem(passkeyStorageKey, result.credentialId); updatePasskeySummary(); status.textContent = "Windows Hello הוגדר. שיפור AI לא ידרוש Telegram במחשב זה.";
-    await fetch(apiUrl(`/v1/sessions/${session.sessionId}/finish`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }); reset();
-  } catch (error) { showError("לא ניתן להגדיר Windows Hello: " + error.message); }
-  finally { registerPasskey.disabled = false; }
+    localStorage.setItem(passkeyStorageKey, result.credentialId); updatePasskeySummary(); await finishEnrollmentSession(); passkeyEnrollmentDialog.close(); status.textContent = "המחשב חובר. שיפור AI יבקש Windows Hello בלבד, ללא Telegram.";
+  } catch (error) { passkeyEnrollmentStatus.textContent = "Windows Hello לא הושלם. אפשר לנסות שוב או לבטל."; showError("לא ניתן לחבר את המחשב: " + error.message); continuePasskeyEnrollment.disabled = false; }
+  finally { enrollmentInProgress = false; if (!enrollmentSession) registerPasskey.disabled = false; }
 }
+continuePasskeyEnrollment.addEventListener("click", () => completePasskeyEnrollment());
+passkeyEnrollmentDialog.addEventListener("cancel", (event) => { event.preventDefault(); cancelEnrollment(); });
+cancelPasskeyEnrollment.addEventListener("click", (event) => { event.preventDefault(); cancelEnrollment(); });
+cancelPasskeyEnrollmentAction.addEventListener("click", (event) => { event.preventDefault(); cancelEnrollment(); });
 async function authorizePasskey() {
   const credentialId = passkeyCredentialId();
   if (!credentialId) throw new Error("יש להגדיר תחילה Windows Hello בסביבות העבודה. Telegram נדרש שם פעם אחת בלבד.");

@@ -140,7 +140,7 @@ async function webhook(request, env) {
     } else if (startToken) {
       const response = await sessionStub(env, startToken).fetch("https://session/telegram/connect", { method: "POST", body: JSON.stringify({ userId, chatId }) });
       const result = await response.json();
-      const messageText = result.purpose === "passkey-enrollment" ? "Connected. Complete Windows Hello on your PC; do not send a photo." : result.purpose === "history-refinement" ? "Connected. Your PC is improving an existing draft from local history; do not send a photo." : "Connected. Send document photos now.";
+      const messageText = result.purpose === "passkey-enrollment" ? "Connected. Complete Windows Hello on your PC; do not send a photo." : "Connected. Send document photos now.";
       await telegramApi(env, "sendMessage", { chat_id: chatId, text: result.ok ? messageText : "No active upload session. Start a new upload session from the PC." });
     } else if (Array.isArray(message.photo) && message.photo.length) {
       // The session is discovered from the temporary Telegram-user binding, not a client-supplied id.
@@ -173,7 +173,7 @@ export default {
     const rejected = clientRequest(request, env);
     if (rejected) return rejected;
     if (url.pathname === "/v1/sessions" && request.method === "POST") {
-      let purpose = "upload"; try { const requested = (await request.json())?.purpose; purpose = ["history-refinement", "passkey-enrollment"].includes(requested) ? requested : "upload"; } catch {}
+      let purpose = "upload"; try { const requested = (await request.json())?.purpose; purpose = requested === "passkey-enrollment" ? requested : "upload"; } catch {}
       const sessionId = randomToken();
       const clientToken = randomToken();
       const response = await sessionStub(env, sessionId).fetch("https://session/create", { method: "POST", body: JSON.stringify({ sessionId, clientToken, purpose, now: Date.now() }) });
@@ -186,14 +186,6 @@ export default {
       const authorization = await sessionStub(env, recognizeMatch[1]).fetch("https://session/client/ai-authorize", { method: "POST", headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" } });
       if (!authorization.ok) { const headers = new Headers(authorization.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(authorization.body, { status: authorization.status, headers }); }
       const result = await recognizeWithGemini(request, env), headers = new Headers(result.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(result.body, { status: result.status, headers });
-    }
-    const refineMatch = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/refine-history$/);
-    if (refineMatch) {
-      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
-      const passkey = await passkeyAuthorized(request, env);
-      const authorization = passkey || await sessionStub(env, refineMatch[1]).fetch("https://session/client/ai-authorize", { method: "POST", headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" } });
-      if (!authorization.ok) { const headers = new Headers(authorization.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(authorization.body, { status: authorization.status, headers }); }
-      const result = await refineWithHistory(request, env), headers = new Headers(result.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(result.body, { status: result.status, headers });
     }
     if (url.pathname === "/v1/passkeys/refine-history") {
       if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));

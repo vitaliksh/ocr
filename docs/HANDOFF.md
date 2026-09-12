@@ -2,7 +2,7 @@
 
 **Updated:** 12 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Windows Hello functional release:** `51f268b` — Add Windows Hello auth for history refinement
+**Windows Hello functional release:** `cloudflare-production-2026-09-12-4` — Simplify one-time Windows Hello computer connection
 **Working tree:** clean after the release.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
@@ -27,7 +27,7 @@ Never add cloud persistence for client workspaces, declarations, source images, 
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-12-3` | Worker version `9a7f31b5-1e7f-4042-95bc-c6082b22bdf5` |
+| Production Worker release | tag `cloudflare-production-2026-09-12-4` | Worker version `ebd19b78-a590-4c63-a128-7129108ca0be` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -53,12 +53,12 @@ They are Worker secrets and should also be held in an approved password manager.
 
 ### Windows Hello for pass 2
 
-The prior pass-2 QR requirement was intentionally replaced. Telegram is now needed only once to prove ownership while enrolling a PC's Windows Hello credential.
+The prior pass-2 QR requirement was intentionally replaced. Telegram is now needed only once to prove ownership while enrolling a PC's Windows Hello credential. This is a separate **חיבור המחשב לשיפור AI** action in the workspace settings; it requires a selected data root, but not a client or open declaration.
 
 - The private key stays inside Windows Hello/the platform authenticator.
 - The Worker Durable Object `DEVICE_REGISTRY` stores only public key material, signature counter, transport metadata, a short-lived challenge, and a five-minute authorization grant.
 - Browser `localStorage` holds only the public credential identifier (`rivhit-passkey-credential-id-v1`), not a secret or private key.
-- Later use of **שפר לפי היסטוריה** requests Windows Hello and does not create a Telegram session, QR code, or bot message.
+- Later use of **שפר לפי היסטוריה** requests Windows Hello and does not create a Telegram session, QR code, or bot message. The obsolete Telegram `history-refinement` path was removed.
 - A valid Windows Hello grant can be reused for five minutes, allowing several refinements without repeated system prompts. After expiry, Windows Hello is requested again.
 
 The Relying Party is deliberately fixed to `vitaliksh.github.io`; WebAuthn works on the published GitHub Pages origin, not an arbitrary local host.
@@ -144,11 +144,11 @@ Select a valid 186-column Rivhit TXT template. The browser copies the chosen fil
 This must be tested manually on the production page because it uses the user's authenticator and Telegram account.
 
 1. Open https://vitaliksh.github.io/ocr/ and force refresh with `Ctrl+F5`.
-2. Select an **open** declaration, then open **סביבות עבודה**.
-3. Press **הגדרת Windows Hello לשיפור AI**.
+2. Select a data root, then open **סביבות עבודה**.
+3. Press **חיבור המחשב לשיפור AI**. A client or declaration is not required.
 4. Scan the shown QR in Telegram and press Start. The bot should say that Windows Hello setup is required and that no photo should be sent.
 5. Complete the Windows Hello prompt on the PC.
-6. The drawer should now say that Windows Hello is configured for this computer. Finish/close the temporary upload screen if it remains visible.
+6. The drawer should now say that the computer is connected. The separate connection dialog closes automatically; no upload screen is opened.
 7. Select a row that has relevant closed history and press **שפר לפי היסטוריה**.
 8. Windows Hello should appear. There must be no QR and no Telegram message.
 9. After approval, verify that only allowed pass-2 fields can change and the Improve button remains available.
@@ -160,10 +160,9 @@ If the browser says the credential is no longer registered, the UI clears the lo
 
 1. **Manual end-to-end passkey test is still required.** Compilation and deployment passed, but only Vitalik can validate the real Windows Hello + Telegram interaction.
 2. Add automated Worker tests for registration/authentication routes, counter updates, grant expiry, and rejection of invalid signatures. Current browser unit tests do not exercise WebAuthn hardware.
-3. Add resilient user-facing recovery for a cancelled or expired passkey enrollment (for example a dedicated Cancel button that also ends the temporary session).
-4. Update `docs/ARCHITECTURE.md` to reflect declarations, history and passkeys.
-5. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
-6. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
+3. Update `docs/ARCHITECTURE.md` to reflect declarations, history and passkeys.
+4. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
+5. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
 
 ## Validation commands
 
