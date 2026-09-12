@@ -6,11 +6,18 @@ import { buildRivhitImport, draftExportManifest } from "./rivhit-export.js";
 import { relevantHistory } from "./history-ranker.js";
 
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, "");
-const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), closeDeclarationButton = document.querySelector("#close-declaration"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements"), workspacesDrawer = document.querySelector("#workspaces-drawer"), workspacesBackdrop = document.querySelector("#workspaces-backdrop"), openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"), closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer");
-let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, streamAbort = null, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null, pendingHistoryRow = null;
+const inactive = document.querySelector("#inactive"), active = document.querySelector("#active"), start = document.querySelector("#start"), finish = document.querySelector("#finish"), stop = document.querySelector("#stop-processing"), status = document.querySelector("#status"), connection = document.querySelector("#connection"), records = document.querySelector("#records"), count = document.querySelector("#count"), telegramLink = document.querySelector("#telegram-link"), emptyRow = document.querySelector("#empty-row"), photoWindow = document.querySelector("#photo-window"), dialogImage = document.querySelector("#dialog-image"), photoTitle = document.querySelector("#photo-title"), photoViewport = document.querySelector("#photo-viewport"), businessActivity = document.querySelector("#business-activity"), businessKind = document.querySelector("#business-kind"), model = document.querySelector("#model"), workspaceSummary = document.querySelector("#workspace-summary"), currentClient = document.querySelector("#current-client"), createPdf = document.querySelector("#create-pdf"), closeDeclarationButton = document.querySelector("#close-declaration"), openPackage = document.querySelector("#open-package"), uploadModeDialog = document.querySelector("#upload-mode-dialog"), addToExisting = document.querySelector("#add-to-existing"), startNewTable = document.querySelector("#start-new-table"), uploadRequirements = document.querySelector("#upload-requirements"), workspacesDrawer = document.querySelector("#workspaces-drawer"), workspacesBackdrop = document.querySelector("#workspaces-backdrop"), openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"), closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer"), registerPasskey = document.querySelector("#register-passkey"), passkeySummary = document.querySelector("#passkey-summary");
+let dataRoot = null, workspace = null, committedWorkspace = null, currentDeclaration = null, currentDeclarationDirectory = null, canonicalTemplate = null, session = null, streamAbort = null, received = new Set(), recordCount = 0, imageCount = 0, pendingRecognitions = 0, recognitionQueue = Promise.resolve(), activeRecognitionController = null, stopRequested = false, drag = null, resize = null, imageDrag = null, zoom = 1, panX = 0, panY = 0, tableLocked = false, draftSaveTimer = null, pendingHistoryRow = null, pendingPasskeyEnrollment = false, passkeyGrant = null;
 
 function apiUrl(path) { return `${api}${path}`; }
 function showError(message) { status.textContent = message; }
+const passkeyStorageKey = "rivhit-passkey-credential-id-v1";
+function passkeyCredentialId() { return localStorage.getItem(passkeyStorageKey) || ""; }
+function updatePasskeySummary() { const configured = Boolean(passkeyCredentialId()); passkeySummary.textContent = configured ? "Windows Hello מוגדר במחשב זה. שיפור AI יבקש אישור Windows Hello בלבד." : "לא הוגדר Windows Hello. נדרש חיבור Telegram חד־פעמי להגדרה."; registerPasskey.textContent = configured ? "הגדרה מחדש של Windows Hello" : "הגדרת Windows Hello לשיפור AI"; }
+function fromBase64Url(value) { const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - value.length % 4) % 4), binary = atob(padded), bytes = new Uint8Array(binary.length); for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index); return bytes.buffer; }
+function publicKeyOptions(options, kind) { const output = structuredClone(options); output.challenge = fromBase64Url(output.challenge); if (kind === "create") { output.user.id = fromBase64Url(output.user.id); for (const credential of output.excludeCredentials || []) credential.id = fromBase64Url(credential.id); } else for (const credential of output.allowCredentials || []) credential.id = fromBase64Url(credential.id); return output; }
+function credentialJson(credential) { if (credential.toJSON) return credential.toJSON(); const response = credential.response, encode = (value) => btoa(String.fromCharCode(...new Uint8Array(value))).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", ""); return { id: credential.id, rawId: encode(credential.rawId), type: credential.type, response: { clientDataJSON: encode(response.clientDataJSON), ...(response.attestationObject ? { attestationObject: encode(response.attestationObject) } : { authenticatorData: encode(response.authenticatorData), signature: encode(response.signature), userHandle: response.userHandle ? encode(response.userHandle) : undefined }) }, clientExtensionResults: credential.getClientExtensionResults(), authenticatorAttachment: credential.authenticatorAttachment || undefined };
+}
 function hasCanonicalTemplate() { return workspaceControls?.hasCanonicalTemplate?.() || Boolean(canonicalTemplate); }
 function updateStartAvailability() { const open = currentDeclaration?.status === "open"; start.disabled = !dataRoot || !open || !hasCanonicalTemplate(); closeDeclarationButton.disabled = !open || !committedWorkspace || !hasCanonicalTemplate(); uploadRequirements.textContent = !dataRoot ? "יש לבחור תחילה תיקיית נתונים בסביבות העבודה." : !currentDeclaration ? "יש לבחור הצהרה לפני העלאת תמונות." : !open ? "ההצהרה סגורה ואי אפשר להוסיף אליה תמונות." : !hasCanonicalTemplate() ? "יש לבחור בסביבות העבודה תבנית Rivhit כללית לפני העלאת תמונות." : ""; }
 async function activateDeclaration(selected) {
@@ -34,6 +41,14 @@ const workspaceControls = setupWorkspaceControls({
   onError: showError
 });
 updateStartAvailability();
+updatePasskeySummary();
+registerPasskey.addEventListener("click", async () => {
+  if (!window.PublicKeyCredential || !navigator.credentials?.create) return showError("דפדפן זה אינו תומך ב‑Windows Hello.");
+  if (!currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור הצהרה פתוחה לפני הגדרת Windows Hello.");
+  pendingPasskeyEnrollment = true;
+  status.textContent = "יש לחבר Telegram פעם אחת באמצעות קוד ה‑QR. לאחר מכן יופיע אישור Windows Hello במחשב.";
+  await startUpload("passkey-enrollment");
+});
 function setWorkspacesDrawer(open) {
   if (!open) { workspace = committedWorkspace; workspaceControls?.clearPending(); if (workspace) { businessActivity.value = workspace.config.businessActivity; businessKind.value = workspace.config.businessKind; } }
   if (open) { workspacesDrawer.hidden = false; workspacesBackdrop.hidden = false; requestAnimationFrame(() => { workspacesDrawer.classList.add("is-open"); workspacesBackdrop.classList.add("is-open"); }); }
@@ -98,7 +113,7 @@ function consumeEvent(message) {
   const type = message.match(/^event: (.+)$/m)?.[1], text = message.match(/^data: (.+)$/m)?.[1]; if (!type || !text) return;
   const data = JSON.parse(text);
   if (type === "ready") { connection.textContent = data.connected ? "Telegram מחובר. אפשר לשלוח תמונות." : "ממתין לחיבור Telegram…"; data.documents.forEach((item) => receiveDocument(item.documentId, item.receivedAt)); }
-  if (type === "connected") { connection.textContent = pendingHistoryRow ? "Telegram מחובר. משפר לפי היסטוריה…" : "Telegram מחובר. אפשר לשלוח תמונות."; if (pendingHistoryRow) { const row = pendingHistoryRow; pendingHistoryRow = null; refineWithHistory(row); } }
+  if (type === "connected") { connection.textContent = pendingPasskeyEnrollment ? "Telegram מחובר. מגדיר Windows Hello…" : pendingHistoryRow ? "Telegram מחובר. משפר לפי היסטוריה…" : "Telegram מחובר. אפשר לשלוח תמונות."; if (pendingPasskeyEnrollment) { pendingPasskeyEnrollment = false; enrollPasskey(); } else if (pendingHistoryRow) { const row = pendingHistoryRow; pendingHistoryRow = null; refineWithHistory(row); } }
   if (type === "document") receiveDocument(data.documentId, data.receivedAt);
   if (type === "finished") reset();
 }
@@ -144,13 +159,41 @@ async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex
   } finally { if (activeRecognitionController === controller) activeRecognitionController = null; }
 }
 function addRerunButton(row, label = "עבד מחדש", onlyThis = true) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.(onlyThis)); row.cells[16].append(document.createElement("br"), button); }
+async function enrollPasskey() {
+  if (!session) return;
+  registerPasskey.disabled = true;
+  try {
+    const optionsResponse = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/passkeys/registration-options`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }), options = await optionsResponse.json();
+    if (!optionsResponse.ok) throw new Error(options.error || "לא ניתן להתחיל הגדרת Windows Hello.");
+    const credential = await navigator.credentials.create({ publicKey: publicKeyOptions(options, "create") });
+    if (!credential) throw new Error("Windows Hello לא הושלם.");
+    const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/passkeys/register`), { method: "POST", headers: { "Content-Type": "application/json", "X-Upload-Token": session.clientToken }, body: JSON.stringify(credentialJson(credential)) }), result = await response.json();
+    if (!response.ok) throw new Error(result.error || "לא ניתן לשמור את Windows Hello.");
+    localStorage.setItem(passkeyStorageKey, result.credentialId); updatePasskeySummary(); status.textContent = "Windows Hello הוגדר. שיפור AI לא ידרוש Telegram במחשב זה.";
+    await fetch(apiUrl(`/v1/sessions/${session.sessionId}/finish`), { method: "POST", headers: { "X-Upload-Token": session.clientToken } }); reset();
+  } catch (error) { showError("לא ניתן להגדיר Windows Hello: " + error.message); }
+  finally { registerPasskey.disabled = false; }
+}
+async function authorizePasskey() {
+  const credentialId = passkeyCredentialId();
+  if (!credentialId) throw new Error("יש להגדיר תחילה Windows Hello בסביבות העבודה. Telegram נדרש שם פעם אחת בלבד.");
+  if (!window.PublicKeyCredential || !navigator.credentials?.get) throw new Error("דפדפן זה אינו תומך ב‑Windows Hello.");
+  if (passkeyGrant?.expiresAt > Date.now() + 5000 && passkeyGrant.credentialId === credentialId) return passkeyGrant;
+  const optionsResponse = await fetch(apiUrl("/v1/passkeys/authentication-options"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ credentialId }) }), options = await optionsResponse.json();
+  if (!optionsResponse.ok) { if (optionsResponse.status === 404) { localStorage.removeItem(passkeyStorageKey); updatePasskeySummary(); } throw new Error(options.error || "לא ניתן להתחיל אימות Windows Hello."); }
+  const credential = await navigator.credentials.get({ publicKey: publicKeyOptions(options, "get") });
+  if (!credential) throw new Error("Windows Hello לא אושר.");
+  const response = await fetch(apiUrl("/v1/passkeys/authentication-verify"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ credentialId, response: credentialJson(credential) }) }), result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Windows Hello לא אומת.");
+  passkeyGrant = { credentialId, token: result.token, expiresAt: result.expiresAt }; return passkeyGrant;
+}
 async function refineWithHistory(row) {
   if (!committedWorkspace || !currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור הצהרה פתוחה לפני שיפור לפי היסטוריה.");
   const history = relevantHistory(rowSnapshot(row), await readClosedHistory(committedWorkspace.directory));
   if (!history.length) { addHistoryButton(row); return showError("אין היסטוריה סגורה ורלוונטית לשורה זו."); }
-  if (!session) { pendingHistoryRow = row; status.textContent = "יש לחבר את Telegram באמצעות קוד ה‑QR. לאחר החיבור השיפור יבוצע אוטומטית; אין צורך לשלוח תמונה."; return startUpload("history-refinement"); }
   try {
-    const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/refine-history`), { method: "POST", headers: { "Content-Type": "application/json", "X-Upload-Token": session.clientToken, "X-Gemini-Model": model.value }, body: JSON.stringify({ draft: rowSnapshot(row), history }) }), result = await response.json(); if (!response.ok) throw new Error(result.error || "השיפור נכשל.");
+    const grant = await authorizePasskey();
+    const response = await fetch(apiUrl("/v1/passkeys/refine-history"), { method: "POST", headers: { "Content-Type": "application/json", "X-Passkey-Credential-Id": grant.credentialId, "X-Passkey-Token": grant.token, "X-Gemini-Model": model.value }, body: JSON.stringify({ draft: rowSnapshot(row), history }) }), result = await response.json(); if (!response.ok) throw new Error(result.error || "השיפור נכשל.");
     if (result.rivhit_code) row.cells[2].querySelector("select").value = result.rivhit_code; if (result.vat_recognized_percent !== null) row.cells[11].querySelector("select").value = String(result.vat_recognized_percent); if (result.recognized_percent !== null) row.cells[12].querySelector("select").value = String(result.recognized_percent); applyBusinessRule(row); row.cells[14].textContent = result.agent_opinion; row.cells[15].textContent = String(result.confidence) + "%"; setStatus(row, result.review_state === "ready" ? "מוכן לייצוא" : "נדרש עיון", result.review_state); addHistoryButton(row); queueDraftSave();
   } catch (error) { showError("לא ניתן לשפר לפי היסטוריה: " + error.message); }
 }

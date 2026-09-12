@@ -26,9 +26,9 @@ The product is a bookkeeping aid, not tax or accounting advice.
 | Browser UI | https://vitaliksh.github.io/ocr/ | UI, local file access, review table |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram session, temporary R2 transport, Gemini pass 1 |
 | Telegram bot | @Vitalikshbot | Smartphone image intake |
-| Production Worker baseline | Git tag cloudflare-production-2026-09-05 | Worker version e803c859-d9a4-4bad-9500-62006280ee93 |
+| Production Worker baseline | Git tag cloudflare-production-2026-09-12-3 | Worker version 9a7f31b5-1e7f-4042-95bc-c6082b22bdf5 |
 
-The Worker source is cloudflare-worker/; the static browser client is telegram-web/. Browser-held images are deleted from Worker R2 after ACK, Finish, or expiry. Do not add cloud persistence for client data, declaration drafts, PDFs, TXT exports, or history.
+The Worker source is cloudflare-worker/; the static browser client is telegram-web/. Browser-held images are deleted from Worker R2 after ACK, Finish, or expiry. Do not add cloud persistence for client data, declaration drafts, PDFs, TXT exports, or history. Windows Hello passkeys store only their public key, signature counter, and short-lived authorization grant in a Worker Durable Object; the private key never leaves the device.
 
 ## Security
 

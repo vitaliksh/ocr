@@ -1,10 +1,14 @@
 import { RIVHIT_MAPPING } from "./rivhit-mapping.js";
+import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from "@simplewebauthn/server";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSION_MS = 4 * 60 * 60 * 1000;
 const MAX_AI_IMAGE_BYTES = 12 * 1024 * 1024;
 const GEMINI_MODELS = new Set(["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.5-flash-lite"]);
 const encoder = new TextEncoder();
+const PASSKEY_TTL_MS = 5 * 60 * 1000;
+const PASSKEY_RP_ID = "vitaliksh.github.io";
+const PASSKEY_ORIGIN = "https://vitaliksh.github.io";
 
 const GEMINI_SCHEMA = { type: "OBJECT", properties: { records: { type: "ARRAY", minItems: 1, items: { type: "OBJECT", properties: {
   document_kind: { type: "STRING" }, confidence: { type: "NUMBER" }, agent_opinion: { type: "STRING" }, date: { type: "STRING", nullable: true }, supplier_name: { type: "STRING", nullable: true }, supplier_vat_id: { type: "STRING", nullable: true }, invoice_number: { type: "STRING", nullable: true }, transaction_number: { type: "STRING", nullable: true }, allocation_number: { type: "STRING", nullable: true }, purpose: { type: "STRING", nullable: true }, total_amount: { type: "NUMBER", nullable: true }, currency: { type: "STRING", nullable: true }, form_6111_code: { type: "STRING", nullable: true }, recognized_percent: { type: "NUMBER", nullable: true }, vat_recognized_percent: { type: "NUMBER", nullable: true }, net_amount: { type: "NUMBER", nullable: true }, vat_amount: { type: "NUMBER", nullable: true }, vat_percent: { type: "NUMBER", nullable: true }, document_number_box: { type: "ARRAY", nullable: true, minItems: 4, maxItems: 4, items: { type: "NUMBER" } }, total_amount_box: { type: "ARRAY", nullable: true, minItems: 4, maxItems: 4, items: { type: "NUMBER" } }, vat_amount_box: { type: "ARRAY", nullable: true, minItems: 4, maxItems: 4, items: { type: "NUMBER" } }
@@ -34,7 +38,7 @@ function allowedOrigin(request, env) {
 
 function cors(request, env) {
   const origin = allowedOrigin(request, env);
-  return origin ? { "access-control-allow-origin": origin, vary: "Origin", "access-control-allow-headers": "content-type, x-upload-token, x-business-activity, x-gemini-model, x-target-record", "access-control-allow-methods": "GET, POST, OPTIONS" } : {};
+  return origin ? { "access-control-allow-origin": origin, vary: "Origin", "access-control-allow-headers": "content-type, x-upload-token, x-business-activity, x-gemini-model, x-target-record, x-passkey-credential-id, x-passkey-token", "access-control-allow-methods": "GET, POST, OPTIONS" } : {};
 }
 
 function clientRequest(request, env) {
@@ -107,6 +111,13 @@ async function refineWithHistory(request, env) {
 function sessionStub(env, sessionId) {
   return env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(sessionId));
 }
+function deviceRegistry(env) { return env.DEVICE_REGISTRY.get(env.DEVICE_REGISTRY.idFromName("passkeys")); }
+async function passkeyAuthorized(request, env) {
+  const credentialId = request.headers.get("X-Passkey-Credential-Id"), token = request.headers.get("X-Passkey-Token");
+  if (!credentialId || !token) return null;
+  const response = await deviceRegistry(env).fetch("https://passkeys/authorize", { method: "POST", body: JSON.stringify({ credentialId, token }) });
+  return response.ok ? response : null;
+}
 
 async function telegramApi(env, method, body) {
   const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -129,7 +140,8 @@ async function webhook(request, env) {
     } else if (startToken) {
       const response = await sessionStub(env, startToken).fetch("https://session/telegram/connect", { method: "POST", body: JSON.stringify({ userId, chatId }) });
       const result = await response.json();
-      await telegramApi(env, "sendMessage", { chat_id: chatId, text: result.ok ? result.purpose === "history-refinement" ? "Connected. Your PC is improving an existing draft from local history; do not send a photo." : "Connected. Send document photos now." : "No active upload session. Start a new upload session from the PC." });
+      const messageText = result.purpose === "passkey-enrollment" ? "Connected. Complete Windows Hello on your PC; do not send a photo." : result.purpose === "history-refinement" ? "Connected. Your PC is improving an existing draft from local history; do not send a photo." : "Connected. Send document photos now.";
+      await telegramApi(env, "sendMessage", { chat_id: chatId, text: result.ok ? messageText : "No active upload session. Start a new upload session from the PC." });
     } else if (Array.isArray(message.photo) && message.photo.length) {
       // The session is discovered from the temporary Telegram-user binding, not a client-supplied id.
       const list = await env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(`telegram-user:${userId}`)).fetch("https://session/telegram/lookup", { method: "POST" });
@@ -161,7 +173,7 @@ export default {
     const rejected = clientRequest(request, env);
     if (rejected) return rejected;
     if (url.pathname === "/v1/sessions" && request.method === "POST") {
-      let purpose = "upload"; try { purpose = (await request.json())?.purpose === "history-refinement" ? "history-refinement" : "upload"; } catch {}
+      let purpose = "upload"; try { const requested = (await request.json())?.purpose; purpose = ["history-refinement", "passkey-enrollment"].includes(requested) ? requested : "upload"; } catch {}
       const sessionId = randomToken();
       const clientToken = randomToken();
       const response = await sessionStub(env, sessionId).fetch("https://session/create", { method: "POST", body: JSON.stringify({ sessionId, clientToken, purpose, now: Date.now() }) });
@@ -178,9 +190,32 @@ export default {
     const refineMatch = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/refine-history$/);
     if (refineMatch) {
       if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
-      const authorization = await sessionStub(env, refineMatch[1]).fetch("https://session/client/ai-authorize", { method: "POST", headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" } });
+      const passkey = await passkeyAuthorized(request, env);
+      const authorization = passkey || await sessionStub(env, refineMatch[1]).fetch("https://session/client/ai-authorize", { method: "POST", headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" } });
       if (!authorization.ok) { const headers = new Headers(authorization.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(authorization.body, { status: authorization.status, headers }); }
       const result = await refineWithHistory(request, env), headers = new Headers(result.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(result.body, { status: result.status, headers });
+    }
+    if (url.pathname === "/v1/passkeys/refine-history") {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
+      const authorization = await passkeyAuthorized(request, env);
+      if (!authorization) return json({ error: "Windows Hello authorization is required." }, 401, cors(request, env));
+      const result = await refineWithHistory(request, env), headers = new Headers(result.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(result.body, { status: result.status, headers });
+    }
+    const registrationMatch = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/passkeys\/(registration-options|register)$/);
+    if (registrationMatch) {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
+      const authorization = await sessionStub(env, registrationMatch[1]).fetch("https://session/client/ai-authorize", { method: "POST", headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" } });
+      if (!authorization.ok) { const headers = new Headers(authorization.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(authorization.body, { status: authorization.status, headers }); }
+      const endpoint = registrationMatch[2] === "registration-options" ? "begin-registration" : "finish-registration";
+      const body = registrationMatch[2] === "register" ? await request.text() : "";
+      const upstream = await deviceRegistry(env).fetch(`https://passkeys/${endpoint}`, { method: "POST", body });
+      const headers = new Headers(upstream.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(upstream.body, { status: upstream.status, headers });
+    }
+    if (url.pathname === "/v1/passkeys/authentication-options" || url.pathname === "/v1/passkeys/authentication-verify") {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
+      const endpoint = url.pathname.endsWith("options") ? "begin-authentication" : "finish-authentication";
+      const upstream = await deviceRegistry(env).fetch(`https://passkeys/${endpoint}`, { method: "POST", body: await request.text() });
+      const headers = new Headers(upstream.headers); for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value); return new Response(upstream.body, { status: upstream.status, headers });
     }
     const match = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/(events|finish|documents\/([0-9a-f-]{36})(?:\/ack)?)$/);
     if (!match) return json({ error: "Not found." }, 404, cors(request, env));
@@ -300,4 +335,61 @@ export class UploadSession {
     await this.state.storage.deleteAll();
   }
   async alarm() { const session = await this.state.storage.get("session"); if (session && Date.now() >= session.expiresAt) await this.destroy(session); }
+}
+
+export class DeviceRegistry {
+  constructor(state) { this.state = state; }
+  async fetch(request) {
+    const action = new URL(request.url).pathname.slice("/passkeys/".length);
+    if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
+    try {
+      if (action === "begin-registration") return this.beginRegistration();
+      const input = await request.json();
+      if (action === "finish-registration") return this.finishRegistration(input);
+      if (action === "begin-authentication") return this.beginAuthentication(input);
+      if (action === "finish-authentication") return this.finishAuthentication(input);
+      if (action === "authorize") return this.authorize(input);
+      return json({ error: "Not found." }, 404);
+    } catch (error) { console.error("Passkey error", error); return json({ error: "Windows Hello verification failed." }, 400); }
+  }
+  async beginRegistration() {
+    const options = await generateRegistrationOptions({ rpName: "Rivhit document journal", rpID: PASSKEY_RP_ID, userName: `rivhit-${randomToken().slice(0, 12)}`, attestationType: "none", authenticatorSelection: { authenticatorAttachment: "platform", residentKey: "preferred", userVerification: "required" } });
+    await this.state.storage.put("registration", { challenge: options.challenge, expiresAt: Date.now() + PASSKEY_TTL_MS });
+    return json(options);
+  }
+  async finishRegistration(response) {
+    const pending = await this.state.storage.get("registration");
+    if (!pending || Date.now() >= pending.expiresAt) return json({ error: "Windows Hello setup expired. Start it again." }, 401);
+    const verification = await verifyRegistrationResponse({ response, expectedChallenge: pending.challenge, expectedOrigin: PASSKEY_ORIGIN, expectedRPID: PASSKEY_RP_ID, requireUserVerification: true });
+    if (!verification.verified || !verification.registrationInfo) return json({ error: "Windows Hello setup was not verified." }, 400);
+    const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+    await this.state.storage.put(`credential:${credential.id}`, { id: credential.id, publicKey: credential.publicKey, counter: credential.counter, transports: credential.transports || [], deviceType: credentialDeviceType, backedUp: credentialBackedUp, createdAt: Date.now() });
+    await this.state.storage.delete("registration");
+    return json({ ok: true, credentialId: credential.id });
+  }
+  async beginAuthentication({ credentialId }) {
+    if (typeof credentialId !== "string" || credentialId.length < 16) return json({ error: "Windows Hello is not configured on this browser." }, 400);
+    const credential = await this.state.storage.get(`credential:${credentialId}`);
+    if (!credential) return json({ error: "This Windows Hello credential is no longer registered." }, 404);
+    const options = await generateAuthenticationOptions({ rpID: PASSKEY_RP_ID, userVerification: "required", allowCredentials: [{ id: credential.id, transports: credential.transports }] });
+    await this.state.storage.put(`authentication:${credential.id}`, { challenge: options.challenge, expiresAt: Date.now() + PASSKEY_TTL_MS });
+    return json(options);
+  }
+  async finishAuthentication({ credentialId, response }) {
+    const credential = await this.state.storage.get(`credential:${credentialId}`), pending = await this.state.storage.get(`authentication:${credentialId}`);
+    if (!credential || !pending || Date.now() >= pending.expiresAt) return json({ error: "Windows Hello request expired. Try again." }, 401);
+    const verification = await verifyAuthenticationResponse({ response, expectedChallenge: pending.challenge, expectedOrigin: PASSKEY_ORIGIN, expectedRPID: PASSKEY_RP_ID, credential, requireUserVerification: true });
+    if (!verification.verified) return json({ error: "Windows Hello was not verified." }, 403);
+    credential.counter = verification.authenticationInfo.newCounter;
+    const token = randomToken();
+    await this.state.storage.put(`credential:${credentialId}`, credential);
+    await this.state.storage.put(`token:${credentialId}`, { token, expiresAt: Date.now() + PASSKEY_TTL_MS });
+    await this.state.storage.delete(`authentication:${credentialId}`);
+    return json({ ok: true, token, expiresAt: Date.now() + PASSKEY_TTL_MS });
+  }
+  async authorize({ credentialId, token }) {
+    const grant = await this.state.storage.get(`token:${credentialId}`);
+    if (!grant || Date.now() >= grant.expiresAt || !timingSafeEqual(token, grant.token)) return json({ error: "Windows Hello authorization expired." }, 401);
+    return json({ ok: true });
+  }
 }
