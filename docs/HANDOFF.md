@@ -2,7 +2,7 @@
 
 **Updated:** 12 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Current commit:** `51f268b` — Add Windows Hello auth for history refinement
+**Windows Hello functional release:** `51f268b` — Add Windows Hello auth for history refinement
 **Working tree:** clean after the release.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
@@ -106,7 +106,7 @@ Rivhit data/
                   └─ manifest.json
 ~~~
 
-The canonical template must be selected from `PKUDA/_AI/_TEST.TXT` (or another valid 186-column template). The browser copies it to `common/PKUDA_AI_TEST.TXT`.
+Select a valid 186-column Rivhit TXT template. The browser copies the chosen file to `common/PKUDA_AI_TEST.TXT`.
 
 ## Implemented behavior
 
