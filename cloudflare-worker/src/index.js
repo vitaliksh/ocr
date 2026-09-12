@@ -1,5 +1,5 @@
 import { RIVHIT_MAPPING } from "./rivhit-mapping.js";
-import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from "@simplewebauthn/server";
+import * as webauthn from "@simplewebauthn/server";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSION_MS = 4 * 60 * 60 * 1000;
@@ -330,7 +330,10 @@ export class UploadSession {
 }
 
 export class DeviceRegistry {
-  constructor(state) { this.state = state; }
+  // The optional third argument is a test seam. Cloudflare constructs Durable
+  // Objects with the first two arguments, so production always uses the real
+  // SimpleWebAuthn implementation.
+  constructor(state, env, webauthnApi = webauthn) { this.state = state; this.webauthn = webauthnApi; }
   async fetch(request) {
     // Calls to a Durable Object use https://passkeys/<action>: "passkeys" is
     // the hostname, not part of pathname. Accept the prefixed form as well
@@ -338,24 +341,24 @@ export class DeviceRegistry {
     const action = new URL(request.url).pathname.replace(/^\/(?:passkeys\/)?/, "");
     if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
     try {
-      if (action === "begin-registration") return this.beginRegistration();
+      if (action === "begin-registration") return await this.beginRegistration();
       const input = await request.json();
-      if (action === "finish-registration") return this.finishRegistration(input);
-      if (action === "begin-authentication") return this.beginAuthentication(input);
-      if (action === "finish-authentication") return this.finishAuthentication(input);
-      if (action === "authorize") return this.authorize(input);
+      if (action === "finish-registration") return await this.finishRegistration(input);
+      if (action === "begin-authentication") return await this.beginAuthentication(input);
+      if (action === "finish-authentication") return await this.finishAuthentication(input);
+      if (action === "authorize") return await this.authorize(input);
       return json({ error: "Not found." }, 404);
-    } catch (error) { console.error("Passkey error", error); return json({ error: "Windows Hello verification failed." }, 400); }
+    } catch { console.error("Passkey verification failed."); return json({ error: "Windows Hello verification failed." }, 400); }
   }
   async beginRegistration() {
-    const options = await generateRegistrationOptions({ rpName: "Rivhit document journal", rpID: PASSKEY_RP_ID, userName: `rivhit-${randomToken().slice(0, 12)}`, attestationType: "none", authenticatorSelection: { authenticatorAttachment: "platform", residentKey: "preferred", userVerification: "required" } });
+    const options = await this.webauthn.generateRegistrationOptions({ rpName: "Rivhit document journal", rpID: PASSKEY_RP_ID, userName: `rivhit-${randomToken().slice(0, 12)}`, attestationType: "none", authenticatorSelection: { authenticatorAttachment: "platform", residentKey: "preferred", userVerification: "required" } });
     await this.state.storage.put("registration", { challenge: options.challenge, expiresAt: Date.now() + PASSKEY_TTL_MS });
     return json(options);
   }
   async finishRegistration(response) {
     const pending = await this.state.storage.get("registration");
     if (!pending || Date.now() >= pending.expiresAt) return json({ error: "Windows Hello setup expired. Start it again." }, 401);
-    const verification = await verifyRegistrationResponse({ response, expectedChallenge: pending.challenge, expectedOrigin: PASSKEY_ORIGIN, expectedRPID: PASSKEY_RP_ID, requireUserVerification: true });
+    const verification = await this.webauthn.verifyRegistrationResponse({ response, expectedChallenge: pending.challenge, expectedOrigin: PASSKEY_ORIGIN, expectedRPID: PASSKEY_RP_ID, requireUserVerification: true });
     if (!verification.verified || !verification.registrationInfo) return json({ error: "Windows Hello setup was not verified." }, 400);
     const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
     await this.state.storage.put(`credential:${credential.id}`, { id: credential.id, publicKey: credential.publicKey, counter: credential.counter, transports: credential.transports || [], deviceType: credentialDeviceType, backedUp: credentialBackedUp, createdAt: Date.now() });
@@ -366,14 +369,14 @@ export class DeviceRegistry {
     if (typeof credentialId !== "string" || credentialId.length < 16) return json({ error: "Windows Hello is not configured on this browser." }, 400);
     const credential = await this.state.storage.get(`credential:${credentialId}`);
     if (!credential) return json({ error: "This Windows Hello credential is no longer registered." }, 404);
-    const options = await generateAuthenticationOptions({ rpID: PASSKEY_RP_ID, userVerification: "required", allowCredentials: [{ id: credential.id, transports: credential.transports }] });
+    const options = await this.webauthn.generateAuthenticationOptions({ rpID: PASSKEY_RP_ID, userVerification: "required", allowCredentials: [{ id: credential.id, transports: credential.transports }] });
     await this.state.storage.put(`authentication:${credential.id}`, { challenge: options.challenge, expiresAt: Date.now() + PASSKEY_TTL_MS });
     return json(options);
   }
   async finishAuthentication({ credentialId, response }) {
     const credential = await this.state.storage.get(`credential:${credentialId}`), pending = await this.state.storage.get(`authentication:${credentialId}`);
     if (!credential || !pending || Date.now() >= pending.expiresAt) return json({ error: "Windows Hello request expired. Try again." }, 401);
-    const verification = await verifyAuthenticationResponse({ response, expectedChallenge: pending.challenge, expectedOrigin: PASSKEY_ORIGIN, expectedRPID: PASSKEY_RP_ID, credential, requireUserVerification: true });
+    const verification = await this.webauthn.verifyAuthenticationResponse({ response, expectedChallenge: pending.challenge, expectedOrigin: PASSKEY_ORIGIN, expectedRPID: PASSKEY_RP_ID, credential, requireUserVerification: true });
     if (!verification.verified) return json({ error: "Windows Hello was not verified." }, 403);
     credential.counter = verification.authenticationInfo.newCounter;
     const token = randomToken();

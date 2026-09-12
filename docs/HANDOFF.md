@@ -158,7 +158,7 @@ If the browser says the credential is no longer registered, the UI clears the lo
 
 ## Known limitations / next logical work
 
-1. Add automated Worker tests for registration/authentication routes, counter updates, grant expiry, and rejection of invalid signatures. Current browser unit tests do not exercise WebAuthn hardware.
+1. Keep the automated Worker passkey tests current: they cover registration/authentication state, counter updates, grant expiry, and invalid signatures. A real platform authenticator remains a short production release check.
 2. Update `docs/ARCHITECTURE.md` to reflect declarations, history and passkeys.
 3. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
 4. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
@@ -187,10 +187,11 @@ After Worker changes:
 
 ~~~powershell
 Set-Location D:\projects\ocr\cloudflare-worker
+npm test
 npm run check
 ~~~
 
-This runs `wrangler deploy --dry-run` and must list both Durable Objects. Then manually test the changed production flow.
+The five Worker tests exercise Durable Object passkey state with a mocked verifier; `npm run check` runs `wrangler deploy --dry-run` and must list both Durable Objects. Then manually test the changed production flow.
 
 ## Deployment procedure
 
