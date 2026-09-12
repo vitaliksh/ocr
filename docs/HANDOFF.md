@@ -4,7 +4,7 @@
 **Repository:** https://github.com/vitaliksh/ocr
 **Windows Hello functional release:** `cloudflare-production-2026-09-12-6` — Add passkey Worker tests and controlled invalid-signature rejection
 **PDF intake release:** `cloudflare-production-2026-09-12-7` — Manual local PDF intake, improved source-value prompt and transparent PDF markers
-**Working tree:** PDF intake and marker release prepared for publication; PDF examples remain local and untracked.
+**Working tree:** PDF intake and marker release published. Local PDF examples remain intentionally untracked.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
 ## Product and non-negotiable boundaries
