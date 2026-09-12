@@ -145,7 +145,8 @@ async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex
 }
 function addRerunButton(row, label = "עבד מחדש", onlyThis = true) { const button = document.createElement("button"); button.type = "button"; button.className = "retry"; button.textContent = label; button.addEventListener("click", () => row.runRecognition?.(onlyThis)); row.cells[16].append(document.createElement("br"), button); }
 async function refineWithHistory(row) {
-  if (!session || !committedWorkspace) return showError("יש להתחיל העלאת תמונות לפני שיפור לפי היסטוריה.");
+  if (!committedWorkspace || !currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור הצהרה פתוחה לפני שיפור לפי היסטוריה.");
+  if (!session) { status.textContent = "יש לחבר את Telegram באמצעות קוד ה‑QR, ואז ללחוץ שוב על «שפר לפי היסטוריה». אין צורך לשלוח תמונה חדשה."; return startUpload(); }
   try {
     const history = relevantHistory(rowSnapshot(row), await readClosedHistory(committedWorkspace.directory)); if (!history.length) return showError("אין היסטוריה סגורה ורלוונטית לשורה זו.");
     const response = await fetch(apiUrl(`/v1/sessions/${session.sessionId}/refine-history`), { method: "POST", headers: { "Content-Type": "application/json", "X-Upload-Token": session.clientToken, "X-Gemini-Model": model.value }, body: JSON.stringify({ draft: rowSnapshot(row), history }) }), result = await response.json(); if (!response.ok) throw new Error(result.error || "השיפור נכשל.");
