@@ -2,8 +2,8 @@
 
 **Updated:** 13 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Production release:** `cloudflare-production-2026-09-13-1` — income intake, mixed-VAT splitting, fuel receipts, duplicate review and classification-code exports
-**Working tree:** September 13 bookkeeping-feedback release published. Local PDF examples remain intentionally untracked.
+**Production release:** `cloudflare-production-2026-09-13-2` — review-regression fixes, amount editing and explicit taxable/exempt VAT extraction
+**Working tree:** September 13 review-regression release published. Local PDF examples remain intentionally untracked.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
 ## Product and non-negotiable boundaries
@@ -29,7 +29,7 @@ Use a local, non-synchronised folder (for example `C:\Rivhit data`) as the activ
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-13-1` | Worker version `0a5366a5-856e-475d-9315-ec53ad8df257` |
+| Production Worker release | tag `cloudflare-production-2026-09-13-2` | Worker version `e0cbee01-b079-4693-9597-56eac7a5a0d9` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -188,7 +188,7 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - `כולל מע״מ` and `ללא מע״מ` remain separate editable fields. Their input is no longer reformatted while the user types; recalculation and draft save happen only on Enter or when the field loses focus. Their accessible labels distinguish gross from net.
 - Pass 1 now explicitly distinguishes `חייב במע״מ` from `לא חייב במע״מ`: a printed exempt/0% group preserves its printed total as net, with VAT rate, amount, and recognised percent all set to zero. The Worker prompt and readable prompt source have matching wording.
 
-These changes are not yet a production release. Browser source needs the usual `main` push/Pages check; the strengthened Gemini instruction also requires a Worker deployment and a new production tag. Before accepting the release, manually test left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, and taxable, exempt, and mixed-VAT documents.
+Worker version `e0cbee01-b079-4693-9597-56eac7a5a0d9` was deployed on 13 September 2026. Before accepting the release, manually test left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, and taxable, exempt, and mixed-VAT documents.
 
 ## Proposed next steps
 
