@@ -1,6 +1,6 @@
 # Handoff — Rivhit document intake
 
-**Updated:** 12 September 2026
+**Updated:** 13 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
 **Production release:** `cloudflare-production-2026-09-13-1` — income intake, mixed-VAT splitting, fuel receipts, duplicate review and classification-code exports
 **Working tree:** September 13 bookkeeping-feedback release published. Local PDF examples remain intentionally untracked.
@@ -171,7 +171,7 @@ If the browser says the credential is no longer registered, the UI clears the lo
 2. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
 3. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
 
-## Bookkeeper feedback — implemented locally, pending browser release
+## Bookkeeper feedback — implemented locally, pending next release
 
 - The recognised expense percentage is now applied to the original VAT-inclusive amount first. The recognised gross amount is then split into net and VAT; all three visible amounts, saved rows, PDF reports and Rivhit TXT use the same rounded values. For example, a 720.00 invoice at 25% produces 180.00 gross, 152.54 net and 27.46 VAT.
 - `% מוכר כהוצאה` is wider in the journal. Changing it on a taxable row also aligns `% מוכר מע״מ` with it, so a 25% expense cannot retain 100% VAT by accident.
@@ -180,8 +180,15 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - `% מוכר מע״מ` now includes 66.67%. Editing either gross (`כולל מע״מ`) or net (`ללא מע״מ`) recalculates the other source amounts immediately at the row VAT rate.
 - Duplicate references are shown as a review warning and their export checkbox starts unchecked; the bookkeeper can explicitly include one after review.
 - Income reports are retained as rows, assigned a locally-created next-free `הכנסות` code, and may be exported. A mixed zero-VAT/taxable invoice produces one row for each VAT group with the same reference.
-- The photo viewer is an in-page full-window view that initially contains the entire document; it no longer opens a movable second-window popup.
+- The photo viewer opens the local image in a dedicated movable browser popup and initially contains the entire document.
 - Draft and final exports also include `classification-codes.pdf`, listing used classification codes and highlighting locally added codes from the current declaration.
+- The local image popup again supports left-button drag reliably: native browser image dragging is disabled, pointer capture is used for the pan, and the mouse wheel pans vertically. The legacy in-page viewer has the same wheel behaviour.
+- Typing in `קוד מיון` now expands the filtered result list immediately (up to six results). Arrow Down moves into that list; Escape closes it.
+- Any code path that clears `לייצוא`, including automatic duplicate detection, uses the same helper that adds the full-row grey `not-for-export` state. This covers a checkbox changed by the agent, duplicate detection, and restored drafts.
+- `כולל מע״מ` and `ללא מע״מ` remain separate editable fields. Their input is no longer reformatted while the user types; recalculation and draft save happen only on Enter or when the field loses focus. Their accessible labels distinguish gross from net.
+- Pass 1 now explicitly distinguishes `חייב במע״מ` from `לא חייב במע״מ`: a printed exempt/0% group preserves its printed total as net, with VAT rate, amount, and recognised percent all set to zero. The Worker prompt and readable prompt source have matching wording.
+
+These changes are not yet a production release. Browser source needs the usual `main` push/Pages check; the strengthened Gemini instruction also requires a Worker deployment and a new production tag. Before accepting the release, manually test left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, and taxable, exempt, and mixed-VAT documents.
 
 ## Proposed next steps
 
@@ -199,7 +206,7 @@ npm test
 npm run check
 ~~~
 
-Expected automated browser tests currently: **30 passing**.
+Expected automated browser tests currently: **31 passing**.
 
 After Worker changes:
 

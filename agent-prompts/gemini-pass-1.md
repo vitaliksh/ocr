@@ -33,10 +33,15 @@ IMPORTANT: a printed Hebrew line such as "מוצרים חייבים ב- 18% מע
 means net_amount is exactly 194.28. It is not a VAT-inclusive total: never
 divide this printed taxable amount by 1.18. If the document separately prints
 total VAT 34.97 and there is one 18% group, that group's vat_amount is 34.97
-and total_amount is 229.25. For a 0% VAT group, vat_amount must be 0 and
-vat_recognized_percent must be 0. For a standard VAT group,
-vat_recognized_percent must be 100. A payment confirmation is not an expense
-invoice.
+and total_amount is 229.25. First decide explicitly whether every printed
+amount is **חייב במע״מ** (VAT-taxable) or **לא חייב במע״מ** / exempt. Never
+treat an exempt amount as a taxable total and divide it by a VAT rate. A group
+explicitly marked not liable for VAT, or whose printed rate is 0%, is a 0%
+group: vat_percent, vat_amount, and vat_recognized_percent must all be 0,
+while net_amount and total_amount are the same printed amount. A group marked
+liable for VAT must use only its printed VAT rate and figures. For a standard
+VAT group, vat_recognized_percent must be 100. A payment confirmation is not
+an expense invoice.
 
 For every expense_invoice, locate the exact printed values used for its
 document number, total_amount, and vat_amount. Return each location directly
