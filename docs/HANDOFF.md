@@ -2,7 +2,7 @@
 
 **Updated:** 13 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Production release:** pending `cloudflare-production-2026-09-13-7` — repair CORS preflight for the shared Form 6111 mapping header
+**Production release:** `cloudflare-production-2026-09-13-7` — repair CORS preflight for the shared Form 6111 mapping header
 **Working tree:** September 13 review-regression release published. Local PDF examples remain intentionally untracked.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
@@ -29,7 +29,7 @@ Use a local, non-synchronised folder (for example `C:\Rivhit data`) as the activ
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | pending tag `cloudflare-production-2026-09-13-7` | repairing CORS preflight for `X-Form-6111-Mapping` |
+| Production Worker release | tag `cloudflare-production-2026-09-13-7` | Worker version `2669db7f-4720-49ce-bd9c-7048ba869bd7` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -191,7 +191,7 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - A manual code change on a row with a recognised Form 6111 now saves a shared `Form 6111 → קוד מיון` override in `common/custom-rivhit-mapping.json`. It is available to every client in that data root and is passed to Gemini on the next Pass 1 rerun and Pass 2 history refinement. Gemini still cannot invent a Form 6111 or a code: only known Form 6111 entries and codes already present in the common book are sent.
 - The data-root selector remains visible after a root is selected and changes its label to `החלפת תיקיית נתונים`; the earlier UI hid it, making a root impossible to change without clearing browser storage.
 
-Release `cloudflare-production-2026-09-13-7` repairs a browser-blocking CORS regression: the client sends `X-Form-6111-Mapping`, but the Worker preflight response previously omitted that allowed header. The browser consequently stopped the request before Gemini and showed `Failed to fetch` for every document. This release restores processing while retaining one Gemini request per document and no marker-only fallback. Before accepting it, manually test ordinary image processing first, then left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, and a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document.
+Worker version `2669db7f-4720-49ce-bd9c-7048ba869bd7` was deployed on 13 September 2026 for release `cloudflare-production-2026-09-13-7`. It repairs a browser-blocking CORS regression: the client sends `X-Form-6111-Mapping`, but the Worker preflight response previously omitted that allowed header. The browser consequently stopped the request before Gemini and showed `Failed to fetch` for every document. This release restores processing while retaining one Gemini request per document and no marker-only fallback. Before accepting it, manually test ordinary image processing first, then left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, and a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document.
 
 ## Proposed next steps
 
