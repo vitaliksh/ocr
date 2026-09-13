@@ -9,7 +9,8 @@ data from a filled template row from reaching a new import.
 
 The generated file must use Windows-1255 and CRLF. It has no header and no
 empty records. Record numbers are regenerated from 1 for the active export
-rows.
+rows. Document dates accept `YYYY-MM-DD`, `DD/MM/YYYY`, `DD/MM/YY`, and the
+same formats with `-` or `.` separators; two-digit years mean `20YY`.
 
 The application writes these one-based columns:
 
