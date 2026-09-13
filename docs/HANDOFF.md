@@ -2,7 +2,7 @@
 
 **Updated:** 13 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Production release:** `cloudflare-production-2026-09-13-3` — shared, user-taught Form 6111 → classification mappings
+**Production release:** `cloudflare-production-2026-09-13-4` — PDF marker fallback and safe TXT-template sanitisation
 **Working tree:** September 13 review-regression release published. Local PDF examples remain intentionally untracked.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
@@ -29,7 +29,7 @@ Use a local, non-synchronised folder (for example `C:\Rivhit data`) as the activ
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-13-3` | Worker version `a582c616-e6ee-4c49-a9f8-ef167e8fdcfd` |
+| Production Worker release | tag `cloudflare-production-2026-09-13-4` | Worker version `bebf344a-72c7-4746-a7f1-337207b7c46b` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -192,7 +192,7 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - TXT generation now sanitises a template row before applying the current transaction: inherited monetary values, signed values, dates, long identifiers, and Hebrew text are removed while short structural flags remain. A final validation rejects any remaining negative numeric field. The September `test1` TXT that contained `-1,382,439.42` in one-based columns 64 and 124 must not be imported; re-export it after this release.
 - If Pass 1 returns no source-value boxes, the Worker makes one box-only Gemini fallback request using the same image and the already extracted document number/gross/VAT values. It merges valid tight boxes into the row before the browser saves it, allowing the PDF report to draw its yellow/green markers. A fallback failure preserves the row and reports no fabricated box.
 
-Worker version `a582c616-e6ee-4c49-a9f8-ef167e8fdcfd` was deployed on 13 September 2026. Before accepting the release, manually test left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, and a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document.
+Worker version `bebf344a-72c7-4746-a7f1-337207b7c46b` was deployed on 13 September 2026. Before accepting the release, manually test left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document, a PDF marker fallback, and a re-export of the September `test1` rows with no negative TXT values.
 
 ## Proposed next steps
 
