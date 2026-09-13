@@ -38,7 +38,7 @@ function allowedOrigin(request, env) {
 
 function cors(request, env) {
   const origin = allowedOrigin(request, env);
-  return origin ? { "access-control-allow-origin": origin, vary: "Origin", "access-control-allow-headers": "content-type, x-upload-token, x-business-activity, x-gemini-model, x-target-record, x-passkey-credential-id, x-passkey-token", "access-control-allow-methods": "GET, POST, OPTIONS" } : {};
+  return origin ? { "access-control-allow-origin": origin, vary: "Origin", "access-control-allow-headers": "content-type, x-upload-token, x-business-activity, x-gemini-model, x-form-6111-mapping, x-target-record, x-passkey-credential-id, x-passkey-token", "access-control-allow-methods": "GET, POST, OPTIONS" } : {};
 }
 
 function clientRequest(request, env) {
