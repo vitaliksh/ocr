@@ -15,6 +15,17 @@ function cp1255(text) {
   for (const character of text) { const code = character.codePointAt(0); if (code === 9 || code === 10 || code === 13) output.push(code); else if (code >= 32 && code <= 126) output.push(code); else if (code >= 0x05d0 && code <= 0x05ea) output.push(0xe0 + code - 0x05d0); else if (code === 0x20aa) output.push(0xa4); else throw new Error(`הטקסט אינו ניתן לקידוד Windows-1255: ${character}`); }
   return new Uint8Array(output);
 }
+function cleanTemplateColumns(template) {
+  return template.split("\t").map((value) => {
+    const item = clean(value);
+    // A Rivhit template may have been exported from a real historic row. Keep
+    // its short structural flags (0, 1, 2, 4, 99, …), but never copy a
+    // transaction amount, date, identifier, or description into a new row.
+    if (/^-?\d+\.\d{2}$/.test(item) || /^-\d+$/.test(item) || /^\d{4,}$/.test(item) || /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(item) || /[\u0590-\u05ff]/.test(item)) return "";
+    return item;
+  });
+}
+function assertNoNegativeNumbers(columns) { if (columns.some((value) => /^-\d+(?:\.\d+)?$/.test(clean(value)))) throw new Error("תבנית Rivhit מכילה מספר שלילי שלא נוקה."); }
 
 export function buildRivhitImport({ templateText, rows, mapping }) {
   const template = firstNonEmptyLine(templateText);
@@ -25,10 +36,10 @@ export function buildRivhitImport({ templateText, rows, mapping }) {
     const values = row.values || [], code = clean(values[1]); if (!/^\d{3}$/.test(code) || !mapping?.[code]) throw new Error(`קוד המיון בשורה ${tableRow} אינו מאושר.`);
     const date = dateParts(values[0], tableRow), net = money(values[8] || row.rawNet), vat = money(values[9] || row.rawVat), gross = money(values[7] || Number(net) + Number(vat));
     if (Math.abs(Number(gross) - Number(net) - Number(vat)) > 0.009) throw new Error(`סכומי מע״מ בשורה ${tableRow} אינם תואמים.`);
-    const columns = template.split("\t");
+    const columns = cleanTemplateColumns(template);
     columns[0] = columns[184] = date.year; columns[1] = columns[185] = date.month; columns[2] = String(index + 1); columns[3] = columns[134] = code;
     columns[6] = columns[163] = gross; columns[7] = columns[8] = date.display; columns[9] = clean(values[2]); columns[10] = digits(values[5]).slice(-4); columns[11] = digits(values[6]); columns[135] = clean(mapping[code]); columns[137] = money(values[11] || 100); columns[154] = net; columns[155] = vat; columns[157] = ""; columns[177] = digits(values[4]) || "0";
-    if (columns.length !== RIVHIT_COLUMN_COUNT) throw new Error("שגיאה במספר עמודות Rivhit.");
+    if (columns.length !== RIVHIT_COLUMN_COUNT) throw new Error("שגיאה במספר עמודות Rivhit."); assertNoNegativeNumbers(columns);
     output.push(columns.join("\t"));
   }
   if (!output.length) throw new Error("יש לסמן לפחות שורה פעילה לייצוא.");

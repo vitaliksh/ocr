@@ -170,7 +170,6 @@ If the browser says the credential is no longer registered, the UI clears the lo
 1. Keep the automated Worker passkey tests current: they cover registration/authentication state, counter updates, grant expiry, and invalid signatures. A real platform authenticator remains a short production release check.
 2. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
 3. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
-4. **Do not import an export that inherits live transaction data from the Rivhit template.** The 13 September `test1` export exposed stale values including `-1,382,439.42` in one-based columns 64 and 124. `buildRivhitImport` currently copies unspecified template columns verbatim, so the canonical template must be sanitised against the Rivhit field contract before a corrected exporter is released. This needs a verified Rivhit-safe blank/default field list; do not guess by bulk-zeroing unknown fields.
 
 ## Bookkeeper feedback — implemented locally, pending next release
 
@@ -190,6 +189,8 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - Pass 1 now explicitly distinguishes `חייב במע״מ` from `לא חייב במע״מ`: a printed exempt/0% group preserves its printed total as net, with VAT rate, amount, and recognised percent all set to zero. The Worker prompt and readable prompt source have matching wording.
 - A manual code change on a row with a recognised Form 6111 now saves a shared `Form 6111 → קוד מיון` override in `common/custom-rivhit-mapping.json`. It is available to every client in that data root and is passed to Gemini on the next Pass 1 rerun and Pass 2 history refinement. Gemini still cannot invent a Form 6111 or a code: only known Form 6111 entries and codes already present in the common book are sent.
 - The data-root selector remains visible after a root is selected and changes its label to `החלפת תיקיית נתונים`; the earlier UI hid it, making a root impossible to change without clearing browser storage.
+- TXT generation now sanitises a template row before applying the current transaction: inherited monetary values, signed values, dates, long identifiers, and Hebrew text are removed while short structural flags remain. A final validation rejects any remaining negative numeric field. The September `test1` TXT that contained `-1,382,439.42` in one-based columns 64 and 124 must not be imported; re-export it after this release.
+- If Pass 1 returns no source-value boxes, the Worker makes one box-only Gemini fallback request using the same image and the already extracted document number/gross/VAT values. It merges valid tight boxes into the row before the browser saves it, allowing the PDF report to draw its yellow/green markers. A fallback failure preserves the row and reports no fabricated box.
 
 Worker version `a582c616-e6ee-4c49-a9f8-ef167e8fdcfd` was deployed on 13 September 2026. Before accepting the release, manually test left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, and a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document.
 
@@ -209,7 +210,7 @@ npm test
 npm run check
 ~~~
 
-Expected automated browser tests currently: **32 passing**.
+Expected automated browser tests currently: **33 passing**.
 
 After Worker changes:
 
