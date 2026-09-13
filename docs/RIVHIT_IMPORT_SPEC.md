@@ -1,8 +1,11 @@
 # Rivhit TXT import contract
 
 `PKUDA_AI_TEST.TXT` is the private canonical template. Its first non-empty row
-must contain exactly 186 TAB-separated columns. Each generated expense row
-starts as a copy of that row, so unspecified fields retain the approved values.
+must contain exactly 186 TAB-separated columns. It validates the expected
+Rivhit layout only: no value is copied from it. Each generated expense row
+starts as 186 literal `0` fields, then replaces only the fields documented
+below with values from the current record. This prevents historic transaction
+data from a filled template row from reaching a new import.
 
 The generated file must use Windows-1255 and CRLF. It has no header and no
 empty records. Record numbers are regenerated from 1 for the active export
@@ -29,6 +32,7 @@ The application writes these one-based columns:
 Before saving, verify: 186 columns; matching three-digit codes in columns 4 and
 135; date/year/month consistency; matching gross values; cent-level VAT
 reconciliation; digits-only identifiers; Windows-1255 encodability; and no
-excluded income record or duplicate payment confirmation. A full Form 6111
+excluded income record, duplicate payment confirmation, or negative numeric
+field. A full Form 6111
 code is never written directly: the approved mapping determines the Rivhit
 code.
