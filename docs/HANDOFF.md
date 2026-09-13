@@ -2,7 +2,7 @@
 
 **Updated:** 13 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Production release:** `cloudflare-production-2026-09-13-4` — PDF marker fallback and safe TXT-template sanitisation
+**Production release:** `cloudflare-production-2026-09-13-5` — rollback of failed PDF marker fallback; safe TXT-template sanitisation retained
 **Working tree:** September 13 review-regression release published. Local PDF examples remain intentionally untracked.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
@@ -29,7 +29,7 @@ Use a local, non-synchronised folder (for example `C:\Rivhit data`) as the activ
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-13-4` | Worker version `bebf344a-72c7-4746-a7f1-337207b7c46b` |
+| Production Worker release | tag `cloudflare-production-2026-09-13-5` | Worker version `aac36312-82ca-4d7c-8c9a-f2873a8ed724` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -192,7 +192,7 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - TXT generation now sanitises a template row before applying the current transaction: inherited monetary values, signed values, dates, long identifiers, and Hebrew text are removed while short structural flags remain. A final validation rejects any remaining negative numeric field. The September `test1` TXT that contained `-1,382,439.42` in one-based columns 64 and 124 must not be imported; re-export it after this release.
 - PDF markers come only from the original Pass 1 response. Do not add a second Gemini marker-only request: the September attempt doubled image processing and caused the journal to fail with `Failed to fetch` before any row could be populated. A row without source boxes remains explicitly marked `מוכן, חסרים סימונים` and exports without fabricated highlights.
 
-The September marker-fallback deployment must be superseded before any further user testing. After rollback, manually test ordinary image processing first, then left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document, and a re-export of the September `test1` rows with no negative TXT values.
+Worker version `aac36312-82ca-4d7c-8c9a-f2873a8ed724` rolled back the marker fallback on 13 September 2026. Test ordinary image processing first, then left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document, and a re-export of the September `test1` rows with no negative TXT values.
 
 ## Proposed next steps
 
