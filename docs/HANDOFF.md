@@ -2,7 +2,7 @@
 
 **Updated:** 13 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Production release:** `cloudflare-production-2026-09-13-5` — rollback of failed PDF marker fallback; safe TXT-template sanitisation retained
+**Production release:** `cloudflare-production-2026-09-13-6` — verified rollback to single-pass document processing
 **Working tree:** September 13 review-regression release published. Local PDF examples remain intentionally untracked.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
@@ -29,7 +29,7 @@ Use a local, non-synchronised folder (for example `C:\Rivhit data`) as the activ
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-13-5` | Worker version `aac36312-82ca-4d7c-8c9a-f2873a8ed724` |
+| Production Worker release | tag `cloudflare-production-2026-09-13-6` | Worker version `c8ea001f-260d-4916-82ba-9e8a66c82aaa` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -170,6 +170,7 @@ If the browser says the credential is no longer registered, the UI clears the lo
 1. Keep the automated Worker passkey tests current: they cover registration/authentication state, counter updates, grant expiry, and invalid signatures. A real platform authenticator remains a short production release check.
 2. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
 3. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
+4. **Do not import an export that inherits live transaction data from the Rivhit template.** The 13 September `test1` export exposed stale values including `-1,382,439.42` in one-based columns 64 and 124. `buildRivhitImport` currently copies unspecified template columns verbatim, so the canonical template must be sanitised against the Rivhit field contract before a corrected exporter is released. This needs a verified Rivhit-safe blank/default field list; do not guess by bulk-zeroing unknown fields.
 
 ## Bookkeeper feedback — implemented locally, pending next release
 
@@ -189,10 +190,8 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - Pass 1 now explicitly distinguishes `חייב במע״מ` from `לא חייב במע״מ`: a printed exempt/0% group preserves its printed total as net, with VAT rate, amount, and recognised percent all set to zero. The Worker prompt and readable prompt source have matching wording.
 - A manual code change on a row with a recognised Form 6111 now saves a shared `Form 6111 → קוד מיון` override in `common/custom-rivhit-mapping.json`. It is available to every client in that data root and is passed to Gemini on the next Pass 1 rerun and Pass 2 history refinement. Gemini still cannot invent a Form 6111 or a code: only known Form 6111 entries and codes already present in the common book are sent.
 - The data-root selector remains visible after a root is selected and changes its label to `החלפת תיקיית נתונים`; the earlier UI hid it, making a root impossible to change without clearing browser storage.
-- TXT generation now sanitises a template row before applying the current transaction: inherited monetary values, signed values, dates, long identifiers, and Hebrew text are removed while short structural flags remain. A final validation rejects any remaining negative numeric field. The September `test1` TXT that contained `-1,382,439.42` in one-based columns 64 and 124 must not be imported; re-export it after this release.
-- PDF markers come only from the original Pass 1 response. Do not add a second Gemini marker-only request: the September attempt doubled image processing and caused the journal to fail with `Failed to fetch` before any row could be populated. A row without source boxes remains explicitly marked `מוכן, חסרים סימונים` and exports without fabricated highlights.
 
-Worker version `aac36312-82ca-4d7c-8c9a-f2873a8ed724` rolled back the marker fallback on 13 September 2026. Test ordinary image processing first, then left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document, and a re-export of the September `test1` rows with no negative TXT values.
+Worker version `c8ea001f-260d-4916-82ba-9e8a66c82aaa` was deployed on 13 September 2026 after verifying the rollback. It performs one Gemini request per document, with no marker-only fallback. Before accepting the release, manually test ordinary image processing first, then left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, and a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document.
 
 ## Proposed next steps
 
@@ -210,7 +209,7 @@ npm test
 npm run check
 ~~~
 
-Expected automated browser tests currently: **33 passing**.
+Expected automated browser tests currently: **32 passing**.
 
 After Worker changes:
 
