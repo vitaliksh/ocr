@@ -187,6 +187,7 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - Any code path that clears `לייצוא`, including automatic duplicate detection, uses the same helper that adds the full-row grey `not-for-export` state. This covers a checkbox changed by the agent, duplicate detection, and restored drafts.
 - `כולל מע״מ` and `ללא מע״מ` remain separate editable fields. Their input is no longer reformatted while the user types; recalculation and draft save happen only on Enter or when the field loses focus. Their accessible labels distinguish gross from net.
 - Pass 1 now explicitly distinguishes `חייב במע״מ` from `לא חייב במע״מ`: a printed exempt/0% group preserves its printed total as net, with VAT rate, amount, and recognised percent all set to zero. The Worker prompt and readable prompt source have matching wording.
+- A manual code change on a row with a recognised Form 6111 now saves a shared `Form 6111 → קוד מיון` override in `common/custom-rivhit-mapping.json`. It is available to every client in that data root and is passed to Gemini on the next Pass 1 rerun and Pass 2 history refinement. Gemini still cannot invent a Form 6111 or a code: only known Form 6111 entries and codes already present in the common book are sent.
 
 Worker version `e0cbee01-b079-4693-9597-56eac7a5a0d9` was deployed on 13 September 2026. Before accepting the release, manually test left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, and taxable, exempt, and mixed-VAT documents.
 
@@ -206,7 +207,7 @@ npm test
 npm run check
 ~~~
 
-Expected automated browser tests currently: **31 passing**.
+Expected automated browser tests currently: **32 passing**.
 
 After Worker changes:
 
