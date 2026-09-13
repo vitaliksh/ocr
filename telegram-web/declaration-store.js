@@ -1,4 +1,4 @@
-import { closeDeclaration, createDraftTable, createOpenDeclaration, normalizeDeclaration, normalizeDraftTable } from "./declaration-core.js";
+import { closeDeclaration, createDraftTable, createOpenDeclaration, normalizeDeclaration, normalizeDraftTable, setDeclarationArchived } from "./declaration-core.js";
 
 const declarationsName = "declarations", declarationFile = "declaration.json", draftFile = "draft-table.json", imagesName = "images", exportsName = "exports";
 
@@ -40,6 +40,20 @@ export async function loadDeclaration(clientDirectory, month) {
   const parsed = normalizeDraftTable(await readJson(directory, draftFile), metadata.declaration.declarationId); if (!parsed.valid) throw new Error(parsed.error);
   const draft = parsed.draft;
   return { directory, declaration: metadata.declaration, draft };
+}
+
+export async function archiveDeclaration(clientDirectory, month, archived) {
+  const { directory, declaration } = await loadDeclaration(clientDirectory, month);
+  const updated = setDeclarationArchived(declaration, archived);
+  await writeJson(directory, declarationFile, updated);
+  return updated;
+}
+
+export async function deleteDeclaration(clientDirectory, month) {
+  const declarations = await clientDirectory.getDirectoryHandle(declarationsName);
+  const target = await declarations.getDirectoryHandle(month);
+  if (target.name !== month) throw new Error("תיקיית ההצהרה שנבחרה אינה תואמת.");
+  await declarations.removeEntry(month, { recursive: true });
 }
 
 export async function saveDraft(declarationDirectory, declaration, rows, now = new Date().toISOString()) {

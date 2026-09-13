@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { closeDeclaration, createDraftTable, createOpenDeclaration, declarationMonth, normalizeDeclaration, normalizeDraftTable } from "../declaration-core.js";
+import { closeDeclaration, createDraftTable, createOpenDeclaration, declarationMonth, normalizeDeclaration, normalizeDraftTable, setDeclarationArchived } from "../declaration-core.js";
 
 const now = "2026-09-11T10:20:30.000Z";
 
@@ -32,4 +32,11 @@ test("закрывает только открытую декларацию с �
   const open = createOpenDeclaration({ clientId: "client-1", month: "2026-09", declarationId: "declaration-1", now });
   const closed = closeDeclaration(open, { finalExport: "2026-09-12_11-00", now });
   assert.equal(closed.status, "closed"); assert.equal(closed.finalExport, "2026-09-12_11-00"); assert.throws(() => closeDeclaration(closed, { finalExport: "another", now }), /לסגור רק/);
+});
+
+test("архивирует декларацию без изменения её статуса", () => {
+  const open = createOpenDeclaration({ clientId: "client-1", month: "2026-09", declarationId: "declaration-1", now });
+  const archived = setDeclarationArchived(open, true, now);
+  assert.equal(archived.archived, true); assert.equal(archived.status, "open");
+  assert.equal(setDeclarationArchived(archived, false, now).archived, false);
 });

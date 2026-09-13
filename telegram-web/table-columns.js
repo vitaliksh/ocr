@@ -2,7 +2,7 @@
   const table = document.querySelector(".table-wrap table");
   if (!table || !window.localStorage) return;
 
-  const storageKey = "rivhit-table-column-widths-v1";
+  const storageKey = "rivhit-table-column-widths-v2";
   const headers = [...table.tHead.rows[0].cells];
   const minimumWidth = 38;
   const colgroup = document.createElement("colgroup");

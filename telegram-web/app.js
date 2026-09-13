@@ -33,7 +33,8 @@ async function activateDeclaration(selected) {
 }
 function updateWorkspace(selected) { if (workspace?.config.clientId === selected.config.clientId) workspace = { ...workspace, config: selected.config }; if (committedWorkspace?.config.clientId === selected.config.clientId) { committedWorkspace = { ...committedWorkspace, config: selected.config }; businessActivity.value = selected.config.businessActivity; businessKind.value = selected.config.businessKind; applyBusinessRules(); } }
 function clearActiveClient(clientId) { if (workspace?.config.clientId === clientId) workspace = null; if (committedWorkspace?.config.clientId === clientId) { committedWorkspace = null; currentDeclaration = null; currentClient.textContent = "לא נבחרה הצהרה"; updateStartAvailability(); } }
-function refreshClassificationSelectors() { for (const row of records.querySelectorAll("tr[data-document-id]")) { const value = row.cells[2].querySelector("select")?.value || ""; row.cells[2].replaceChildren(classificationSelect(value)); } }
+function clearActiveDeclaration(declarationId) { if (currentDeclaration?.declarationId !== declarationId) return; currentDeclaration = null; currentDeclarationDirectory = null; records.replaceChildren(emptyRow); recordCount = 0; currentClient.textContent = "לא נבחרה הצהרה"; updateStartAvailability(); }
+function refreshClassificationSelectors() { for (const row of records.querySelectorAll("tr[data-document-id]")) { const value = row.cells[1].querySelector("select")?.value || ""; row.cells[1].replaceChildren(classificationSelect(value)); } }
 async function loadCustomMapping(root) { [customMapping, customMappingMetadata] = await Promise.all([readCustomRivhitMapping(root, builtInMapping), readCustomRivhitMappingMetadata(root, builtInMapping)]); rivhitMapping = { ...builtInMapping, ...customMapping }; refreshClassificationSelectors(); }
 const workspaceControls = setupWorkspaceControls({
   clientList: document.querySelector("#client-list"), showNewButton: document.querySelector("#show-new-client"), openExistingButton: document.querySelector("#open-existing-client"), archivedToggle: document.querySelector("#toggle-archived-clients"), dataRootButton: document.querySelector("#select-data-root"), dataRootSummary: document.querySelector("#data-root-summary"), templateButton: document.querySelector("#select-template"), creationPanel: document.querySelector("#new-client-form"), createButton: document.querySelector("#create-client"), deleteButton: document.querySelector("#delete-client"), archiveButton: document.querySelector("#archive-client"), restoreButton: document.querySelector("#restore-client"), saveClientButton: document.querySelector("#save-client-settings"), clientMenu: document.querySelector("#client-menu"), clientMenuName: document.querySelector("#client-menu-name"), clientNameInput: document.querySelector("#new-client-name"), clientActivityInput: document.querySelector("#new-client-activity"), clientKindInput: document.querySelector("#new-client-kind"), businessActivityInput: businessActivity, businessKindInput: businessKind, summary: workspaceSummary, templateSummary: document.querySelector("#template-summary"),
@@ -41,6 +42,7 @@ const workspaceControls = setupWorkspaceControls({
   onDeclaration: activateDeclaration,
   onUpdated: updateWorkspace,
   onArchived: (selected) => { clearActiveClient(selected.config.clientId); },
+  onDeclarationRemoved: clearActiveDeclaration,
   onTemplate: (selected) => { canonicalTemplate = selected; updateStartAvailability(); },
   onDeleted: clearActiveClient,
   onError: showError
@@ -91,32 +93,53 @@ function receivedAtText(value) { const date = new Date(value); return Number.isN
 function emptyCell(text = "—", className = "") { const cell = document.createElement("td"); cell.textContent = text; if (className) cell.className = className; return cell; }
 function display(value) { return value === null || value === undefined || value === "" ? "—" : String(value); }
 function editableCell(value) { const cell = emptyCell(display(value), "editable"); cell.contentEditable = "true"; cell.spellcheck = false; return cell; }
-function setTableLocked(locked) { tableLocked = locked; records.classList.toggle("table-locked", locked); for (const cell of records.querySelectorAll(".editable")) cell.contentEditable = locked ? "false" : "true"; for (const control of records.querySelectorAll("select,input,.delete,.retry")) control.disabled = locked; }
+function amountCell(value) { const cell = document.createElement("td"), input = document.createElement("input"); cell.className = "amount-cell"; input.type = "number"; input.inputMode = "decimal"; input.min = "0"; input.step = "0.01"; input.value = value === null || value === undefined || value === "" ? "" : Number(value).toFixed(2); input.setAttribute("aria-label", "סכום כולל מע״מ"); cell.append(input); return cell; }
+function setTableLocked(locked) { tableLocked = locked; records.classList.toggle("table-locked", locked); for (const cell of records.querySelectorAll(".editable")) cell.contentEditable = locked ? "false" : "true"; for (const control of records.querySelectorAll("select,input,.delete,.retry,.field-swap")) control.disabled = locked; }
 function refreshRows() { const rows = [...records.querySelectorAll("tr[data-document-id]")]; recordCount = rows.length; rows.forEach((row, index) => { row.cells[0].textContent = String(index + 1); }); count.textContent = `שורות ביומן: ${recordCount}`; if (!recordCount) records.append(emptyRow); }
 function setStatus(row, text, state = "") { const cell = row.cells[16]; cell.replaceChildren(document.createTextNode(text)); cell.className = `state ${state}`; }
 function percentSelect(value = 100, choices = [100, 25], role = "") { const select = document.createElement("select"); select.dataset.role = role; for (const item of choices) { const option = new Option(`${item}%`, String(item), false, Number(value) === item); select.add(option); } select.addEventListener("change", () => { const row = select.closest("tr"); if (role === "expense" && Number(row.dataset.rawVat || 0)) row.cells[11].querySelector("select").value = select.value; recalculateRow(row); queueDraftSave(); }); return select; }
 function nextFreeClassificationCode() { let candidate = Math.max(799, ...Object.keys(rivhitMapping).filter((code) => /^\d{3}$/.test(code)).map(Number)) + 1; while (candidate <= 999 && rivhitMapping[String(candidate)]) candidate += 1; return candidate <= 999 ? String(candidate) : ""; }
-function classificationSelect(code = "") { const select = document.createElement("select"); select.add(new Option("—", "")); for (const [value, label] of Object.entries(rivhitMapping)) select.add(new Option(`${value} — ${label}`, value, false, value === code)); select.add(new Option("הוספת קוד מיון חדש…", "__add_custom__")); select.dataset.lastValue = code; select.addEventListener("change", () => { const row = select.closest("tr"); if (select.value === "__add_custom__") { select.value = select.dataset.lastValue || ""; pendingClassificationRow = row; customClassificationError.textContent = ""; customClassificationCode.value = nextFreeClassificationCode(); customClassificationName.value = ""; customClassificationDialog.showModal(); customClassificationName.focus(); return; } select.dataset.lastValue = select.value; applyBusinessRule(row); queueDraftSave(); }); return select; }
-function recalculateRow(row) { const expensePercent = row.cells[12].querySelector("select")?.value || 100, amounts = recognisedAmounts(row.dataset.rawNet, row.dataset.rawVat, expensePercent); row.cells[8].textContent = amounts.gross; row.cells[9].textContent = amounts.net; row.cells[10].textContent = amounts.vat; }
+function classificationSelect(code = "") { const wrap = document.createElement("span"), search = document.createElement("input"), select = document.createElement("select"); wrap.className = "classification-picker"; search.type = "search"; search.placeholder = "חיפוש…"; search.setAttribute("aria-label", "חיפוש קוד מיון"); const fill = (query = "") => { const needle = query.trim().toLocaleLowerCase("he"); select.replaceChildren(new Option("—", "")); for (const [value, label] of Object.entries(rivhitMapping)) if (!needle || value.includes(needle) || label.toLocaleLowerCase("he").includes(needle)) select.add(new Option(`${value} — ${label}`, value, false, value === code)); select.add(new Option("הוספת קוד מיון חדש…", "__add_custom__")); if (code && !select.querySelector(`option[value="${CSS.escape(code)}"]`)) select.add(new Option(`${code} — ${rivhitMapping[code] || ""}`, code, false, true)); }; fill(); select.dataset.lastValue = code; search.addEventListener("input", () => fill(search.value)); select.addEventListener("change", () => { const row = select.closest("tr"); if (select.value === "__add_custom__") { select.value = select.dataset.lastValue || ""; pendingClassificationRow = row; customClassificationError.textContent = ""; customClassificationCode.value = nextFreeClassificationCode(); customClassificationName.value = ""; customClassificationDialog.showModal(); customClassificationName.focus(); return; } select.dataset.lastValue = select.value; code = select.value; applyBusinessRule(row); queueDraftSave(); }); wrap.append(search, select); return wrap; }
+function recalculateRow(row) { const expensePercent = row.cells[12].querySelector("select")?.value || 100, amounts = recognisedAmounts(row.dataset.rawNet, row.dataset.rawVat, expensePercent); const gross = row.cells[8].querySelector("input"); if (gross) gross.value = amounts.gross; else row.cells[8].textContent = amounts.gross; const net = row.cells[9].querySelector("input"); if (net) net.value = amounts.net; else row.cells[9].textContent = amounts.net; row.cells[10].textContent = amounts.vat; }
 function vatRate(row) { const stored = Number(row.dataset.vatPercent); if (Number.isFinite(stored)) return stored; const net = Number(row.dataset.rawNet), vat = Number(row.dataset.rawVat); return net > 0 ? Math.round(vat / net * 10000) / 100 : 18; }
 function manualAmountChanged(row, column) {
-  const entered = Number(row.cells[column].textContent.trim().replace(/,/g, "")); if (!Number.isFinite(entered) || entered < 0) return;
+  const entered = Number(cellValue(row.cells[column]).replace(/,/g, "")); if (!Number.isFinite(entered) || entered < 0) return;
   const amounts = column === 8 ? sourceAmountsFromGross(entered, vatRate(row)) : sourceAmountsFromNet(entered, vatRate(row));
   row.dataset.rawNet = amounts.net; row.dataset.rawVat = amounts.vat; recalculateRow(row);
 }
 function normalReference(value) { return String(value || "").trim().replace(/[^\p{L}\p{N}]/gu, "").toUpperCase(); }
+function displayedReference(value) { const digits = String(value || "").replace(/\D/g, ""); return digits ? digits.slice(-4) : String(value || "").trim(); }
+function addFieldSwapButton(row) { const purpose = row.cells[3]; purpose.querySelector(".field-swap")?.remove(); const button = document.createElement("button"); button.type = "button"; button.className = "field-swap"; button.contentEditable = "false"; button.textContent = "⇄"; button.title = "החלף בין פרטים לספק"; button.setAttribute("aria-label", button.title); button.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); const details = cellValue(row.cells[3]), supplier = cellValue(row.cells[4]); row.cells[3].textContent = supplier; row.cells[4].textContent = details; addFieldSwapButton(row); queueDraftSave(); }); purpose.append(button); }
 function updateDuplicateState(row) {
   const reference = normalReference(cellValue(row.cells[6])); if (!reference) return;
   const duplicate = [...records.querySelectorAll("tr[data-document-id]")].some((candidate) => candidate !== row && candidate.dataset.documentId !== row.dataset.documentId && normalReference(cellValue(candidate.cells[6])) === reference);
   if (!duplicate) return;
   const include = row.cells[17].querySelector("input"); include.checked = false; row.dataset.duplicate = "true"; setStatus(row, "חשד לכפילות לפי אסמכתא — נדרש עיון", "review");
 }
-function applyBusinessRule(row) { const code = row.cells[2].querySelector("select")?.value, homeUtility = businessKind.value === "home" && ["809", "820"].includes(code), expense = row.cells[12].querySelector("select"), vat = row.cells[11].querySelector("select"); if (expense) expense.value = homeUtility ? "25" : "100"; if (vat && homeUtility && Number(row.dataset.rawVat || 0)) vat.value = "25"; recalculateRow(row); }
+function applyBusinessRule(row) { const code = row.cells[1].querySelector("select")?.value, homeUtility = businessKind.value === "home" && ["809", "820"].includes(code), expense = row.cells[12].querySelector("select"), vat = row.cells[11].querySelector("select"); if (expense) expense.value = homeUtility ? "25" : "100"; if (vat && homeUtility && Number(row.dataset.rawVat || 0)) vat.value = "25"; recalculateRow(row); }
 function applyBusinessRules() { for (const row of records.querySelectorAll("tr[data-document-id]")) applyBusinessRule(row); }
 businessKind.addEventListener("change", applyBusinessRules);
 function updateProcessingControls() { stop.hidden = !pendingRecognitions; stop.disabled = !pendingRecognitions; }
 function updateImageTransform() { dialogImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`; }
-function openPhoto(imageUrl, imageIndex) { dialogImage.src = imageUrl; photoTitle.textContent = `תמונה #${imageIndex}`; zoom = 1; panX = 0; panY = 0; updateImageTransform(); photoWindow.hidden = false; if (!photoWindow.style.left) { photoWindow.style.left = `${Math.max(20, (window.innerWidth - photoWindow.offsetWidth) / 2)}px`; photoWindow.style.top = "60px"; } }
+let imagePopup = null;
+function openPhoto(imageUrl, imageIndex) {
+  if (!imageUrl) return;
+  if (!imagePopup || imagePopup.closed) imagePopup = window.open("", "rivhit-document-image", "popup=yes,width=1000,height=800,resizable=yes,scrollbars=no");
+  if (!imagePopup) return showError("הדפדפן חסם את חלון התמונה. יש לאפשר חלונות קופצים לאתר זה.");
+  const doc = imagePopup.document;
+  if (!doc.querySelector("#document-image")) {
+    doc.title = "תמונת מסמך"; doc.body.style.cssText = "margin:0;background:#111;color:#fff;font:14px Arial;overflow:hidden";
+    const bar = doc.createElement("header"), title = doc.createElement("strong"), controls = doc.createElement("span"), out = doc.createElement("button"), plus = doc.createElement("button"), image = doc.createElement("img"), viewport = doc.createElement("div");
+    title.id = "document-title"; controls.style.cssText = "display:flex;gap:8px"; bar.style.cssText = "height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#34566c"; viewport.style.cssText = "height:calc(100vh - 42px);position:relative;overflow:hidden;touch-action:none"; image.id = "document-image"; image.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:center;cursor:grab;user-select:none";
+    out.textContent = "−"; plus.textContent = "+"; [out, plus].forEach((button) => { button.style.cssText = "padding:2px 10px;font-size:18px"; controls.append(button); }); bar.append(title, controls); viewport.append(image); doc.body.append(bar, viewport);
+    let zoomLevel = 1, dragging = null, panXLocal = 0, panYLocal = 0; const transform = () => { image.style.transform = `translate(${panXLocal}px,${panYLocal}px) scale(${zoomLevel})`; };
+    plus.onclick = () => { zoomLevel = Math.min(4, zoomLevel + .25); transform(); }; out.onclick = () => { zoomLevel = Math.max(.5, zoomLevel - .25); transform(); };
+    viewport.onpointerdown = (event) => { dragging = { x: event.clientX, y: event.clientY, panX: panXLocal, panY: panYLocal }; image.style.cursor = "grabbing"; viewport.setPointerCapture(event.pointerId); };
+    viewport.onpointermove = (event) => { if (!dragging) return; panXLocal = dragging.panX + event.clientX - dragging.x; panYLocal = dragging.panY + event.clientY - dragging.y; transform(); };
+    viewport.onpointerup = viewport.onpointercancel = () => { dragging = null; image.style.cursor = "grab"; };
+  }
+  doc.querySelector("#document-title").textContent = `תמונה #${imageIndex}`; doc.querySelector("#document-image").src = imageUrl; imagePopup.focus();
+}
 
 async function startUpload(purpose = "upload") {
   if (!currentDeclaration || currentDeclaration.status !== "open") return showError("יש לבחור תחילה הצהרה פתוחה.");
@@ -204,19 +227,19 @@ async function importPdfFile(file) {
 importPdf.addEventListener("click", choosePdfFile);
 function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, insertAfter = null, imageBlob = null) {
   emptyRow?.remove(); recordCount += 1; count.textContent = `שורות ביומן: ${recordCount}`;
-  const row = document.createElement("tr"); row.dataset.documentId = documentId; row.dataset.imageIndex = String(imageIndex); row.dataset.receivedAt = String(receivedAt); row.documentImage = imageBlob;
-  row.append(emptyCell(String(recordCount)), emptyCell(receivedAtText(receivedAt)), emptyCell(), emptyCell("ממתין לעיבוד"), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell());
+  const row = document.createElement("tr"); row.dataset.documentId = documentId; row.dataset.imageIndex = String(imageIndex); row.dataset.receivedAt = String(receivedAt); row.documentImage = imageBlob; row.imageUrl = imageUrl;
+  row.append(emptyCell(String(recordCount)), emptyCell(), emptyCell(receivedAtText(receivedAt)), emptyCell("ממתין לעיבוד"), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell(), emptyCell());
   const photo = document.createElement("td"), open = document.createElement("button"); open.type = "button"; open.className = "photo-button"; open.textContent = `תמונה #${imageIndex}`; open.addEventListener("click", () => openPhoto(imageUrl, imageIndex)); photo.append(open); row.append(photo);
   row.append(emptyCell("ממתין ל‑Gemini", "agent-opinion"), emptyCell(), emptyCell("התקבל", "state received"));
-  const exportCell = document.createElement("td"), include = document.createElement("input"); include.type = "checkbox"; include.disabled = true; exportCell.append(include); row.append(exportCell);
-  const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { row.remove(); refreshRows(); queueDraftSave(); }); deleteCell.append(remove); row.append(deleteCell); if (insertAfter?.parentNode === records) records.insertBefore(row, insertAfter.nextSibling); else records.append(row); refreshRows(); return row;
+  const exportCell = document.createElement("td"), include = document.createElement("input"); include.type = "checkbox"; include.disabled = true; include.addEventListener("change", () => { row.classList.toggle("not-for-export", !include.checked); queueDraftSave(); }); exportCell.append(include); row.append(exportCell);
+  const deleteCell = document.createElement("td"), remove = document.createElement("button"); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחק"; remove.addEventListener("click", () => { row.remove(); refreshRows(); queueDraftSave(); }); deleteCell.append(remove); row.append(deleteCell); row.addEventListener("click", (event) => { if (!event.target.closest("button,input,select,a")) openPhoto(row.imageUrl, imageIndex); }); if (insertAfter?.parentNode === records) records.insertBefore(row, insertAfter.nextSibling); else records.append(row); refreshRows(); return row;
 }
 function enqueueRecognition(row, blob, imageUrl, receivedAt, documentId, imageIndex, restart = false, onlyThis = false) {
   if (restart) stopRequested = false;
   pendingRecognitions += 1; updateProcessingControls();
   recognitionQueue = recognitionQueue.then(() => recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis)).catch(() => {}).finally(() => { pendingRecognitions -= 1; updateProcessingControls(); }); return recognitionQueue;
 }
-function recordTarget(row) { return { date: row.cells[1].textContent, classification: row.cells[2].textContent, purpose: row.cells[3].textContent, supplier: row.cells[4].textContent, reference: row.cells[6].textContent, gross: row.cells[8].textContent, net: row.cells[9].textContent, vat: row.cells[10].textContent }; }
+function recordTarget(row) { return { date: row.cells[2].textContent, classification: row.cells[1].textContent, purpose: row.cells[3].textContent, supplier: row.cells[4].textContent, reference: row.cells[6].textContent, gross: row.cells[8].textContent, net: row.cells[9].textContent, vat: row.cells[10].textContent }; }
 async function recognize(row, blob, imageUrl, receivedAt, documentId, imageIndex, onlyThis = false) {
   if (stopRequested) { setStatus(row, "בוטל", "review"); row.cells[14].textContent = "העיבוד נעצר על ידי המשתמש."; addRerunButton(row, "עבד", false); return; }
   const activity = businessActivity.value.trim(); if (!activity) { setStatus(row, "חסרה פעילות העסק", "error"); row.cells[14].textContent = "יש למלא את סוג פעילות העסק ואז להפעיל מחדש."; return; }
@@ -276,7 +299,7 @@ async function refineWithHistory(row) {
   try {
     const grant = await authorizePasskey();
     const response = await fetch(apiUrl("/v1/passkeys/refine-history"), { method: "POST", headers: { "Content-Type": "application/json", "X-Passkey-Credential-Id": grant.credentialId, "X-Passkey-Token": grant.token, "X-Gemini-Model": model.value }, body: JSON.stringify({ draft: rowSnapshot(row), history }) }), result = await response.json(); if (!response.ok) throw new Error(result.error || "השיפור נכשל.");
-    if (result.rivhit_code) row.cells[2].querySelector("select").value = result.rivhit_code; if (result.vat_recognized_percent !== null) row.cells[11].querySelector("select").value = String(result.vat_recognized_percent); if (result.recognized_percent !== null) row.cells[12].querySelector("select").value = String(result.recognized_percent); applyBusinessRule(row); row.cells[14].textContent = result.agent_opinion; row.cells[15].textContent = String(result.confidence) + "%"; setStatus(row, result.review_state === "ready" ? "מוכן לייצוא" : "נדרש עיון", result.review_state); addHistoryButton(row); queueDraftSave();
+    if (result.rivhit_code) row.cells[1].querySelector("select").value = result.rivhit_code; if (result.vat_recognized_percent !== null) row.cells[11].querySelector("select").value = String(result.vat_recognized_percent); if (result.recognized_percent !== null) row.cells[12].querySelector("select").value = String(result.recognized_percent); applyBusinessRule(row); row.cells[14].textContent = result.agent_opinion; row.cells[15].textContent = String(result.confidence) + "%"; setStatus(row, result.review_state === "ready" ? "מוכן לייצוא" : "נדרש עיון", result.review_state); addHistoryButton(row); queueDraftSave();
   } catch (error) { showError("לא ניתן לשפר לפי היסטוריה: " + error.message); }
 }
 function addHistoryButton(row) { if (row.cells[16].querySelector(".history-refine")) return; const button = document.createElement("button"); button.type = "button"; button.className = "retry history-refine"; button.textContent = "שפר לפי היסטוריה"; button.addEventListener("click", () => refineWithHistory(row)); row.cells[16].append(document.createElement("br"), button); }
@@ -287,19 +310,19 @@ async function ensureIncomeClassification() {
 }
 async function applyRecord(row, record) {
   row.dataset.rawNet = String(record.net_amount || 0); row.dataset.rawVat = String(record.vat_amount || 0); row.dataset.vatPercent = String(record.vat_percent ?? (Number(record.vat_amount) ? 18 : 0)); row.dataset.documentKind = record.document_kind || "other"; row.highlights = Array.isArray(record.highlight_regions) ? record.highlight_regions : [];
-  const values = [record.date, null, record.purpose, record.supplier_name, record.supplier_vat_id, record.transaction_number || record.invoice_number, record.allocation_number, null, record.net_amount, record.vat_amount];
-  values.forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 1]));
+  const values = [record.date, null, record.purpose, record.supplier_name, record.supplier_vat_id, displayedReference(record.transaction_number || record.invoice_number), record.allocation_number, null, record.net_amount, record.vat_amount];
+  row.replaceChild(editableCell(null), row.cells[1]); row.replaceChild(editableCell(values[0]), row.cells[2]); values.slice(2).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 3])); row.replaceChild(amountCell(values[7]), row.cells[8]); row.replaceChild(amountCell(values[8]), row.cells[9]);
   const classification = record.document_kind === "income_report" ? await ensureIncomeClassification() : record.rivhit_code || "";
-  row.cells[2].replaceChildren(classificationSelect(classification)); row.cells[11].replaceChildren(percentSelect(record.vat_recognized_percent ?? 100, [100, 66.67, 25, 0], "vat")); row.cells[12].replaceChildren(percentSelect(record.recognized_percent || 100, [100, 25, 0], "expense")); applyBusinessRule(row);
-  row.cells[14].textContent = record.agent_opinion; row.cells[14].className = "agent-opinion"; row.cells[15].textContent = String(record.confidence) + "%";
-  const include = row.cells[17].querySelector("input"); include.disabled = false; include.checked = record.include || record.document_kind === "income_report";
+  row.cells[1].replaceChildren(classificationSelect(classification)); row.cells[11].replaceChildren(percentSelect(record.vat_recognized_percent ?? 100, [100, 66.67, 25, 0], "vat")); row.cells[12].replaceChildren(percentSelect(record.recognized_percent || 100, [100, 25, 0], "expense")); applyBusinessRule(row);
+  addFieldSwapButton(row); row.cells[14].textContent = record.agent_opinion; row.cells[14].className = "agent-opinion"; row.cells[15].textContent = String(record.confidence) + "%";
+  const include = row.cells[17].querySelector("input"); include.disabled = false; include.checked = record.include || record.document_kind === "income_report"; row.classList.toggle("not-for-export", !include.checked);
   setStatus(row, include.checked ? row.highlights.length ? "מוכן לייצוא" : "מוכן, חסרים סימונים" : record.document_kind === "payment_confirmation" ? "אישור תשלום" : "לא מיועד לייצוא", include.checked && row.highlights.length ? "ready" : "review"); updateDuplicateState(row); addRerunButton(row); addHistoryButton(row); queueDraftSave();
 }
-function cellValue(cell) { return cell.querySelector("select")?.value ?? cell.textContent.trim().replace(/^—$/, ""); }
+function cellValue(cell) { return cell.querySelector("select")?.value ?? cell.querySelector("input")?.value ?? cell.textContent.replace("⇄", "").trim().replace(/^—$/, ""); }
 function rowSnapshot(row) {
   return {
     documentId: row.dataset.documentId || "", imageIndex: Number(row.dataset.imageIndex || 0), imageFile: row.dataset.imageFile || "", receivedAt: row.dataset.receivedAt || new Date().toISOString(),
-    values: Array.from({ length: 12 }, (_, index) => cellValue(row.cells[index + 1])), rawNet: row.dataset.rawNet || "0", rawVat: row.dataset.rawVat || "0", vatPercent: row.dataset.vatPercent || "0", highlights: row.highlights || [],
+    values: [cellValue(row.cells[2]), cellValue(row.cells[1]), ...Array.from({ length: 10 }, (_, index) => cellValue(row.cells[index + 3]))], rawNet: row.dataset.rawNet || "0", rawVat: row.dataset.rawVat || "0", vatPercent: row.dataset.vatPercent || "0", highlights: row.highlights || [],
     active: Boolean(row.cells[17].querySelector("input")?.checked), agentOpinion: row.cells[14].textContent.trim(), confidence: row.cells[15].textContent.trim(),
     statusText: row.cells[16].childNodes[0]?.textContent?.trim() || row.cells[16].textContent.trim(), statusClass: row.cells[16].className.replace(/^state\s*/, "")
   };
@@ -307,10 +330,10 @@ function rowSnapshot(row) {
 function restoreRow(saved, blob) {
   const imageUrl = URL.createObjectURL(blob), row = addPendingRecord(imageUrl, saved.receivedAt || new Date().toISOString(), saved.documentId || "saved", saved.imageIndex || 0, null, blob), values = Array.isArray(saved.values) ? saved.values : [];
   row.dataset.imageFile = saved.imageFile || ""; row.dataset.rawNet = String(saved.rawNet || 0); row.dataset.rawVat = String(saved.rawVat || 0); row.dataset.vatPercent = String(saved.vatPercent ?? (Number(saved.rawVat) ? 18 : 0)); row.highlights = Array.isArray(saved.highlights) ? saved.highlights : [];
-  values.slice(0, 12).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 1]));
-  row.cells[2].replaceChildren(classificationSelect(values[1] || "")); row.cells[11].replaceChildren(percentSelect(values[10] || 100, [100, 66.67, 25, 0], "vat")); row.cells[12].replaceChildren(percentSelect(values[11] || 100, [100, 25, 0], "expense")); recalculateRow(row);
+  row.replaceChild(editableCell(values[1]), row.cells[1]); row.replaceChild(editableCell(values[0]), row.cells[2]); values.slice(2, 12).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 3])); row.replaceChild(amountCell(values[7]), row.cells[8]); row.replaceChild(amountCell(values[8]), row.cells[9]);
+  row.cells[6].textContent = displayedReference(values[5]); row.cells[1].replaceChildren(classificationSelect(values[1] || "")); row.cells[11].replaceChildren(percentSelect(values[10] || 100, [100, 66.67, 25, 0], "vat")); row.cells[12].replaceChildren(percentSelect(values[11] || 100, [100, 25, 0], "expense")); addFieldSwapButton(row); recalculateRow(row);
   row.cells[14].textContent = saved.agentOpinion || "—"; row.cells[14].className = "agent-opinion"; row.cells[15].textContent = saved.confidence || "—";
-  const include = row.cells[17].querySelector("input"); include.disabled = false; include.checked = Boolean(saved.active); setStatus(row, saved.active && !row.highlights.length ? "מוכן, חסרים סימונים" : saved.statusText || (saved.active ? "מוכן לייצוא" : "לא מיועד לייצוא"), saved.active && !row.highlights.length ? "review" : saved.statusClass || (saved.active ? "ready" : "review")); updateDuplicateState(row);
+  const include = row.cells[17].querySelector("input"); include.disabled = false; include.checked = Boolean(saved.active); row.classList.toggle("not-for-export", !include.checked); setStatus(row, saved.active && !row.highlights.length ? "מוכן, חסרים סימונים" : saved.statusText || (saved.active ? "מוכן לייצוא" : "לא מיועד לייצוא"), saved.active && !row.highlights.length ? "review" : saved.statusClass || (saved.active ? "ready" : "review")); updateDuplicateState(row);
   row.runRecognition = (onlyThis = true) => { if (!session) return showError("יש להתחיל העלאת תמונות כדי לעבד מחדש שורה מהארכיון."); enqueueRecognition(row, blob, imageUrl, saved.receivedAt || Date.now(), saved.documentId || "saved", saved.imageIndex || 0, true, onlyThis); }; addRerunButton(row); addHistoryButton(row);
 }
 records.addEventListener("input", (event) => { const cell = event.target.closest?.("td"), row = cell?.parentElement, column = row ? [...row.cells].indexOf(cell) : -1; if (row?.dataset.documentId && (column === 8 || column === 9)) manualAmountChanged(row, column); if (row?.dataset.documentId && column === 6) updateDuplicateState(row); queueDraftSave(); });
@@ -359,19 +382,18 @@ saveCustomClassification.addEventListener("click", async () => {
   try {
     saveCustomClassification.disabled = true; customMapping = await saveCustomRivhitMapping(dataRoot, { ...customMapping, [code]: label }, builtInMapping); rivhitMapping = { ...builtInMapping, ...customMapping }; newCustomCodes.add(code);
     const row = pendingClassificationRow; refreshClassificationSelectors();
-    if (row?.isConnected) { const select = row.cells[2].querySelector("select"); select.value = code; select.dataset.lastValue = code; applyBusinessRule(row); queueDraftSave(); }
+    if (row?.isConnected) { const select = row.cells[1].querySelector("select"); select.value = code; select.dataset.lastValue = code; applyBusinessRule(row); queueDraftSave(); }
     pendingClassificationRow = null; customClassificationDialog.close();
   } catch (error) { customClassificationError.textContent = "לא ניתן לשמור את קוד המיון: " + error.message; }
   finally { saveCustomClassification.disabled = false; }
 });
-customClassificationDialog.addEventListener("cancel", (event) => { event.preventDefault(); customClassificationError.textContent = "יש למלא ולשמור את הקוד החדש."; });
 customClassificationDialog.addEventListener("close", () => { pendingClassificationRow = null; });
 function renderCustomClassificationList() {
   customClassificationList.replaceChildren();
   const entries = Object.entries(customMapping);
   if (!entries.length) { customClassificationList.textContent = "אין קודי מיון מותאמים אישית."; return; }
   for (const [code, label] of entries) {
-    const item = document.createElement("div"), remove = document.createElement("button"), used = [...records.querySelectorAll("tr[data-document-id]")].some((row) => cellValue(row.cells[2]) === code);
+    const item = document.createElement("div"), remove = document.createElement("button"), used = [...records.querySelectorAll("tr[data-document-id]")].some((row) => cellValue(row.cells[1]) === code);
     item.className = "custom-classification-item"; item.append(document.createTextNode(`${code} — ${label}`)); remove.type = "button"; remove.className = "delete"; remove.textContent = "מחיקה"; remove.disabled = used;
     remove.title = used ? "הקוד נמצא בשימוש בטבלה הנוכחית." : "";
     remove.addEventListener("click", async () => { if (!window.confirm(`למחוק את קוד המיון ${code} — ${label}?`)) return; const next = { ...customMapping }; delete next[code]; try { customMapping = await saveCustomRivhitMapping(dataRoot, next, builtInMapping); rivhitMapping = { ...builtInMapping, ...customMapping }; refreshClassificationSelectors(); renderCustomClassificationList(); } catch (error) { showError("לא ניתן למחוק קוד מיון: " + error.message); } }); item.append(remove); customClassificationList.append(item);

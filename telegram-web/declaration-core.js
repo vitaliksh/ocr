@@ -15,7 +15,7 @@ export function declarationMonth(value) {
 }
 
 export function createOpenDeclaration({ clientId, month = declarationMonth(new Date()), declarationId = crypto.randomUUID(), now = new Date().toISOString() } = {}) {
-  const result = normalizeDeclaration({ schemaVersion: DECLARATION_SCHEMA_VERSION, declarationId, clientId, month, status: "open", createdAt: now, updatedAt: now, closedAt: null, finalExport: null, historyAppendedAt: null });
+  const result = normalizeDeclaration({ schemaVersion: DECLARATION_SCHEMA_VERSION, declarationId, clientId, month, status: "open", archived: false, createdAt: now, updatedAt: now, closedAt: null, finalExport: null, historyAppendedAt: null });
   if (!result.valid) throw new Error(result.error);
   return result.declaration;
 }
@@ -31,7 +31,7 @@ export function normalizeDeclaration(value) {
   if (historyAppendedAt !== null && !validTimestamp(historyAppendedAt)) return error("תאריך כתיבת ההיסטוריה אינו תקין.");
   if (status === "open" && (closedAt || finalExport || historyAppendedAt)) return error("להצהרה פתוחה אסור להכיל נתוני סגירה.");
   if (status === "closed" && (!closedAt || !finalExport || !historyAppendedAt)) return error("להצהרה סגורה חסרים נתוני סגירה.");
-  return { valid: true, declaration: { schemaVersion: DECLARATION_SCHEMA_VERSION, declarationId, clientId, month, status, createdAt, updatedAt, closedAt, finalExport, historyAppendedAt } };
+  return { valid: true, declaration: { schemaVersion: DECLARATION_SCHEMA_VERSION, declarationId, clientId, month, status, archived: Boolean(value.archived), createdAt, updatedAt, closedAt, finalExport, historyAppendedAt } };
 }
 
 export function normalizeDraftTable(value, declarationId) {
@@ -52,6 +52,14 @@ export function closeDeclaration(declaration, { finalExport, now = new Date().to
   if (!current.valid) throw new Error(current.error);
   if (current.declaration.status !== "open") throw new Error("אפשר לסגור רק הצהרה פתוחה.");
   const result = normalizeDeclaration({ ...current.declaration, status: "closed", updatedAt: now, closedAt: now, finalExport, historyAppendedAt: now });
+  if (!result.valid) throw new Error(result.error);
+  return result.declaration;
+}
+
+export function setDeclarationArchived(declaration, archived, now = new Date().toISOString()) {
+  const current = normalizeDeclaration(declaration);
+  if (!current.valid) throw new Error(current.error);
+  const result = normalizeDeclaration({ ...current.declaration, archived: Boolean(archived), updatedAt: now });
   if (!result.valid) throw new Error(result.error);
   return result.declaration;
 }
