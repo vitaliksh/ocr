@@ -32,3 +32,19 @@ export async function buildPdfReport({ clientName, createdAt, rows }) {
   }
   return new Blob([jpegPagesToPdf(pages, PAGE_WIDTH * RENDER_SCALE, PAGE_HEIGHT * RENDER_SCALE, PAGE_WIDTH, PAGE_HEIGHT)], { type: "application/pdf" });
 }
+
+export async function buildClassificationCodesReport({ clientName, createdAt, rows, mapping, newCodes = new Set() }) {
+  const used = [...new Set(rows.filter((row) => row.active).map((row) => String(row.values?.[1] || "")).filter((code) => mapping?.[code]))].sort();
+  const { canvas, context } = makeCanvas(); context.fillStyle = "white"; context.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
+  drawText(context, "קודי מיון בדיווח", PAGE_WIDTH - MARGIN, 76, "bold 30px Arial"); drawText(context, `לקוח: ${clientName}`, PAGE_WIDTH - MARGIN, 112, "17px Arial", "#365466");
+  drawText(context, "קוד חדש שנוסף בדיווח זה מסומן בכחול", PAGE_WIDTH - MARGIN, 144, "15px Arial", "#526074");
+  let y = 200;
+  for (const code of used) {
+    const fresh = newCodes.has(code); context.fillStyle = fresh ? "#d9f1ff" : "#f4f7fa"; context.fillRect(MARGIN, y - 22, PAGE_WIDTH - MARGIN * 2, 38);
+    drawText(context, `${code} — ${mapping[code]}${fresh ? " · חדש" : ""}`, PAGE_WIDTH - MARGIN - 14, y, "20px Arial", fresh ? "#075a8c" : "#172033"); y += 48;
+    if (y > PAGE_HEIGHT - 80) break;
+  }
+  if (!used.length) drawText(context, "לא נמצאו קודי מיון בשורות המסומנות לייצוא.", PAGE_WIDTH - MARGIN, y, "19px Arial", "#526074");
+  drawText(context, `נוצר: ${new Intl.DateTimeFormat("he-IL", { dateStyle: "short", timeStyle: "short" }).format(createdAt)}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 38, "14px Arial", "#526074");
+  return new Blob([jpegPagesToPdf([await canvasJpeg(canvas)], PAGE_WIDTH * RENDER_SCALE, PAGE_HEIGHT * RENDER_SCALE, PAGE_WIDTH, PAGE_HEIGHT)], { type: "application/pdf" });
+}

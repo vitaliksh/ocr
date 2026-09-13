@@ -12,3 +12,15 @@ export function recognisedAmounts(rawNet, rawVat, recognisedPercent = 100) {
   const net = round(gross / (1 + sourceVat / sourceNet)), vat = round(gross - net);
   return { gross: gross.toFixed(2), net: net.toFixed(2), vat: vat.toFixed(2) };
 }
+
+export function sourceAmountsFromGross(grossValue, vatPercent = 18) {
+  const gross = round(amount(grossValue)), rate = Math.max(0, amount(vatPercent)) / 100;
+  if (!rate) return { gross: gross.toFixed(2), net: gross.toFixed(2), vat: "0.00" };
+  const net = round(gross / (1 + rate));
+  return { gross: gross.toFixed(2), net: net.toFixed(2), vat: round(gross - net).toFixed(2) };
+}
+
+export function sourceAmountsFromNet(netValue, vatPercent = 18) {
+  const net = round(amount(netValue)), rate = Math.max(0, amount(vatPercent)) / 100, vat = round(net * rate);
+  return { gross: round(net + vat).toFixed(2), net: net.toFixed(2), vat: vat.toFixed(2) };
+}

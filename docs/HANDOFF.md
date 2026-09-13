@@ -2,9 +2,8 @@
 
 **Updated:** 12 September 2026
 **Repository:** https://github.com/vitaliksh/ocr
-**Windows Hello functional release:** `cloudflare-production-2026-09-12-6` — Add passkey Worker tests and controlled invalid-signature rejection
-**PDF intake release:** `cloudflare-production-2026-09-12-7` — Manual local PDF intake, improved source-value prompt and transparent PDF markers
-**Working tree:** PDF intake and marker release published. Local PDF examples remain intentionally untracked.
+**Production release:** `cloudflare-production-2026-09-13-1` — income intake, mixed-VAT splitting, fuel receipts, duplicate review and classification-code exports
+**Working tree:** September 13 bookkeeping-feedback release published. Local PDF examples remain intentionally untracked.
 **Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
 
 ## Product and non-negotiable boundaries
@@ -30,7 +29,7 @@ Use a local, non-synchronised folder (for example `C:\Rivhit data`) as the activ
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
 | Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-12-7` | Worker version `e7612f6c-47bd-4331-958f-567af1b588ef` |
+| Production Worker release | tag `cloudflare-production-2026-09-13-1` | Worker version `0a5366a5-856e-475d-9315-ec53ad8df257` |
 
 The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
 
@@ -178,6 +177,11 @@ If the browser says the credential is no longer registered, the UI clears the lo
 - `% מוכר כהוצאה` is wider in the journal. Changing it on a taxable row also aligns `% מוכר מע״מ` with it, so a 25% expense cannot retain 100% VAT by accident.
 - The document viewer has a `↗` control that opens the current local image in a separate browser window, which can be moved to another display. The embedded viewer remains available.
 - `קוד מיון` has a final `הוספת קוד מיון חדש…` entry. It stores a three-digit code and Hebrew label in the selected data root at `common/custom-rivhit-mapping.json`; codes are local to that root, available to every client there, and are accepted by PDF/TXT export. Standard codes cannot be overwritten. User-defined codes are selected manually; Gemini does not invent them.
+- `% מוכר מע״מ` now includes 66.67%. Editing either gross (`כולל מע״מ`) or net (`ללא מע״מ`) recalculates the other source amounts immediately at the row VAT rate.
+- Duplicate references are shown as a review warning and their export checkbox starts unchecked; the bookkeeper can explicitly include one after review.
+- Income reports are retained as rows, assigned a locally-created next-free `הכנסות` code, and may be exported. A mixed zero-VAT/taxable invoice produces one row for each VAT group with the same reference.
+- The photo viewer is an in-page full-window view that initially contains the entire document; it no longer opens a movable second-window popup.
+- Draft and final exports also include `classification-codes.pdf`, listing used classification codes and highlighting locally added codes from the current declaration.
 
 ## Proposed next steps
 
@@ -195,7 +199,7 @@ npm test
 npm run check
 ~~~
 
-Expected automated browser tests currently: **23 passing**.
+Expected automated browser tests currently: **30 passing**.
 
 After Worker changes:
 
