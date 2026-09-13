@@ -172,6 +172,13 @@ If the browser says the credential is no longer registered, the UI clears the lo
 2. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
 3. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
 
+## Bookkeeper feedback — implemented locally, pending browser release
+
+- The recognised expense percentage is now applied to the original VAT-inclusive amount first. The recognised gross amount is then split into net and VAT; all three visible amounts, saved rows, PDF reports and Rivhit TXT use the same rounded values. For example, a 720.00 invoice at 25% produces 180.00 gross, 152.54 net and 27.46 VAT.
+- `% מוכר כהוצאה` is wider in the journal. Changing it on a taxable row also aligns `% מוכר מע״מ` with it, so a 25% expense cannot retain 100% VAT by accident.
+- The document viewer has a `↗` control that opens the current local image in a separate browser window, which can be moved to another display. The embedded viewer remains available.
+- `קוד מיון` has a final `הוספת קוד מיון חדש…` entry. It stores a three-digit code and Hebrew label in the selected data root at `common/custom-rivhit-mapping.json`; codes are local to that root, available to every client there, and are accepted by PDF/TXT export. Standard codes cannot be overwritten. User-defined codes are selected manually; Gemini does not invent them.
+
 ## Proposed next steps
 
 1. **Make device recovery explicit.** Add a compact management view for connected computers: show non-secret metadata (creation date, authenticator type and last successful use where available), let Vitalik revoke a lost/retired computer after a fresh Windows Hello approval, and make “connect this computer again” clearly create a replacement credential. Do not expose credential IDs, tokens or keys in the UI.

@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check app.js && node --check workspace.js && node --check workspace-core.js && node --check declaration-core.js && node --check declaration-store.js && node --check history-ranker.js && node --check rivhit-export.js && node --check document-package.js && node --check pdf-report.js && node --check pdf-import.js && node --check table-columns.js && node --check config.js && node --check rivhit-mapping.js"
+    "check": "node --check app.js && node --check workspace.js && node --check workspace-core.js && node --check declaration-core.js && node --check declaration-store.js && node --check history-ranker.js && node --check rivhit-export.js && node --check row-calculations.js && node --check custom-rivhit-mapping.js && node --check document-package.js && node --check pdf-report.js && node --check pdf-import.js && node --check table-columns.js && node --check config.js && node --check rivhit-mapping.js"
   }
 }

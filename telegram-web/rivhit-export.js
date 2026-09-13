@@ -23,8 +23,8 @@ export function buildRivhitImport({ templateText, rows, mapping }) {
   for (const [index, row] of rows.filter((item) => item.active).entries()) {
     const tableRow = Number(row.tableRow) || index + 1;
     const values = row.values || [], code = clean(values[1]); if (!/^\d{3}$/.test(code) || !mapping?.[code]) throw new Error(`קוד המיון בשורה ${tableRow} אינו מאושר.`);
-    const date = dateParts(values[0], tableRow), net = money(row.rawNet), vat = money(row.rawVat), gross = money(Number(net) + Number(vat));
-    if (Math.abs(Number(gross) - Number(net) - Number(vat)) > 0.001) throw new Error(`סכומי מע״מ בשורה ${tableRow} אינם תואמים.`);
+    const date = dateParts(values[0], tableRow), net = money(values[8] || row.rawNet), vat = money(values[9] || row.rawVat), gross = money(values[7] || Number(net) + Number(vat));
+    if (Math.abs(Number(gross) - Number(net) - Number(vat)) > 0.009) throw new Error(`סכומי מע״מ בשורה ${tableRow} אינם תואמים.`);
     const columns = template.split("\t");
     columns[0] = columns[184] = date.year; columns[1] = columns[185] = date.month; columns[2] = String(index + 1); columns[3] = columns[134] = code;
     columns[6] = columns[163] = gross; columns[7] = columns[8] = date.display; columns[9] = clean(values[2]); columns[10] = digits(values[5]).slice(-4); columns[11] = digits(values[6]); columns[135] = clean(mapping[code]); columns[137] = money(values[11] || 100); columns[154] = net; columns[155] = vat; columns[157] = ""; columns[177] = digits(values[4]) || "0";
