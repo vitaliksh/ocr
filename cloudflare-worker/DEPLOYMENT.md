@@ -9,15 +9,14 @@ redeploy the Cloudflare component. It is safe to keep in Git.
 | --- | --- |
 | Worker name | `rivhit-telegram-transfer` |
 | Public URL | `https://rivhit-telegram-transfer.vitaliksh.workers.dev` |
-| Cloudflare version ID | `2669db7f-4720-49ce-bd9c-7048ba869bd7` |
-| Source commit | `cloudflare-production-2026-09-13-7` tag |
-| Git tag | `cloudflare-production-2026-09-13-7` |
+| Cloudflare version ID | `530e0514-0f81-4387-96bf-daa04d012dd3` |
+| Source commit | `40eceac` (`Provide custom Rivhit codes to Gemini`) |
+| Git tag | No release tag created for this deployment |
 | Durable Objects | `UPLOAD_SESSION` / `UploadSession`; `DEVICE_REGISTRY` / `DeviceRegistry` |
 | R2 bucket | `rivhit-temporary-photos` |
 
-The Git tag identifies the source used for this known production baseline. The
-current `main` branch can be newer and must not be deployed merely to make a
-backup.
+The listed source commit identifies this known production baseline. The current
+`main` branch can be newer and must not be deployed merely to make a backup.
 
 ## Required Cloudflare secrets
 
@@ -42,10 +41,10 @@ npm run check
 node node_modules\wrangler\bin\wrangler.js deployments list
 ```
 
-To inspect the exact production source locally, use:
+To inspect the exact recorded production source locally, use:
 
 ```powershell
-git switch --detach cloudflare-production-2026-09-12-2
+git switch --detach 40eceac
 ```
 
 Do not deploy from that detached checkout. Return to `main`, review the

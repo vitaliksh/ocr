@@ -1,207 +1,220 @@
 # Handoff — Rivhit document intake
 
-**Updated:** 13 September 2026
-**Repository:** https://github.com/vitaliksh/ocr
-**Production release:** `cloudflare-production-2026-09-13-7` — repair CORS preflight for the shared Form 6111 mapping header
-**Working tree:** September 13 review-regression release published. Local PDF examples remain intentionally untracked.
-**Primary user:** Vitalik. UI is intentionally Hebrew; do not convert it to English without a new explicit request.
+**Updated:** 14 September 2026, 18:00 IDT
 
-## Product and non-negotiable boundaries
+**Repository:** https://github.com/vitaliksh/ocr
+
+**Latest browser source:** `40eceac` — sends local custom Rivhit codes to Gemini; build time moved into the title
+
+**Production Worker:** `530e0514-0f81-4387-96bf-daa04d012dd3` — deployed 14 September 2026
+**Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
+
+## Product and hard boundaries
 
 This is a local-first browser application for preparing Israeli Rivhit expense-journal imports. It is a bookkeeping aid, not accounting or tax advice.
 
-1. The bookkeeper selects a local data root and a client declaration in Chrome/Edge on the PC.
-2. The client sends invoice photos from an iPhone to the Telegram bot.
-3. Gemini pass 1 extracts journal draft rows from the images.
-4. The bookkeeper reviews and can edit every row before export.
-5. Open monthly declarations can be exported repeatedly as PDF + Rivhit TXT.
-6. Closing a declaration makes a final export, appends confirmed text-only history exactly once, and locks the table.
-7. Gemini pass 2 can improve accounting judgement from relevant closed local history, but must never change source facts from the image.
+1. The bookkeeper selects a local data root, client, and monthly declaration in Chrome/Edge on Windows.
+2. Documents arrive from an iPhone through Telegram or are selected as a local PDF.
+3. Gemini Pass 1 produces editable draft rows.
+4. The bookkeeper reviews and edits every row.
+5. Open declarations export repeatedly as PDF + Rivhit TXT.
+6. Closing creates a final export, appends text-only closed history exactly once, then locks the table.
+7. Gemini Pass 2 improves accounting judgement from relevant local closed history, but never source facts.
 
-Never add cloud persistence for client workspaces, declarations, source images, draft tables, PDFs, TXT files, exports, or history. These remain in the selected local folder.
+Never add cloud persistence for client workspaces, declarations, draft tables, source images, PDFs, TXT files, exports, or history. Those remain in the selected local folder. R2 only holds temporary Telegram images until the browser saves and ACKs them.
 
-Use a local, non-synchronised folder (for example `C:\Rivhit data`) as the active data root. Do not keep the active root under OneDrive: during a test in `OneDrive\Documents`, OneDrive changed a file while Edge held its File System Access handle, causing Edge's cached-state warning and leaving an unreferenced zero-byte first image. Later uploads, exports, declaration close/reopen, and history refinement still completed correctly. Copy closed declarations to cloud storage only as a backup after the browser has finished writing them.
+Use a local, non-synchronised active root. Do **not** use OneDrive as the active root: File System Access handles can become invalid when OneDrive changes a file, causing the Windows cached-interface-state error. A PDF may be selected from any local path; the failure is normally while the app writes its source PDF and rendered pages into the active root.
 
-## Live production components
+The intended test root is `D:\ocr_test` (not `D:\ocr\_test`). `D:\ocr_test` contains `test4` and `test5`. The latter path is an empty folder accidentally created during diagnosis and contains no project data.
+
+## Production components
 
 | Component | Location | Purpose |
 | --- | --- | --- |
-| Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, review table, exports, Windows Hello UI |
-| Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram transport, temporary R2 images, Gemini pass 1/pass 2, passkey verification |
-| Telegram bot | `@Vitalikshbot` | iPhone image intake and one-time passkey enrollment authorization |
-| Production Worker release | tag `cloudflare-production-2026-09-13-7` | Worker version `2669db7f-4720-49ce-bd9c-7048ba869bd7` |
+| Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, journal, exports, PDF import, Windows Hello |
+| Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram, temporary R2, Gemini Pass 1/2, passkeys |
+| Telegram bot | `@Vitalikshbot` | iPhone intake and one-time computer enrollment |
+| Branch | `main` | GitHub Pages source; current relevant commit `40eceac` |
+| Production Worker | `530e0514-0f81-4387-96bf-daa04d012dd3` | Custom-code CORS and validation enabled |
 
-The static browser is published by GitHub Pages after pushing `main`. Worker changes require a separate Wrangler deploy.
+Push `main` for GitHub Pages. Worker source changes also require `npx wrangler deploy` from `cloudflare-worker/`.
 
-## Security model
+The UI shows a cache-verifiable marker next to the heading:
 
-### Secrets
+~~~text
+קליטת מסמכים ל‑Rivhit  גרסת ממשק: 2026-09-14 18:00 IDT
+~~~
 
-Never print, commit, request, or put into browser storage:
+Force refresh with `Ctrl+F5` and verify this marker before testing a recent UI change.
+
+## Security
+
+Never print, commit, request, or store in browser storage:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 - `GEMINI_API_KEY`
 - `ALLOWED_TELEGRAM_USER_ID`
 
-They are Worker secrets and should also be held in an approved password manager. Cloudflare cannot reveal an existing secret value.
+They are Worker secrets. Sessions and grants are opaque values and must not be logged.
 
-### Images and sessions
+### Windows Hello / Pass 2
 
-- Telegram upload sessions are random, short-lived Durable Objects.
-- The browser receives a temporary image from R2, saves it locally, then ACKs it; R2 deletes it on ACK, Finish, or expiry.
-- Only the allowed Telegram account may invoke Gemini.
-- Session tokens and passkey grants are opaque random values; do not log them.
+Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **שפר לפי היסטוריה** uses Windows Hello only—no Telegram or QR.
 
-### Windows Hello for pass 2
-
-The prior pass-2 QR requirement was intentionally replaced. Telegram is now needed only once to prove ownership while enrolling a PC's Windows Hello credential. This is a separate **חיבור המחשב לשיפור AI** action in the workspace settings; it requires a selected data root, but not a client or open declaration.
-
-- The private key never reaches the browser application or Worker. It is held by the selected platform authenticator; on Vitalik's PC, Edge created it in Microsoft Password Manager, which may securely sync it according to that account's passkey settings.
-- The Worker Durable Object `DEVICE_REGISTRY` stores only public key material, signature counter, transport metadata, a short-lived challenge, and a five-minute authorization grant.
-- Browser `localStorage` holds only the public credential identifier (`rivhit-passkey-credential-id-v1`), not a secret or private key.
-- Later use of **שפר לפי היסטוריה** requests Windows Hello and does not create a Telegram session, QR code, or bot message. The obsolete Telegram `history-refinement` path was removed.
-- A valid Windows Hello grant is held only in page memory for five minutes, allowing several refinements without repeated system prompts. A page refresh clears that grant and requests Hello again; after five minutes without a refresh, Hello is also requested again.
-
-The Relying Party is deliberately fixed to `vitaliksh.github.io`; WebAuthn works on the published GitHub Pages origin, not an arbitrary local host.
+- Private passkey material stays in the platform authenticator.
+- `DEVICE_REGISTRY` contains public material, counter, transport metadata, short-lived challenge, and a five-minute grant only.
+- Browser `localStorage` contains only `rivhit-passkey-credential-id-v1`.
+- The in-memory grant lasts five minutes and is cleared by refresh.
+- The RP is fixed to `vitaliksh.github.io`; test WebAuthn on published GitHub Pages, not arbitrary local HTTP.
 
 ## Repository map
 
-- `telegram-web/` — static browser application.
-  - `app.js` — main UI, upload, review table, declaration actions, passkey client flow.
-  - `workspace.js` — File System Access workspace/client/declaration drawer.
-  - `declaration-core.js`, `declaration-store.js` — declaration lifecycle and local persistence.
-  - `history-ranker.js` — text-only local history selection for pass 2.
-  - `rivhit-export.js` — CP1255, mandatory 186-column Rivhit TXT creation and date normalization.
-  - `pdf-report.js` — local PDF report generation.
-- `cloudflare-worker/` — deployable Worker.
-  - `src/index.js` — routes, Telegram transport, Gemini calls, `UploadSession` and `DeviceRegistry` Durable Objects.
-  - `wrangler.toml` — bindings and Durable Object migrations (`v1` UploadSession, `v2` DeviceRegistry).
-  - `DEPLOYMENT.md` — non-secret recovery and production-version record.
-- `docs/RIVHIT_IMPORT_SPEC.md` — the 186-column import contract.
-- `6111_to_Rivhit.xlsx` — approved 6111 → Rivhit mapping.
-- `agent-prompts/gemini-pass-1.md` — readable version of the pass-1 prompt.
+- `telegram-web/`
+  - `app.js` — UI, queues, journal, exports, Pass 2, custom-code request headers.
+  - `workspace.js` — File System Access root/client/declaration drawer.
+  - `declaration-core.js`, `declaration-store.js` — lifecycle and local persistence.
+  - `custom-rivhit-mapping.js` — local custom codes and Form 6111 overrides.
+  - `rivhit-export.js` — CP1255 186-column TXT builder and validation.
+  - `pdf-import.js`, `pdf-report.js` — local PDF import and reports.
+  - `history-ranker.js` — local, text-only Pass 2 history selection.
+- `cloudflare-worker/`
+  - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
+  - `src/rivhit-mapping.js` — approved Form 6111 map.
+  - `wrangler.toml`, `DEPLOYMENT.md` — Worker bindings/deployment record.
+- `docs/RIVHIT_IMPORT_SPEC.md` — TXT contract.
+- `6111_to_Rivhit.xlsx` — approved Form 6111 → Rivhit mapping.
 
-`docs/ARCHITECTURE.md` describes the same shipped architecture. This handoff remains the release and operational record. The obsolete Python application and exploratory package flow were deliberately removed; do not restore them.
+Do not restore the deliberately removed Python application or exploratory package flow.
 
 ## Local data model
 
-The selected data root is structured as follows:
-
 ~~~text
-Rivhit data/
+<data-root>/
 ├─ common/
-│  └─ PKUDA_AI_TEST.TXT                 # canonical 186-column Rivhit template
-└─ clients/
-   └─ <client>/
-      ├─ workspace.json
-      ├─ history.jsonl                  # text-only confirmed history
-      └─ declarations/
-         └─ YYYY-MM/
-            ├─ declaration.json         # open/closed state and metadata
-            ├─ draft-table.json          # persisted rows
-            ├─ images/                   # local original images and imported source PDFs
-            └─ exports/
-               └─ YYYY-MM-DD_HH-mm/
-                  ├─ invoices.pdf
-                  ├─ import.txt
-                  └─ manifest.json
+│  ├─ PKUDA_AI_TEST.TXT
+│  └─ custom-rivhit-mapping.json
+└─ clients/<client>/
+   ├─ workspace.json
+   ├─ history.jsonl
+   └─ declarations/YYYY-MM/
+      ├─ declaration.json
+      ├─ draft-table.json
+      ├─ images/
+      └─ exports/YYYY-MM-DD_HH-mm[_NNN]/
+         ├─ invoices.pdf
+         ├─ classification-codes.pdf
+         ├─ import.txt
+         └─ manifest.json
 ~~~
 
-Select a valid 186-column Rivhit TXT template. The browser copies the chosen file to `common/PKUDA_AI_TEST.TXT`.
+The selected template is copied to `common/PKUDA_AI_TEST.TXT`; its first non-empty row must contain exactly 186 tab-separated fields.
 
-## Implemented behavior
+`common/custom-rivhit-mapping.json` is schema 3. It stores local custom codes, creation metadata, and explicit Form 6111 overrides:
 
-### Workspaces and declarations
+~~~json
+{
+  "schemaVersion": 3,
+  "codes": { "828": "Example local code" },
+  "metadata": { "828": { "createdAt": "2026-09-14T...Z" } },
+  "form6111Mappings": { "3600": "807" }
+}
+~~~
 
-- Select a data root once using File System Access API; use Chrome or Edge.
-- Create, archive, restore, edit, and permanently delete clients from the workspace drawer.
-- Creating a client immediately creates and shows its current-month open draft declaration in the same expanded drawer.
-- The `…` client action opens a separate modal, not content inside the drawer.
-- Each client can have monthly declarations (`YYYY-MM`).
-- Selecting a declaration loads its persisted table and local source images.
-- An open declaration accepts more uploads and allows edits and repeated exports.
-- An active Telegram-authorized upload session also accepts one manually selected local PDF at a time. Its original PDF and rendered JPEG pages remain in the local declaration; each page follows the existing pass-1 image path.
-- Closing validates the active rows, makes a final export, appends history once using `declarationId`, and locks the declaration.
-- A closed declaration opens as a visible read-only table; it is not blank.
-- The obsolete controls for opening an existing package / loading a saved table were removed from the active workflow.
+Custom codes are root-local, available to every client in that root, exactly three digits, and cannot overwrite built-in codes.
 
-### Export
+## Workspaces, declarations, and PDF import
 
-- Draft export creates `invoices.pdf`, `import.txt`, and `manifest.json` under the declaration's timestamped `exports/` folder.
-- Export does not require image markers when a row is intentionally eligible without them.
-- TXT is Windows-1255 / CP1255 and has 186 columns.
-- Dates accept `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY`, and `DD.MM.YYYY`; output is normalized to Rivhit format.
-- Rows marked **לא מיועד לייצוא** are skipped by validation and export.
+- **החלפת תיקיית נתונים** saves the old draft, clears the active client/declaration/table and its old directory handle, loads mappings from the new root, then requires explicit client/declaration selection there. It must never retain a OneDrive declaration handle after switching roots.
+- A root can be empty; the app creates `common/` and `clients/`. Never silently copy/move/merge data between roots.
+- Users can create, edit, archive, restore, and delete clients. Each client has `YYYY-MM` declarations.
+- Open declarations are editable. Closed declarations stay visible, are read-only, and must not be silently reopened.
+- Closing validates exportable rows, creates the final export, appends history once by `declarationId`, then locks the table.
+- A Telegram-authorised session allows one local PDF. The app saves the original PDF locally, renders JPEG pages locally, saves them locally, then queues each page through the existing Pass 1 route.
 
-### Pass 1 and pass 2
+`D:\projects\ocr\pdf examples\7-8.26.pdf` was checked: 34 A4 pages, 6.08 MB, unencrypted, valid. It was not the cause of the File System Access error.
 
-- Pass 1 sends a temporary document image, business activity, and the approved mapping to Gemini. It returns source facts, classification, confidence, explanation, and source-value boxes.
-- The PDF report draws the document-number box in yellow and total/VAT boxes in green, using transparent padded fills without borders so the source text stays readable even when a source box is imperfect.
-- Pass 2 sends only the current draft row and 1–8 relevant closed-history records, all text-only.
-- The local ranker favours matching supplier VAT ID/supplier, then classification/description. It excludes images, raw monetary values, and other prohibited source data from the history context.
-- Pass 2 may change classification, recognition percentages, confidence, review state, and agent opinion. It must not change date, supplier, supplier ID, document references, allocation number, raw net/VAT/gross amounts, or currency.
-- If no relevant closed history exists, the Improve button remains and the UI reports that fact. No QR or Windows Hello prompt is needed.
-- Improve buttons remain after success or a no-history response, so the user can repeat pass 2 with another model.
+## Journal behaviour already implemented
 
-## Windows Hello production test — completed
+- Open-row fields, including dates, are editable.
+- Gross and net remain separate inputs; recalculate/save on Enter or blur, not while typing.
+- Recognition percentage is applied to gross first, then recognised gross is split to rounded net/VAT. Example: 720.00 × 25% = 180.00 gross, 152.54 net, 27.46 VAT.
+- Changing taxable expense recognition aligns VAT recognition. VAT recognition includes 66.67%.
+- Exempt/0% groups keep gross=net and all VAT values zero. Mixed VAT invoices split by VAT group.
+- Duplicates are review warnings and initially unchecked. Rows marked **לא מיועד לייצוא** are grey and skipped.
+- Income reports are retained, assigned a locally-created next-free income code, and may export.
+- Classification search filters while typing. The local photo popup supports drag and wheel panning.
+- Exports include `classification-codes.pdf`, highlighting local codes used by the declaration.
 
-Vitalik completed this flow on the production page on 12 September 2026 in Edge/Windows 11. Telegram connected successfully, Microsoft Password Manager created and saved the passkey, and pass-2 prompted for Hello once after a page refresh, then reused the in-memory grant for further refinements.
+## TXT export contract and safeguards
 
-After Worker release `cloudflare-production-2026-09-12-6`, Vitalik repeated the pass-2 production check: Edge accepted the Windows Hello PIN, reused the grant for the expected five-minute period, prompted once again after six minutes, prompted again after a page refresh, and preserved every pass-2-protected source field. The passkey authorization flow is therefore manually accepted alongside its automated Worker tests.
+TXT is CP1255/Windows-1255, CRLF, no header, and exactly 186 fields per active row.
 
-Vitalik also completed a real declaration lifecycle with client `test3`: uploaded invoices from Telegram, changed a `כיבודים` VAT-recognition value to 25%, made draft Rivhit TXT/PDF exports, closed the September declaration, reopened the client after restarting Edge, created the next monthly declaration, and confirmed that Pass 2 used the closed history to improve a new `כיבודים` row to 25% while preserving source fields.
+The template validates **layout only**. No value is copied from it. Every generated row starts as 186 literal `0` fields, then writes documented fields from the current record. Unknown fields remain `0`. This resolves the filled-template regression that leaked old amounts, dates, identifiers, text, and negative balances.
 
-1. Open https://vitaliksh.github.io/ocr/ and force refresh with `Ctrl+F5`.
-2. Select a data root, then open **סביבות עבודה**.
-3. Press **חיבור המחשב לשיפור AI**. A client or declaration is not required.
-4. Scan the shown QR in Telegram and press Start. The bot should say that Windows Hello setup is required and that no photo should be sent.
-5. In the browser, press **המשך ל‑Windows Hello**, then complete the Windows Hello prompt on the PC. This explicit click is required by the browser before it may open the authenticator.
-6. The drawer should now say that the computer is connected. The separate connection dialog closes automatically; no upload screen is opened.
-7. Select a row that has relevant closed history and press **שפר לפי היסטוריה**.
-8. Windows Hello should appear. There must be no QR and no Telegram message.
-9. After approval, verify that only allowed pass-2 fields can change and the Improve button remains available.
-10. Click Improve again: it may run without another Hello prompt for up to five minutes. After five minutes, Hello should be requested again.
+Known fields include date parts, sequence, Rivhit code, gross, description, references, allocation number, classification name, recognition, net/VAT/VAT rate, and supplier ID.
 
-If the browser says the credential is no longer registered, the UI clears the local identifier. Enrol Windows Hello again through the workspace drawer. If `navigator.credentials` is unavailable, use current Chrome or Edge on Windows 11.
+Accepted dates:
 
-## Known limitations / next logical work
+- `YYYY-MM-DD`, `YYYY/MM/DD`, `YYYY.MM.DD`
+- `DD/MM/YYYY`, `DD-MM-YYYY`, `DD.MM.YYYY`
+- `DD/MM/YY` and equivalent separators; two-digit years mean `20YY`
 
-1. Keep the automated Worker passkey tests current: they cover registration/authentication state, counter updates, grant expiry, and invalid signatures. A real platform authenticator remains a short production release check.
-2. Evaluate whether an explicit, audited closed-declaration reopen process is needed. Do not silently unlock closed declarations.
-3. Improve declaration lifecycle/UI only from user feedback; do not reintroduce removed package controls or change the Hebrew UI casually.
-4. **Do not import an export that inherits live transaction data from the Rivhit template.** The 13 September `test1` export exposed stale values including `-1,382,439.42` in one-based columns 64 and 124. `buildRivhitImport` currently copies unspecified template columns verbatim, so the canonical template must be sanitised against the Rivhit field contract before a corrected exporter is released. This needs a verified Rivhit-safe blank/default field list; do not guess by bulk-zeroing unknown fields.
+Before draft export or final close, the browser validates **all active rows** and opens a modal list if any fail. No export folder is created for an invalid set. Checks cover template width, approved classification, date, money, VAT reconciliation, CP1255 encodability, and negative numeric fields. `buildRivhitImport` repeats this validation as a backstop.
 
-## Bookkeeper feedback — implemented locally, pending next release
+## Gemini and local code propagation
 
-- The recognised expense percentage is now applied to the original VAT-inclusive amount first. The recognised gross amount is then split into net and VAT; all three visible amounts, saved rows, PDF reports and Rivhit TXT use the same rounded values. For example, a 720.00 invoice at 25% produces 180.00 gross, 152.54 net and 27.46 VAT.
-- `% מוכר כהוצאה` is wider in the journal. Changing it on a taxable row also aligns `% מוכר מע״מ` with it, so a 25% expense cannot retain 100% VAT by accident.
-- The document viewer has a `↗` control that opens the current local image in a separate browser window, which can be moved to another display. The embedded viewer remains available.
-- `קוד מיון` has a final `הוספת קוד מיון חדש…` entry. It stores a three-digit code and Hebrew label in the selected data root at `common/custom-rivhit-mapping.json`; codes are local to that root, available to every client there, and are accepted by PDF/TXT export. Standard codes cannot be overwritten. User-defined codes are selected manually; Gemini does not invent them.
-- `% מוכר מע״מ` now includes 66.67%. Editing either gross (`כולל מע״מ`) or net (`ללא מע״מ`) recalculates the other source amounts immediately at the row VAT rate.
-- Duplicate references are shown as a review warning and their export checkbox starts unchecked; the bookkeeper can explicitly include one after review.
-- Income reports are retained as rows, assigned a locally-created next-free `הכנסות` code, and may be exported. A mixed zero-VAT/taxable invoice produces one row for each VAT group with the same reference.
-- The photo viewer opens the local image in a dedicated movable browser popup and initially contains the entire document.
-- Draft and final exports also include `classification-codes.pdf`, listing used classification codes and highlighting locally added codes from the current declaration.
-- The local image popup again supports left-button drag reliably: native browser image dragging is disabled, pointer capture is used for the pan, and the mouse wheel pans vertically. The legacy in-page viewer has the same wheel behaviour.
-- Typing in `קוד מיון` now expands the filtered result list immediately (up to six results). Arrow Down moves into that list; Escape closes it.
-- Any code path that clears `לייצוא`, including automatic duplicate detection, uses the same helper that adds the full-row grey `not-for-export` state. This covers a checkbox changed by the agent, duplicate detection, and restored drafts.
-- `כולל מע״מ` and `ללא מע״מ` remain separate editable fields. Their input is no longer reformatted while the user types; recalculation and draft save happen only on Enter or when the field loses focus. Their accessible labels distinguish gross from net.
-- Pass 1 now explicitly distinguishes `חייב במע״מ` from `לא חייב במע״מ`: a printed exempt/0% group preserves its printed total as net, with VAT rate, amount, and recognised percent all set to zero. The Worker prompt and readable prompt source have matching wording.
-- A manual code change on a row with a recognised Form 6111 now saves a shared `Form 6111 → קוד מיון` override in `common/custom-rivhit-mapping.json`. It is available to every client in that data root and is passed to Gemini on the next Pass 1 rerun and Pass 2 history refinement. Gemini still cannot invent a Form 6111 or a code: only known Form 6111 entries and codes already present in the common book are sent.
-- The data-root selector remains visible after a root is selected and changes its label to `החלפת תיקיית נתונים`; the earlier UI hid it, making a root impossible to change without clearing browser storage.
+### Pass 1
 
-Worker version `2669db7f-4720-49ce-bd9c-7048ba869bd7` was deployed on 13 September 2026 for release `cloudflare-production-2026-09-13-7`. It repairs a browser-blocking CORS regression: the client sends `X-Form-6111-Mapping`, but the Worker preflight response previously omitted that allowed header. The browser consequently stopped the request before Gemini and showed `Failed to fetch` for every document. This release restores processing while retaining one Gemini request per document and no marker-only fallback. **User verification completed:** Vitalik confirmed ordinary processing works again after this release. Continue the remaining targeted checks: left-button and wheel image panning, classification search, both manual amount fields (including decimal entry), an agent-disabled/duplicate row, taxable, exempt, and mixed-VAT documents, and a manually corrected Form 6111 code followed by `עבד מחדש` on another matching document.
+Pass 1 receives the image, business activity, selected model, Form 6111 overrides, and local custom codes. It returns source facts, classification, confidence, explanation, and source-value boxes. It must distinguish taxable/exempt VAT, never invent source facts, Form 6111 codes, or Rivhit codes.
 
-## Proposed next steps
+When **הוספת קוד מיון חדש…** succeeds:
 
-1. **Make device recovery explicit.** Add a compact management view for connected computers: show non-secret metadata (creation date, authenticator type and last successful use where available), let Vitalik revoke a lost/retired computer after a fresh Windows Hello approval, and make “connect this computer again” clearly create a replacement credential. Do not expose credential IDs, tokens or keys in the UI.
-2. **Decide closed-declaration recovery before building it.** If reopening is needed, require an explicit reason, create an immutable audit entry and preserve the former final export. Never silently make a closed declaration editable.
-3. **Collect real bookkeeping feedback before larger UI work.** Prioritise only observed friction in client selection, monthly declaration switching, review and export; retain the local-first and Hebrew UI constraints.
+1. `saveCustomRivhitMapping` immediately writes it to `<root>/common/custom-rivhit-mapping.json`.
+2. Browser memory updates the selector and export mapping immediately.
+3. Future Pass 1 and Pass 2 requests send `X-Custom-Rivhit-Codes` with the current root-local custom map.
+4. Worker validates at most 200 safe three-digit non-built-in codes and includes them in the Gemini prompt.
+5. Worker accepts a direct custom code only if it is in that supplied list; invented codes are discarded.
 
-## Validation commands
+`X-Form-6111-Mapping` remains separate and carries explicit Form 6111 → Rivhit overrides.
 
-After browser changes:
+For an expense invoice, Gemini must prefer a fitting approved Form 6111 code. If none fits, it may select a supplied local custom code. The schema carries both `form_6111_code` and `rivhit_code`; exactly one should be non-null, and Worker normalisation validates either result.
+
+### Pass 2
+
+Pass 2 receives only the active draft row and 1–8 relevant closed-history records, all text-only. The ranker prefers supplier ID/name, then classification/description, and excludes images/raw monetary values from history context.
+
+Pass 2 may change classification, recognition percentages, confidence, review state, and agent opinion. It must not alter date, supplier, supplier ID, references, allocation number, raw net/VAT/gross, or currency. It receives the same Form 6111 and custom-code context as Pass 1.
+
+## Confirmed state and remaining manual checks
+
+Completed:
+
+- Windows Hello production flow was accepted in Edge/Windows 11; five-minute grants and source-field protection behave correctly.
+- The Form 6111 CORS regression was repaired and ordinary processing was manually confirmed.
+- Filled-template TXT leakage is fixed.
+- `test3 / 2027-01` was built in memory after date normalisation: 36 active rows, no validation issues, no negative output fields.
+- `19/08/26` now normalises to 2026 instead of blocking export.
+- Root switching clears the old declaration handle.
+- Local code persistence was confirmed in `D:\ocr_test\common\custom-rivhit-mapping.json`; `40eceac` fixes the previous omission from Gemini context.
+
+Recommended short production check:
+
+1. `Ctrl+F5`; verify `2026-09-14 18:00 IDT` by the title.
+2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
+3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
+4. Import a PDF into a non-OneDrive declaration.
+5. Create a TXT export and inspect 186 fields, no old template values, no negative numbers.
+
+## Next decisions
+
+1. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
+2. Closed-declaration recovery: if needed, require a reason, immutable audit record, and preserved prior final export.
+3. Gather bookkeeper feedback before a broad UI redesign.
+
+## Validation and deployment
+
+Browser:
 
 ~~~powershell
 Set-Location D:\projects\ocr\telegram-web
@@ -209,35 +222,19 @@ npm test
 npm run check
 ~~~
 
-Expected automated browser tests currently: **32 passing**.
+Expected: **36 passing**.
 
-After Worker changes:
+Worker:
 
 ~~~powershell
 Set-Location D:\projects\ocr\cloudflare-worker
 npm test
 npm run check
-~~~
-
-The five Worker tests exercise Durable Object passkey state with a mocked verifier; `npm run check` runs `wrangler deploy --dry-run` and must list both Durable Objects. Then manually test the changed production flow.
-
-## Deployment procedure
-
-Browser-only changes: commit and push `main`; wait for GitHub Pages, then request the page with a cache-busting query parameter to confirm the deployed asset contains the change.
-
-Worker changes:
-
-~~~powershell
-Set-Location D:\projects\ocr\cloudflare-worker
 npx wrangler deploy
 ~~~
 
-After successful Worker deployment:
+Expected: **5 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
 
-1. Record the returned Worker version in `cloudflare-worker/DEPLOYMENT.md`.
-2. Run browser tests and Worker dry-run.
-3. Commit the source and documentation.
-4. Create and push a new annotated `cloudflare-production-YYYY-MM-DD-N` tag.
-5. Confirm the browser and Worker manual flow on production.
+After a browser-only change, push `main`, wait for Pages, force-refresh, and verify the visible build marker. After a Worker change, record the returned version in `cloudflare-worker/DEPLOYMENT.md`, commit/push source and docs, and manually test the changed production flow.
 
-Do not run destructive Git commands (`reset --hard`, broad checkout, etc.) in a dirty worktree. Preserve unrelated user changes.
+Do not use destructive Git commands in a dirty worktree. Preserve unrelated user changes. At this handoff `pdf examples/` is intentionally untracked.
