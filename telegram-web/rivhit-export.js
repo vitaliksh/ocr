@@ -20,6 +20,18 @@ function cp1255(text) {
   return new Uint8Array(output);
 }
 function emptyRivhitColumns() { return Array(RIVHIT_COLUMN_COUNT).fill("0"); }
+function percent(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100 ? parsed : fallback;
+}
+function effectiveVatRate(row, values, net, vat) {
+  if (Number(vat) === 0) return "0.00";
+  const sourceRate = percent(row.vatPercent, Number(row.rawNet) > 0 ? Number(row.rawVat) / Number(row.rawNet) * 100 : 18);
+  const deductiblePercent = percent(values[10], 100);
+  const rate = sourceRate * deductiblePercent / 100;
+  if (!(rate > 0)) throw new Error("שיעור המע״מ בשורה זו אינו תקין.");
+  return money(rate);
+}
 function assertNoNegativeNumbers(columns, tableRow) {
   if (columns.some((value) => /^-\d+(?:\.\d+)?$/.test(clean(value)))) throw new Error(`בשורה ${tableRow} קיים מספר שלילי; לא נוצר קובץ TXT.`);
 }
@@ -32,9 +44,10 @@ function buildColumns(row, index, mapping) {
   const values = row.values || [], code = clean(values[1]); if (!/^\d{3}$/.test(code) || !mapping?.[code]) throw new Error(`קוד המיון בשורה ${tableRow} אינו מאושר.`);
   const date = dateParts(values[0], tableRow), net = money(values[8] || row.rawNet), vat = money(values[9] || row.rawVat), gross = money(values[7] || Number(net) + Number(vat));
   if (Math.abs(Number(gross) - Number(net) - Number(vat)) > 0.009) throw new Error(`סכומי מע״מ בשורה ${tableRow} אינם תואמים.`);
+  const vatRate = effectiveVatRate(row, values, net, vat);
   const columns = emptyRivhitColumns();
   columns[0] = columns[184] = date.year; columns[1] = columns[185] = date.month; columns[2] = String(index + 1); columns[3] = columns[134] = code;
-  columns[6] = columns[163] = gross; columns[7] = columns[8] = date.display; columns[9] = clean(values[2]); columns[10] = digits(values[5]).slice(-4); columns[11] = digits(values[6]); columns[135] = clean(mapping[code]); columns[137] = money(values[11] || 100); columns[154] = net; columns[155] = vat; columns[157] = "0"; columns[177] = digits(values[4]) || "0";
+  columns[6] = columns[163] = gross; columns[7] = columns[8] = date.display; columns[9] = clean(values[2]); columns[10] = digits(values[5]).slice(-4); columns[11] = digits(values[6]); columns[135] = clean(mapping[code]); columns[137] = money(values[11] || 100); columns[154] = net; columns[155] = vat; columns[157] = vatRate; columns[177] = digits(values[4]) || "0";
   if (columns.length !== RIVHIT_COLUMN_COUNT) throw new Error("שגיאה במספר עמודות Rivhit.");
   assertNoNegativeNumbers(columns, tableRow);
   cp1255(columns.join("\t"));

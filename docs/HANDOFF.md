@@ -4,7 +4,7 @@
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `9f66e75` — export-result dialog with copyable PDF/TXT paths
+**Latest browser source:** pending commit — fixes Rivhit VAT-rate column 158
 
 **Production Worker:** `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -42,7 +42,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The drawer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.09.19.5 · 12:55 IDT
+גרסת ממשק: 2026.09.19.6 · 13:33 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -156,7 +156,7 @@ TXT is CP1255/Windows-1255, CRLF, no header, and exactly 186 fields per active r
 
 The template validates **layout only**. No value is copied from it. Every generated row starts as 186 literal `0` fields, then writes documented fields from the current record. Unknown fields remain `0`. This resolves the filled-template regression that leaked old amounts, dates, identifiers, text, and negative balances.
 
-The intended known fields include date parts, sequence, Rivhit code, gross, description, references, allocation number, classification name, recognition, net/VAT/VAT rate, and supplier ID. **Current blocker:** the exporter still writes zero into one-based column 158 instead of the required VAT-rate value; see the production-export audit below.
+The intended known fields include date parts, sequence, Rivhit code, gross, description, references, allocation number, classification name, recognition, net/VAT/VAT rate, and supplier ID. For one-based column 158, the exporter writes the source VAT rate multiplied by the deductible-VAT percentage: 18% at 66.67% is `12.00`; 18% at 25% is `4.50`; a genuinely zero-VAT row is `0.00`.
 
 Accepted dates:
 
@@ -164,7 +164,7 @@ Accepted dates:
 - `DD/MM/YYYY`, `DD-MM-YYYY`, `DD.MM.YYYY`
 - `DD/MM/YY` and equivalent separators; two-digit years mean `20YY`
 
-Before draft export or final close, the browser validates **all active rows** and opens a modal list if any fail. No export folder is created for an invalid set. Checks cover template width, approved classification, date, money, VAT reconciliation, CP1255 encodability, and negative numeric fields. `buildRivhitImport` repeats this validation as a backstop. The current validator does **not** catch the column-158 defect and must be extended when that defect is fixed.
+Before draft export or final close, the browser validates **all active rows** and opens a modal list if any fail. No export folder is created for an invalid set. Checks cover template width, approved classification, date, money, VAT reconciliation, valid nonzero VAT rate where VAT is nonzero, CP1255 encodability, and negative numeric fields. `buildRivhitImport` repeats this validation as a backstop.
 
 Common typography unsupported by CP1255 is normalised during TXT generation: Hebrew geresh/gershayim, curly quotes, long dashes, non-breaking spaces, and ellipsis get safe equivalents; remaining unsupported glyphs become `?` instead of blocking export.
 
@@ -205,15 +205,15 @@ Completed:
 - Local code persistence was confirmed in `D:\ocr_test\common\custom-rivhit-mapping.json`; `40eceac` fixes the previous omission from Gemini context.
 - The `test5 / 2026-09` draft export at `D:\ocr_test\clients\test5\declarations\2026-09\exports\2026-09-19_12-47` was audited: 30 TXT records, exactly 186 columns each, CP1255, CRLF, no BOM, no negative fields, and exact manifest agreement for mapped dates/codes/amounts/references/IDs. Totals are gross `126,024.35`, net `107,245.84`, VAT `18,778.51`. Both PDFs render correctly; the 30-page invoice report has no visible clipping.
 
-Critical open production defect:
+Critical export repair (19 September, browser version 2026.09.19.6):
 
-- **Do not import the audited `test5` TXT into Rivhit yet.** One-based column 158 is `0.00` in all rows, including 27 rows with nonzero VAT. The canonical template uses values such as `18.00`, and `docs/RIVHIT_IMPORT_SPEC.md` identifies this as the VAT-rate field. Fix the writer and add a validation failure for nonzero VAT with a zero/invalid rate before generating another TXT.
-- Confirm the exact partial-VAT rule for column 158 against Rivhit before coding it. The canonical sample contains `11.88` for an 18% row at 66% recognition, so blindly writing the source rate may be wrong.
+- **Do not import the existing audited `test5` TXT.** It contains `0` in one-based column 158 for every row, including 27 taxable rows, and Rivhit reports that this value does not pass validation.
+- The repaired writer derives column 158 from the canonical template rule: source VAT rate × deductible-VAT percentage. The template's 18% × 66% example yields `11.88`; the application uses `12.00` for 66.67% and `4.50` for 25%. Regenerate and audit a fresh TXT before importing.
 - Review the two active income rows (`61,631.40` and `56,934.40`, code `827`) for overlapping January-February revenue before final import. The latter uses report-generation date `02/03/26`.
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the drawer and verify frontend `2026.09.19.5 · 12:55 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the drawer and verify frontend `2026.09.19.6 · 13:33 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -221,7 +221,7 @@ Recommended short production check:
 
 ## Next decisions
 
-1. Fix and validate Rivhit column 158, then regenerate and re-audit the `test5` TXT. This is the immediate release blocker.
+1. Regenerate and re-audit the `test5` TXT with browser version `2026.09.19.6`, then retry the Rivhit import.
 2. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row.
 3. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
 4. Closed-declaration recovery: if needed, require a reason, immutable audit record, and preserved prior final export.
