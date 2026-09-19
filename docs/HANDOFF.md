@@ -1,10 +1,10 @@
 # Handoff — Rivhit document intake
 
-**Updated:** 19 September 2026, 13:19 IDT
+**Updated:** 19 September 2026, 17:22 IDT
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `2067553` — preserves mandatory Rivhit template flags and fixes VAT-rate column 158
+**Latest browser source:** `2067553` — preserves mandatory Rivhit template flags and fixes VAT-rate column 158; handoff recorded in `8d9c8fc`
 
 **Production Worker:** `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -34,7 +34,7 @@ The intended test root is `D:\ocr_test` (not `D:\ocr\_test`). `D:\ocr_test` cont
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, journal, exports, PDF import, Windows Hello |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram, temporary R2, Gemini Pass 1/2, passkeys |
 | Telegram bot | `@Vitalikshbot` | iPhone intake and one-time computer enrollment |
-| Branch | `main` | GitHub Pages source; current relevant commit `9f66e75` |
+| Branch | `main` | GitHub Pages source; current relevant commit `2067553` |
 | Production Worker | `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` | `/health` reports backend version; OCR currency-token guard enabled |
 
 Push `main` for GitHub Pages. Worker source changes also require `npx wrangler deploy` from `cloudflare-worker/`.
@@ -205,26 +205,26 @@ Completed:
 - Local code persistence was confirmed in `D:\ocr_test\common\custom-rivhit-mapping.json`; `40eceac` fixes the previous omission from Gemini context.
 - The `test5 / 2026-09` draft export at `D:\ocr_test\clients\test5\declarations\2026-09\exports\2026-09-19_12-47` was audited: 30 TXT records, exactly 186 columns each, CP1255, CRLF, no BOM, no negative fields, and exact manifest agreement for mapped dates/codes/amounts/references/IDs. Totals are gross `126,024.35`, net `107,245.84`, VAT `18,778.51`. Both PDFs render correctly; the 30-page invoice report has no visible clipping.
 
-Critical export repair (19 September, browser version 2026.09.19.6):
+Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
-- **Do not import the existing audited `test5` TXT.** It contains `0` in one-based column 158 for every row, including 27 taxable rows, and Rivhit reports that this value does not pass validation.
-- The repaired writer derives column 158 from the canonical template rule: source VAT rate × deductible-VAT percentage. The template's 18% × 66% example yields `11.88`; the application uses `12.00` for 66.67% and `4.50` for 25%. Regenerate and audit a fresh TXT before importing.
+- The original `test5` export `_12-47` failed because all rows put `0` in one-based column 158, including 27 taxable rows. The repair derives this field from the canonical template rule: source VAT rate × deductible-VAT percentage. The template's 18% × 66% example yields `11.88`; the application uses `12.00` for 66.67% and `4.50` for 25%.
+- The initial column-158 repair still zeroed mandatory short structural flags from the Rivhit template. The final writer retains only safe short flags and default `1.00`, while clearing source-specific dates, amounts, IDs, and text.
+- `D:\ocr_test\clients\test5\declarations\2026-09\exports\2026-09-19_17-22\import.txt` was verified: 30 records, 186 columns each, 27 taxable records with no zero VAT rate, and required template flags restored. Vitalik confirmed that Rivhit imports it correctly.
 - Review the two active income rows (`61,631.40` and `56,934.40`, code `827`) for overlapping January-February revenue before final import. The latter uses report-generation date `02/03/26`.
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the drawer and verify frontend `2026.09.19.6 · 13:33 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the drawer and verify frontend `2026.09.19.7 · 17:20 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
-5. After the column-158 repair, create a new TXT export and verify 186 fields, nonzero/valid VAT rates, no old template values, and no negative numbers before attempting Rivhit import.
+5. The `test5` import was confirmed successful; repeat the same 186-field, VAT-rate, structural-flag and no-leak checks for future template or exporter changes.
 
 ## Next decisions
 
-1. Regenerate and re-audit the `test5` TXT with browser version `2026.09.19.6`, then retry the Rivhit import.
-2. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row.
-3. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
-4. Closed-declaration recovery: if needed, require a reason, immutable audit record, and preserved prior final export.
+1. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row.
+2. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
+3. Closed-declaration recovery: if needed, require a reason, immutable audit record, and preserved prior final export.
 
 ## Validation and deployment
 
@@ -236,7 +236,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **38 passing**.
+Expected: **41 passing**.
 
 Worker:
 
