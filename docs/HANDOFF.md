@@ -4,7 +4,7 @@
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** pending commit — preserves mandatory Rivhit template flags and fixes VAT-rate column 158
+**Latest browser source:** `2067553` — preserves mandatory Rivhit template flags and fixes VAT-rate column 158
 
 **Production Worker:** `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
