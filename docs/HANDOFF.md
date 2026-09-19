@@ -141,7 +141,7 @@ Custom codes are root-local, available to every client in that root, exactly thr
 - Dates display as `DD/MM/YY`; export also accepts four-digit years and `-`, `/`, or `.` separators.
 - Gross and net remain separate inputs; recalculate/save on Enter or blur, not while typing.
 - Expense recognition controls recognised gross. VAT recognition independently controls deductible VAT; non-deductible VAT remains in the expense. Example: raw net/VAT `100/18` at 100% expense and 66.67% VAT becomes gross/net/VAT `118/106/12`.
-- Changing taxable expense recognition aligns VAT recognition. VAT recognition includes 66.67%; Rivhit codes `806`, `807`, and `812` default to 66.67% when source VAT is nonzero.
+- Changing taxable expense recognition aligns VAT recognition. VAT recognition includes 66.67%; Rivhit codes `806`, `807`, and `812` (`טלפון נייד`) default to 66.67% when source VAT is nonzero. Code `888` is `אינטרנט` and defaults to 100%.
 - Exempt/0% groups keep gross=net and all VAT values zero. Mixed VAT invoices split by VAT group.
 - Duplicates are review warnings and initially unchecked. Rows marked **לא מיועד לייצוא** are grey and skipped.
 - Income reports are retained, assigned a locally-created next-free income code, and may export.
@@ -156,7 +156,7 @@ TXT is CP1255/Windows-1255, CRLF, no header, and exactly 186 fields per active r
 
 The template supplies its mandatory short structural flags (such as `1`, `2`, `4`) and default `1.00` coefficient. Source-specific values are never copied: dates, amounts, identifiers, descriptions, Hebrew names, and negative balances are cleared before writing the documented fields from the current record.
 
-The intended known fields include date parts, sequence, Rivhit code, gross, description, references, allocation number, classification name, recognition, net/VAT/VAT rate, and supplier ID. For one-based column 158, the exporter writes the source VAT rate multiplied by the deductible-VAT percentage: 18% at 66.67% is `12.00`; 18% at 25% is `4.50`; a genuinely zero-VAT row is `0.00`.
+The intended known fields include document-date parts, declaration-month fields (one-based columns 2 and 186, identical for every record), sequence, Rivhit code, gross, description, references, allocation number, classification name, recognition, net/VAT/VAT rate, and supplier ID. For one-based column 158, the exporter writes the source VAT rate multiplied by the deductible-VAT percentage: 18% at 66.67% is `12.00`; 18% at 25% is `4.50`; a genuinely zero-VAT row is `0.00`.
 
 Accepted dates:
 

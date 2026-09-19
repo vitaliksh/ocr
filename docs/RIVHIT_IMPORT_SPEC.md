@@ -17,7 +17,7 @@ The application writes these one-based columns:
 | Columns | Value |
 | --- | --- |
 | 1, 185 | Tax year from document date |
-| 2, 186 | Month from document date |
+| 2, 186 | Month from the selected declaration; identical for every exported row |
 | 3 | Sequential row number |
 | 4, 135 | Approved three-digit Rivhit classification code |
 | 7, 164 | Gross ILS amount, two decimals |
@@ -31,7 +31,7 @@ The application writes these one-based columns:
 | 178 | Supplier VAT ID digits only, or `0` |
 
 Before saving, verify: 186 columns; matching three-digit codes in columns 4 and
-135; date/year/month consistency; matching gross values; cent-level VAT
+135; document date/year and declaration-month consistency; matching gross values; cent-level VAT
 reconciliation; digits-only identifiers; Windows-1255 encodability; and no
 excluded income record, duplicate payment confirmation, or negative numeric
 field. A full Form 6111
