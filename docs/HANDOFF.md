@@ -1,12 +1,12 @@
 # Handoff — Rivhit document intake
 
-**Updated:** 14 September 2026, 18:00 IDT
+**Updated:** 19 September 2026, 13:19 IDT
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `40eceac` — sends local custom Rivhit codes to Gemini; build time moved into the title
+**Latest browser source:** `9f66e75` — export-result dialog with copyable PDF/TXT paths
 
-**Production Worker:** `530e0514-0f81-4387-96bf-daa04d012dd3` — deployed 14 September 2026
+**Production Worker:** `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
 
 ## Product and hard boundaries
@@ -34,18 +34,19 @@ The intended test root is `D:\ocr_test` (not `D:\ocr\_test`). `D:\ocr_test` cont
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, journal, exports, PDF import, Windows Hello |
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram, temporary R2, Gemini Pass 1/2, passkeys |
 | Telegram bot | `@Vitalikshbot` | iPhone intake and one-time computer enrollment |
-| Branch | `main` | GitHub Pages source; current relevant commit `40eceac` |
-| Production Worker | `530e0514-0f81-4387-96bf-daa04d012dd3` | Custom-code CORS and validation enabled |
+| Branch | `main` | GitHub Pages source; current relevant commit `9f66e75` |
+| Production Worker | `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` | `/health` reports backend version; OCR currency-token guard enabled |
 
 Push `main` for GitHub Pages. Worker source changes also require `npx wrangler deploy` from `cloudflare-worker/`.
 
-The UI shows a cache-verifiable marker next to the heading:
+The drawer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-קליטת מסמכים ל‑Rivhit  גרסת ממשק: 2026-09-14 18:00 IDT
+גרסת ממשק: 2026.09.19.5 · 12:55 IDT
+גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
-Force refresh with `Ctrl+F5` and verify this marker before testing a recent UI change.
+The backend marker is fetched from `/health`. Force refresh with `Ctrl+F5` and verify both markers before testing a recent change.
 
 ## Security
 
@@ -137,14 +138,17 @@ Custom codes are root-local, available to every client in that root, exactly thr
 ## Journal behaviour already implemented
 
 - Open-row fields, including dates, are editable.
+- Dates display as `DD/MM/YY`; export also accepts four-digit years and `-`, `/`, or `.` separators.
 - Gross and net remain separate inputs; recalculate/save on Enter or blur, not while typing.
-- Recognition percentage is applied to gross first, then recognised gross is split to rounded net/VAT. Example: 720.00 × 25% = 180.00 gross, 152.54 net, 27.46 VAT.
-- Changing taxable expense recognition aligns VAT recognition. VAT recognition includes 66.67%.
+- Expense recognition controls recognised gross. VAT recognition independently controls deductible VAT; non-deductible VAT remains in the expense. Example: raw net/VAT `100/18` at 100% expense and 66.67% VAT becomes gross/net/VAT `118/106/12`.
+- Changing taxable expense recognition aligns VAT recognition. VAT recognition includes 66.67%; Rivhit codes `806`, `807`, and `812` default to 66.67% when source VAT is nonzero.
 - Exempt/0% groups keep gross=net and all VAT values zero. Mixed VAT invoices split by VAT group.
 - Duplicates are review warnings and initially unchecked. Rows marked **לא מיועד לייצוא** are grey and skipped.
 - Income reports are retained, assigned a locally-created next-free income code, and may export.
-- Classification search filters while typing. The local photo popup supports drag and wheel panning.
+- Classification search filters by code or name while typing, but the compact selector displays the name without the numeric prefix. The local photo popup supports drag and wheel panning.
 - Exports include `classification-codes.pdf`, highlighting local codes used by the declaration.
+- Draft and final exports show a modal success/error result. On success it shows copyable paths for `invoices.pdf` and `import.txt`. Browser security exposes only a path relative to the selected data-root name, not the Windows drive letter.
+- The journal heading shows the active client/declaration. The drawer heading shows the selected data-root name.
 
 ## TXT export contract and safeguards
 
@@ -152,7 +156,7 @@ TXT is CP1255/Windows-1255, CRLF, no header, and exactly 186 fields per active r
 
 The template validates **layout only**. No value is copied from it. Every generated row starts as 186 literal `0` fields, then writes documented fields from the current record. Unknown fields remain `0`. This resolves the filled-template regression that leaked old amounts, dates, identifiers, text, and negative balances.
 
-Known fields include date parts, sequence, Rivhit code, gross, description, references, allocation number, classification name, recognition, net/VAT/VAT rate, and supplier ID.
+The intended known fields include date parts, sequence, Rivhit code, gross, description, references, allocation number, classification name, recognition, net/VAT/VAT rate, and supplier ID. **Current blocker:** the exporter still writes zero into one-based column 158 instead of the required VAT-rate value; see the production-export audit below.
 
 Accepted dates:
 
@@ -160,13 +164,15 @@ Accepted dates:
 - `DD/MM/YYYY`, `DD-MM-YYYY`, `DD.MM.YYYY`
 - `DD/MM/YY` and equivalent separators; two-digit years mean `20YY`
 
-Before draft export or final close, the browser validates **all active rows** and opens a modal list if any fail. No export folder is created for an invalid set. Checks cover template width, approved classification, date, money, VAT reconciliation, CP1255 encodability, and negative numeric fields. `buildRivhitImport` repeats this validation as a backstop.
+Before draft export or final close, the browser validates **all active rows** and opens a modal list if any fail. No export folder is created for an invalid set. Checks cover template width, approved classification, date, money, VAT reconciliation, CP1255 encodability, and negative numeric fields. `buildRivhitImport` repeats this validation as a backstop. The current validator does **not** catch the column-158 defect and must be extended when that defect is fixed.
+
+Common typography unsupported by CP1255 is normalised during TXT generation: Hebrew geresh/gershayim, curly quotes, long dashes, non-breaking spaces, and ellipsis get safe equivalents; remaining unsupported glyphs become `?` instead of blocking export.
 
 ## Gemini and local code propagation
 
 ### Pass 1
 
-Pass 1 receives the image, business activity, selected model, Form 6111 overrides, and local custom codes. It returns source facts, classification, confidence, explanation, and source-value boxes. It must distinguish taxable/exempt VAT, never invent source facts, Form 6111 codes, or Rivhit codes.
+Pass 1 receives the image, business activity, selected model, Form 6111 overrides, and local custom codes. It returns source facts, classification, confidence, explanation, and source-value boxes. It must distinguish taxable/exempt VAT, never invent source facts, Form 6111 codes, or Rivhit codes. Its runtime prompt explicitly treats `₪`, `ש״ח`, `NIS`, and attached currency signs as decoration, reads the full adjacent numeric token before stripping the sign, and uses `₪61,631.40 → 61631.40` as the regression example.
 
 When **הוספת קוד מיון חדש…** succeeds:
 
@@ -197,20 +203,28 @@ Completed:
 - `19/08/26` now normalises to 2026 instead of blocking export.
 - Root switching clears the old declaration handle.
 - Local code persistence was confirmed in `D:\ocr_test\common\custom-rivhit-mapping.json`; `40eceac` fixes the previous omission from Gemini context.
+- The `test5 / 2026-09` draft export at `D:\ocr_test\clients\test5\declarations\2026-09\exports\2026-09-19_12-47` was audited: 30 TXT records, exactly 186 columns each, CP1255, CRLF, no BOM, no negative fields, and exact manifest agreement for mapped dates/codes/amounts/references/IDs. Totals are gross `126,024.35`, net `107,245.84`, VAT `18,778.51`. Both PDFs render correctly; the 30-page invoice report has no visible clipping.
+
+Critical open production defect:
+
+- **Do not import the audited `test5` TXT into Rivhit yet.** One-based column 158 is `0.00` in all rows, including 27 rows with nonzero VAT. The canonical template uses values such as `18.00`, and `docs/RIVHIT_IMPORT_SPEC.md` identifies this as the VAT-rate field. Fix the writer and add a validation failure for nonzero VAT with a zero/invalid rate before generating another TXT.
+- Confirm the exact partial-VAT rule for column 158 against Rivhit before coding it. The canonical sample contains `11.88` for an 18% row at 66% recognition, so blindly writing the source rate may be wrong.
+- Review the two active income rows (`61,631.40` and `56,934.40`, code `827`) for overlapping January-February revenue before final import. The latter uses report-generation date `02/03/26`.
 
 Recommended short production check:
 
-1. `Ctrl+F5`; verify `2026-09-14 18:00 IDT` by the title.
+1. `Ctrl+F5`; open the drawer and verify frontend `2026.09.19.5 · 12:55 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
-5. Create a TXT export and inspect 186 fields, no old template values, no negative numbers.
+5. After the column-158 repair, create a new TXT export and verify 186 fields, nonzero/valid VAT rates, no old template values, and no negative numbers before attempting Rivhit import.
 
 ## Next decisions
 
-1. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
-2. Closed-declaration recovery: if needed, require a reason, immutable audit record, and preserved prior final export.
-3. Gather bookkeeper feedback before a broad UI redesign.
+1. Fix and validate Rivhit column 158, then regenerate and re-audit the `test5` TXT. This is the immediate release blocker.
+2. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row.
+3. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
+4. Closed-declaration recovery: if needed, require a reason, immutable audit record, and preserved prior final export.
 
 ## Validation and deployment
 
@@ -222,7 +236,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **36 passing**.
+Expected: **38 passing**.
 
 Worker:
 
