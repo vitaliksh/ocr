@@ -42,7 +42,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The drawer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.09.19.7 · 17:20 IDT
+גרסת ממשק: 2026.09.19.8 · 17:50 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -214,7 +214,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the drawer and verify frontend `2026.09.19.7 · 17:20 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the drawer and verify frontend `2026.09.19.8 · 17:50 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
