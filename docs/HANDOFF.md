@@ -1,12 +1,12 @@
 # Handoff — Rivhit document intake
 
-**Updated:** 19 September 2026, 17:22 IDT
+**Updated:** 19 September 2026, 17:49 IDT
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `2067553` — preserves mandatory Rivhit template flags and fixes VAT-rate column 158; handoff recorded in `8d9c8fc`
+**Latest browser source:** `a7053eb` — makes `812` mobile phone, adds `888` internet, and writes the selected declaration month to every Rivhit TXT record.
 
-**Production Worker:** `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` — backend version `2026.09.19.4 · 12:44 IDT`
+**Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
 
 ## Product and hard boundaries
