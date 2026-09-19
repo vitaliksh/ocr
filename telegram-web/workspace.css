@@ -18,3 +18,5 @@
 
 /* Keep the folder switcher available after the first data-root selection. */
 .data-root-setting:has(.workspace-ready) button{display:inline-block}
+
+.export-result-success{color:#17623c;font-weight:700}.export-result-error{color:#a51f1f;font-weight:700}.export-path-note{color:#526074;font-size:.9rem}.export-path-row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:9px;align-items:center;margin:10px 0}.export-path-row code{direction:ltr;text-align:left;overflow-wrap:anywhere;padding:8px;background:#f4f7fa;border:1px solid #c4d1db;border-radius:3px}@media (max-width:650px){.export-path-row{grid-template-columns:1fr}.export-path-row button{width:100%}}
