@@ -12,7 +12,11 @@ function dateParts(value, tableRow) {
 }
 function cp1255(text) {
   const output = [];
-  for (const character of text) { const code = character.codePointAt(0); if (code === 9 || code === 10 || code === 13) output.push(code); else if (code >= 32 && code <= 126) output.push(code); else if (code >= 0x05d0 && code <= 0x05ea) output.push(0xe0 + code - 0x05d0); else if (code === 0x20aa) output.push(0xa4); else throw new Error(`הטקסט אינו ניתן לקידוד Windows-1255: ${character}`); }
+  const replacements = { "\u00a0": " ", "\u05be": "-", "\u05f3": "'", "\u05f4": '"', "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-", "\u2014": "-", "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2026": "..." };
+  for (const original of text) {
+    const replacement = replacements[original] ?? original.normalize("NFKD").replace(/[\u0591-\u05c7]/g, "");
+    for (const character of replacement) { const code = character.codePointAt(0); if (code === 9 || code === 10 || code === 13) output.push(code); else if (code >= 32 && code <= 126) output.push(code); else if (code >= 0x05d0 && code <= 0x05ea) output.push(0xe0 + code - 0x05d0); else if (code === 0x20aa) output.push(0xa4); else output.push(0x3f); }
+  }
   return new Uint8Array(output);
 }
 function emptyRivhitColumns() { return Array(RIVHIT_COLUMN_COUNT).fill("0"); }
