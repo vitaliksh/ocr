@@ -171,7 +171,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { headers: cors(request, env) });
-    if (url.pathname === "/health") return json({ ok: true });
+    if (url.pathname === "/health") return json({ ok: true, version: env.BACKEND_VERSION || "unknown" }, 200, cors(request, env));
     if (url.pathname === "/telegram/webhook" && request.method === "POST") return webhook(request, env);
     const rejected = clientRequest(request, env);
     if (rejected) return rejected;
