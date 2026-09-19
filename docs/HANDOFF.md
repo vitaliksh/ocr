@@ -4,7 +4,7 @@
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `3a03539` — fixes Rivhit VAT-rate column 158
+**Latest browser source:** pending commit — preserves mandatory Rivhit template flags and fixes VAT-rate column 158
 
 **Production Worker:** `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -42,7 +42,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The drawer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.09.19.6 · 13:33 IDT
+גרסת ממשק: 2026.09.19.7 · 17:20 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -154,7 +154,7 @@ Custom codes are root-local, available to every client in that root, exactly thr
 
 TXT is CP1255/Windows-1255, CRLF, no header, and exactly 186 fields per active row.
 
-The template validates **layout only**. No value is copied from it. Every generated row starts as 186 literal `0` fields, then writes documented fields from the current record. Unknown fields remain `0`. This resolves the filled-template regression that leaked old amounts, dates, identifiers, text, and negative balances.
+The template supplies its mandatory short structural flags (such as `1`, `2`, `4`) and default `1.00` coefficient. Source-specific values are never copied: dates, amounts, identifiers, descriptions, Hebrew names, and negative balances are cleared before writing the documented fields from the current record.
 
 The intended known fields include date parts, sequence, Rivhit code, gross, description, references, allocation number, classification name, recognition, net/VAT/VAT rate, and supplier ID. For one-based column 158, the exporter writes the source VAT rate multiplied by the deductible-VAT percentage: 18% at 66.67% is `12.00`; 18% at 25% is `4.50`; a genuinely zero-VAT row is `0.00`.
 

@@ -19,7 +19,15 @@ function cp1255(text) {
   }
   return new Uint8Array(output);
 }
-function emptyRivhitColumns() { return Array(RIVHIT_COLUMN_COUNT).fill("0"); }
+function cleanTemplateColumns(template) {
+  return template.split("\t").map((value) => {
+    const item = clean(value);
+    // A template can be an exported historic entry. Preserve only short
+    // format flags required by Rivhit; clear source-specific values.
+    if (!/^\d{1,3}$/.test(item)) return "";
+    return item;
+  });
+}
 function percent(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100 ? parsed : fallback;
@@ -38,16 +46,17 @@ function assertNoNegativeNumbers(columns, tableRow) {
 function validateTemplate(templateText) {
   const template = firstNonEmptyLine(templateText);
   if (!template || template.split("\t").length !== RIVHIT_COLUMN_COUNT) throw new Error("תבנית Rivhit אינה כוללת 186 עמודות.");
+  return template;
 }
-function buildColumns(row, index, mapping) {
+function buildColumns(row, index, mapping, template) {
   const tableRow = Number(row.tableRow) || index + 1;
   const values = row.values || [], code = clean(values[1]); if (!/^\d{3}$/.test(code) || !mapping?.[code]) throw new Error(`קוד המיון בשורה ${tableRow} אינו מאושר.`);
   const date = dateParts(values[0], tableRow), net = money(values[8] || row.rawNet), vat = money(values[9] || row.rawVat), gross = money(values[7] || Number(net) + Number(vat));
   if (Math.abs(Number(gross) - Number(net) - Number(vat)) > 0.009) throw new Error(`סכומי מע״מ בשורה ${tableRow} אינם תואמים.`);
   const vatRate = effectiveVatRate(row, values, net, vat);
-  const columns = emptyRivhitColumns();
+  const columns = cleanTemplateColumns(template);
   columns[0] = columns[184] = date.year; columns[1] = columns[185] = date.month; columns[2] = String(index + 1); columns[3] = columns[134] = code;
-  columns[6] = columns[163] = gross; columns[7] = columns[8] = date.display; columns[9] = clean(values[2]); columns[10] = digits(values[5]).slice(-4); columns[11] = digits(values[6]); columns[135] = clean(mapping[code]); columns[137] = money(values[11] || 100); columns[154] = net; columns[155] = vat; columns[157] = vatRate; columns[177] = digits(values[4]) || "0";
+  columns[6] = columns[163] = gross; columns[7] = columns[8] = date.display; columns[9] = clean(values[2]); columns[10] = digits(values[5]).slice(-4); columns[11] = digits(values[6]); columns[135] = clean(mapping[code]); columns[137] = money(values[11] || 100); columns[154] = net; columns[155] = vat; columns[157] = vatRate; columns[177] = digits(values[4]) || "0"; columns[179] = "1"; columns[180] = "1.00";
   if (columns.length !== RIVHIT_COLUMN_COUNT) throw new Error("שגיאה במספר עמודות Rivhit.");
   assertNoNegativeNumbers(columns, tableRow);
   cp1255(columns.join("\t"));
@@ -55,18 +64,19 @@ function buildColumns(row, index, mapping) {
 }
 
 export function validateRivhitImport({ templateText, rows, mapping }) {
-  try { validateTemplate(templateText); } catch (error) { return [{ tableRow: null, message: error.message }]; }
+  let template; try { template = validateTemplate(templateText); } catch (error) { return [{ tableRow: null, message: error.message }]; }
   const activeRows = rows.filter((item) => item.active);
   if (!activeRows.length) return [{ tableRow: null, message: "יש לסמן לפחות שורה פעילה לייצוא." }];
-  return activeRows.flatMap((row, index) => { try { buildColumns(row, index, mapping); return []; } catch (error) { return [{ tableRow: Number(row.tableRow) || index + 1, message: error.message }]; } });
+  return activeRows.flatMap((row, index) => { try { buildColumns(row, index, mapping, template); return []; } catch (error) { return [{ tableRow: Number(row.tableRow) || index + 1, message: error.message }]; } });
 }
 
 export function buildRivhitImport({ templateText, rows, mapping }) {
   const issues = validateRivhitImport({ templateText, rows, mapping });
   if (issues.length) throw new Error(issues.map((issue) => issue.message).join("\n"));
   const output = [];
+  const template = validateTemplate(templateText);
   for (const [index, row] of rows.filter((item) => item.active).entries()) {
-    const columns = buildColumns(row, index, mapping);
+    const columns = buildColumns(row, index, mapping, template);
     output.push(columns.join("\t"));
   }
   if (!output.length) throw new Error("יש לסמן לפחות שורה פעילה לייצוא.");
