@@ -100,6 +100,7 @@ async function cancelEnrollment() {
 async function saveCurrentDraft() { if (!currentDeclaration || currentDeclaration.status !== "open" || !currentDeclarationDirectory) return; clearTimeout(draftSaveTimer); try { await saveDraft(currentDeclarationDirectory, currentDeclaration, [...records.querySelectorAll("tr[data-document-id]")].map(rowSnapshot)); } catch (error) { showError("לא ניתן לשמור טיוטה מקומית: " + error.message); throw error; } }
 function queueDraftSave() { if (!currentDeclaration || currentDeclaration.status !== "open" || !currentDeclarationDirectory) return; clearTimeout(draftSaveTimer); draftSaveTimer = setTimeout(() => { saveCurrentDraft().catch(() => {}); }, 250); }
 function receivedAtText(value) { const date = new Date(value); return Number.isNaN(date.valueOf()) ? String(value || "—") : new Intl.DateTimeFormat("he-IL", { dateStyle: "short", timeStyle: "short" }).format(date); }
+function displayDate(value) { const match = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/); return match ? `${match[3]}/${match[2]}/${match[1].slice(-2)}` : display(value); }
 function emptyCell(text = "—", className = "") { const cell = document.createElement("td"); cell.textContent = text; if (className) cell.className = className; return cell; }
 function display(value) { return value === null || value === undefined || value === "" ? "—" : String(value); }
 function editableCell(value) { const cell = emptyCell(display(value), "editable"); cell.contentEditable = "true"; cell.spellcheck = false; return cell; }
@@ -115,9 +116,9 @@ function classificationSelect(code = "") {
   const fill = (query = "") => {
     const needle = query.trim().toLocaleLowerCase("he");
     select.replaceChildren(new Option("—", ""));
-    for (const [value, label] of Object.entries(rivhitMapping)) if (!needle || value.includes(needle) || label.toLocaleLowerCase("he").includes(needle)) select.add(new Option(`${value} — ${label}`, value, false, value === code));
+    for (const [value, label] of Object.entries(rivhitMapping)) if (!needle || value.includes(needle) || label.toLocaleLowerCase("he").includes(needle)) select.add(new Option(label, value, false, value === code));
     select.add(new Option("הוספת קוד מיון חדש…", "__add_custom__"));
-    if (code && !select.querySelector(`option[value="${CSS.escape(code)}"]`)) select.add(new Option(`${code} — ${rivhitMapping[code] || ""}`, code, false, true));
+    if (code && !select.querySelector(`option[value="${CSS.escape(code)}"]`)) select.add(new Option(rivhitMapping[code] || code, code, false, true));
     select.size = needle ? Math.min(Math.max(select.options.length, 1), 6) : 1;
   };
   const closeResults = () => { select.size = 1; };
@@ -135,7 +136,7 @@ function classificationSelect(code = "") {
 function classificationMappingsForAgent() { return Object.fromEntries(Object.entries(form6111Mappings).map(([form6111, rivhitCode]) => [form6111, [rivhitCode, rivhitMapping[rivhitCode]]]).filter(([, [, label]]) => Boolean(label))); }
 function customClassificationCodesForAgent() { return { ...customMapping }; }
 async function saveClassificationOverride(row, rivhitCode) { const form6111 = row.dataset.form6111Code; if (!form6111 || !rivhitCode) return; try { await saveForm6111Mapping(dataRoot, form6111, rivhitCode, builtInMapping); form6111Mappings[form6111] = rivhitCode; } catch (error) { showError("לא ניתן לשמור את מיפוי טופס 6111: " + error.message); } }
-function recalculateRow(row) { const expensePercent = row.cells[12].querySelector("select")?.value || 100, amounts = recognisedAmounts(row.dataset.rawNet, row.dataset.rawVat, expensePercent); const gross = row.cells[8].querySelector("input"); if (gross) gross.value = amounts.gross; else row.cells[8].textContent = amounts.gross; const net = row.cells[9].querySelector("input"); if (net) net.value = amounts.net; else row.cells[9].textContent = amounts.net; row.cells[10].textContent = amounts.vat; }
+function recalculateRow(row) { const expensePercent = row.cells[12].querySelector("select")?.value || 100, vatRecognisedPercent = row.cells[11].querySelector("select")?.value || 100, amounts = recognisedAmounts(row.dataset.rawNet, row.dataset.rawVat, expensePercent, vatRecognisedPercent); const gross = row.cells[8].querySelector("input"); if (gross) gross.value = amounts.gross; else row.cells[8].textContent = amounts.gross; const net = row.cells[9].querySelector("input"); if (net) net.value = amounts.net; else row.cells[9].textContent = amounts.net; row.cells[10].textContent = amounts.vat; }
 function vatRate(row) { const stored = Number(row.dataset.vatPercent); if (Number.isFinite(stored)) return stored; const net = Number(row.dataset.rawNet), vat = Number(row.dataset.rawVat); return net > 0 ? Math.round(vat / net * 10000) / 100 : 18; }
 function manualAmountChanged(row, column) {
   const entered = Number(cellValue(row.cells[column]).replace(/,/g, "")); if (!Number.isFinite(entered) || entered < 0) return;
@@ -152,7 +153,7 @@ function updateDuplicateState(row) {
   if (!duplicate) return;
   setExportIncluded(row, false); row.dataset.duplicate = "true"; setStatus(row, "חשד לכפילות לפי אסמכתא — נדרש עיון", "review");
 }
-function applyBusinessRule(row) { const code = row.cells[1].querySelector("select")?.value, homeUtility = businessKind.value === "home" && ["809", "820"].includes(code), expense = row.cells[12].querySelector("select"), vat = row.cells[11].querySelector("select"); if (expense) expense.value = homeUtility ? "25" : "100"; if (vat && homeUtility && Number(row.dataset.rawVat || 0)) vat.value = "25"; recalculateRow(row); }
+function applyBusinessRule(row) { const code = row.cells[1].querySelector("select")?.value, homeUtility = businessKind.value === "home" && ["809", "820"].includes(code), limitedVat = ["806", "807", "812"].includes(code), expense = row.cells[12].querySelector("select"), vat = row.cells[11].querySelector("select"); if (expense) expense.value = homeUtility ? "25" : "100"; if (vat && Number(row.dataset.rawVat || 0)) vat.value = homeUtility ? "25" : limitedVat ? "66.67" : "100"; recalculateRow(row); }
 function applyBusinessRules() { for (const row of records.querySelectorAll("tr[data-document-id]")) applyBusinessRule(row); }
 businessKind.addEventListener("change", applyBusinessRules);
 function updateProcessingControls() { stop.hidden = !pendingRecognitions; stop.disabled = !pendingRecognitions; }
@@ -349,7 +350,7 @@ async function ensureIncomeClassification() {
 }
 async function applyRecord(row, record) {
   row.dataset.rawNet = String(record.net_amount || 0); row.dataset.rawVat = String(record.vat_amount || 0); row.dataset.vatPercent = String(record.vat_percent ?? (Number(record.vat_amount) ? 18 : 0)); row.dataset.documentKind = record.document_kind || "other"; row.dataset.form6111Code = record.form_6111_code || ""; row.highlights = Array.isArray(record.highlight_regions) ? record.highlight_regions : [];
-  const values = [record.date, null, record.purpose, record.supplier_name, record.supplier_vat_id, displayedReference(record.transaction_number || record.invoice_number), record.allocation_number, null, record.net_amount, record.vat_amount];
+  const values = [displayDate(record.date), null, record.purpose, record.supplier_name, record.supplier_vat_id, displayedReference(record.transaction_number || record.invoice_number), record.allocation_number, null, record.net_amount, record.vat_amount];
   row.replaceChild(editableCell(null), row.cells[1]); row.replaceChild(editableCell(values[0]), row.cells[2]); values.slice(2).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 3])); row.replaceChild(amountCell(values[7], "סכום כולל מע״מ"), row.cells[8]); row.replaceChild(amountCell(values[8], "סכום ללא מע״מ"), row.cells[9]);
   const classification = record.document_kind === "income_report" ? await ensureIncomeClassification() : record.rivhit_code || "";
   row.cells[1].replaceChildren(classificationSelect(classification)); row.cells[11].replaceChildren(percentSelect(record.vat_recognized_percent ?? 100, [100, 66.67, 25, 0], "vat")); row.cells[12].replaceChildren(percentSelect(record.recognized_percent || 100, [100, 25, 0], "expense")); applyBusinessRule(row);
@@ -369,7 +370,7 @@ function rowSnapshot(row) {
 function restoreRow(saved, blob) {
   const imageUrl = URL.createObjectURL(blob), row = addPendingRecord(imageUrl, saved.receivedAt || new Date().toISOString(), saved.documentId || "saved", saved.imageIndex || 0, null, blob), values = Array.isArray(saved.values) ? saved.values : [];
   row.dataset.imageFile = saved.imageFile || ""; row.dataset.rawNet = String(saved.rawNet || 0); row.dataset.rawVat = String(saved.rawVat || 0); row.dataset.vatPercent = String(saved.vatPercent ?? (Number(saved.rawVat) ? 18 : 0)); row.dataset.form6111Code = saved.form6111Code || ""; row.highlights = Array.isArray(saved.highlights) ? saved.highlights : [];
-  row.replaceChild(editableCell(values[1]), row.cells[1]); row.replaceChild(editableCell(values[0]), row.cells[2]); values.slice(2, 12).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 3])); row.replaceChild(amountCell(values[7], "סכום כולל מע״מ"), row.cells[8]); row.replaceChild(amountCell(values[8], "סכום ללא מע״מ"), row.cells[9]);
+  row.replaceChild(editableCell(values[1]), row.cells[1]); row.replaceChild(editableCell(displayDate(values[0])), row.cells[2]); values.slice(2, 12).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 3])); row.replaceChild(amountCell(values[7], "סכום כולל מע״מ"), row.cells[8]); row.replaceChild(amountCell(values[8], "סכום ללא מע״מ"), row.cells[9]);
   row.cells[6].textContent = displayedReference(values[5]); row.cells[1].replaceChildren(classificationSelect(values[1] || "")); row.cells[11].replaceChildren(percentSelect(values[10] || 100, [100, 66.67, 25, 0], "vat")); row.cells[12].replaceChildren(percentSelect(values[11] || 100, [100, 25, 0], "expense")); addFieldSwapButton(row); recalculateRow(row);
   row.cells[14].textContent = saved.agentOpinion || "—"; row.cells[14].className = "agent-opinion"; row.cells[15].textContent = saved.confidence || "—";
   const include = row.cells[17].querySelector("input"); include.disabled = false; setExportIncluded(row, saved.active); setStatus(row, saved.active && !row.highlights.length ? "מוכן, חסרים סימונים" : saved.statusText || (saved.active ? "מוכן לייצוא" : "לא מיועד לייצוא"), saved.active && !row.highlights.length ? "review" : saved.statusClass || (saved.active ? "ready" : "review")); updateDuplicateState(row);

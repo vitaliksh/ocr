@@ -22,6 +22,16 @@ overall integer from 0 to 100. Monetary values must satisfy net_amount +
 vat_amount = total_amount after rounding. vat_recognized_percent is the
 percent of the VAT amount recognized for this row.
 
+MONEY OCR — critical: Treat ₪, ש״ח, NIS, and a currency sign as decoration,
+never as a digit and never as the start of the number. Read the complete
+adjacent number token before removing a currency sign, including its first
+digit even in right-to-left text. Do not drop a leading digit merely because
+the sign touches or precedes it. Keep thousands separators only as formatting.
+For example, the visible value "₪61,631.40" must produce 61631.40, never
+1631.40. Independently re-read every high-value total and reconcile it to
+printed subtotals, VAT, and grand total. If the digits cannot be read
+confidently, do not guess: lower confidence and state the issue in Hebrew.
+
 If an expense invoice explicitly has separate taxable amounts at more than one
 VAT rate, return a separate record for each VAT-rate group, even though they
 are on one physical invoice. This is the only allowed reason to produce more
