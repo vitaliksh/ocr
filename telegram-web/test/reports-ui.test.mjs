@@ -63,6 +63,18 @@ test("диалог отчётов: период по умолчанию — ме
   assert.deepEqual([q("reports-from").value, q("reports-to").value], ["2026-01", "2026-02"]);
 });
 
+test("диалог отчётов: пустая последняя декларация не скрывает период с данными", async () => {
+  const { q, open, click, client } = await setup({ declarations: ["2026-01"] });
+  const { createDeclaration } = await import("../declaration-store.js");
+  await createDeclaration(client.directory, { clientId: "c1", month: "2026-10" });
+  await open();
+  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["2026-01", "2026-01"]);
+  q("reports-from").value = "2026-10";
+  q("reports-to").value = "2026-10";
+  await click("reports-show");
+  assert.match(q("reports-error").textContent, /אין תנועות/);
+});
+
 test("диалог отчётов: показ отчёта НДС за два месяца, настройки сохраняются, печать копирует отчёт", async () => {
   const { q, open, click, client, printRoot, printed } = await setup();
   await open();

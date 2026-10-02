@@ -62,6 +62,6 @@ export function buildImportedRows(rows, codes, { now = new Date().toISOString(),
 export function importWarnings(rows) {
   const warnings = [];
   const withReference2 = rows.filter((row) => row.reference2).length;
-  if (withReference2) warnings.push({ code: "reference2-dropped", message: `${withReference2} rows have reference 2, not imported` });
+  if (withReference2) warnings.push({ code: "reference2-dropped", message: `${withReference2} rows have reference 2, not imported`, count: withReference2 });
   return warnings;
 }

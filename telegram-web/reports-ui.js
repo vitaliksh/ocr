@@ -40,7 +40,8 @@ export function setupReports({ button, dialog, printRoot, getContext, onError })
         readReportSettings(context.client.directory),
       ]);
       entries = reportEntries(declarations, chart ?? {}, context.names);
-      latestMonth = declarations.at(-1)?.month ?? "";
+      // Prefer the latest month that has active rows: a freshly created empty declaration must not hide the data.
+      latestMonth = (declarations.findLast((item) => item.rows.some((row) => row.active)) ?? declarations.at(-1))?.month ?? "";
       vatPeriod.value = settings.vatPeriod;
       percent.value = settings.advancePercent ?? "";
       preview.replaceChildren();
@@ -77,6 +78,7 @@ export function setupReports({ button, dialog, printRoot, getContext, onError })
         ledger: () => renderLedgerReport(classificationLedger(scope), info),
       }[kind.value]();
       preview.append(node);
+      if (!scope.length) errorLine.textContent = "אין תנועות בתקופה שנבחרה.";
     } catch (error) {
       errorLine.textContent = error.message;
     }

@@ -10,6 +10,23 @@ const TYPE_LABELS = {
 };
 const money = (value) => value.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Hebrew texts for the parser's English diagnostics; unknown codes fall back to the original message.
+const PROBLEM_TEXTS = {
+  "draft-rows": (item) => `ל-${item.count} שורות סטטוס «טיוטא» במקור (לא סופי ב-Rivhit)`,
+  "other-status": (item) => `ל-${item.count} שורות סטטוס שונה מ«טיוטא»`,
+  "no-month": () => "חודש ההצהרה לא נמצא בכותרת הקובץ",
+  "reference2-dropped": (item) => `ל-${item.count} שורות יש אסמכתא 2, והיא לא מיובאת`,
+  "no-header": () => "לא נמצאה שורת הכותרת של היומן (סטטוס)",
+  "no-rows": () => "לא נמצאו שורות תנועה",
+  "bad-money": () => "סכום מע״מ, נטו או ברוטו אינו מספר",
+  "amount-mismatch": () => "נטו + מע״מ אינם שווים לברוטו",
+  "bad-date": () => "תאריך המסמך חסר או אינו תקין",
+  "no-classification": () => "שם קוד המיון ריק",
+  "footer-missing": (item) => `ערך ${item.key} לא נמצא בסוף הקובץ`,
+  "footer-mismatch": (item) => `סכום ${item.key} בסוף הקובץ אינו תואם לשורות`,
+};
+export const problemText = (item) => PROBLEM_TEXTS[item.code]?.(item) ?? item.message;
+
 // First free three-digit code from 200 up, skipping codes already used or reserved.
 export function suggestCode(used) {
   for (let code = 200; code <= 999; code += 1) if (!used[String(code)]) return String(code);
@@ -51,8 +68,8 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     const { rows, errors, warnings, totals, unknown, chart } = prepared;
     summary.textContent = `${rows.length} שורות · נטו ${money(totals.net)} · מע״מ נטו ${money(totals.vat)} · ברוטו ${money(totals.gross)}`;
     problems.replaceChildren(
-      ...errors.map((item) => element("li", `שגיאה${item.row ? ` בשורה ${item.row}` : ""}: ${item.message}`, "problem-error")),
-      ...warnings.map((item) => element("li", `אזהרה: ${item.message}`)),
+      ...errors.map((item) => element("li", `שגיאה${item.row ? ` בשורה ${item.row}` : ""}: ${problemText(item)}`, "problem-error")),
+      ...warnings.map((item) => element("li", `אזהרה: ${problemText(item)}`)),
     );
     month.value = prepared.suggestedMonth;
     unknownBox.hidden = !unknown.length;

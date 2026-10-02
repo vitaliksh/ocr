@@ -97,3 +97,15 @@ test("диалог импорта: отказ от подтверждения з
   assert.equal(calls.imported.length, 0);
   assert.equal(client.directory.children.size, 0);
 });
+
+test("диалог импорта: предупреждения и ошибки показываются по-ивритски", async () => {
+  const { pick, q, open } = await setup();
+  open();
+  await pick(buildJournalGrid());
+  assert.match(q("excel-import-problems").textContent, /ל-8 שורות סטטוס «טיוטא»/);
+  assert.doesNotMatch(q("excel-import-problems").textContent, /rows have/);
+  const broken = await setup();
+  broken.open();
+  await broken.pick(buildJournalGrid({ footer: { totalVat: "1.00" } }));
+  assert.match(broken.q("excel-import-problems").textContent, /אינו תואם לשורות/);
+});

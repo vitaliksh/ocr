@@ -146,8 +146,8 @@ export function parseJournalGrid(rows, { classTypes = DEFAULT_CLASS_TYPES } = {}
   const declarationMonth = parseDeclarationMonth(rows, headerIndex);
   if (!declarationMonth) warnings.push({ code: "no-month", message: "declaration month not found in the header" });
   const drafts = parsed.filter((row) => row.status === "טיוטא").length;
-  if (drafts) warnings.push({ code: "draft-rows", message: `${drafts} rows have draft status (not final in the source)` });
+  if (drafts) warnings.push({ code: "draft-rows", message: `${drafts} rows have draft status (not final in the source)`, count: drafts });
   const others = parsed.filter((row) => row.status !== "טיוטא").length;
-  if (others) warnings.push({ code: "other-status", message: `${others} rows have a status other than draft` });
+  if (others) warnings.push({ code: "other-status", message: `${others} rows have a status other than draft`, count: others });
   return { declarationMonth, rows: parsed, footer, errors, warnings };
 }
