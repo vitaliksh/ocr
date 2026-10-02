@@ -222,6 +222,8 @@ Recommended short production check:
 
 ## Next decisions
 
+Next phase (Excel migration, reports, GUI): see [`MIGRATION_HANDOFF.md`](MIGRATION_HANDOFF.md).
+
 1. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row.
 2. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
 3. Closed-declaration recovery: if needed, require a reason, immutable audit record, and preserved prior final export.
