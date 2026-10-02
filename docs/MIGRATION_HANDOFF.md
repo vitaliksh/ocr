@@ -115,7 +115,7 @@ rows are included — reproduce this through the type in the chart of accounts, 
 1. **Done:** Excel format spec [`EXCEL_IMPORT_SPEC.md`](EXCEL_IMPORT_SPEC.md) and synthetic fixtures (`telegram-web/test/excel-journal-fixture.mjs`). Real files only for a local, git-ignored check.
 2. **Done:** pure parser `telegram-web/excel-journal.js` with tests. Checked locally on all six sample files: 220 rows, no errors, all footer checksums match.
 3. **Done (storage, seed, matching; no UI):** `telegram-web/chart-of-accounts.js`. Root-level file `common/chart-of-accounts.json`, schema 1: `{ "accounts": { "203": { "name": "אחזקה", "type": "expense" } } }`. Verified locally: all class names of the six sample files resolve and checksum 5 matches with the seed types. **Left for step 4:** the wizard confirmation and manual mapping of unknown names (`matchClassNames`, `addAccount`).
-4. Import wizard in the UI (client/declaration pick, mapping step, open vs closed).
+4. **Done, awaiting manual check on the published page:** import wizard (`excel-import-flow.js`, `excel-import-ui.js`, button "ייבוא מ‑Excel" in the journal header). Imports into the selected client; month from the file header, editable; unknown class names get a code and type; optional close without export. Verified in the browser pane with synthetic data on real directory handles (origin-private FS) and the live SheetJS CDN; not yet with a user-picked folder.
 5. Reports from the app's own data; compare to the four PDFs.
 6. GUI polish.
 
