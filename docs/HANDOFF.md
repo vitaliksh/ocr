@@ -87,6 +87,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `excel-import-ui.js` — the "ייבוא מ‑Excel" dialog (`#excel-import-dialog`); imports into the currently selected client; `app.js` wires it and opens the imported declaration.
   - `reports.js` — pure VAT, advances, profit-and-loss and classification-ledger calculations (see `REPORTS_SPEC.md`).
   - `report-data.js` — loads all declarations of a client for the reports and the per-client `report-settings.json` (VAT period monthly/bimonthly, advance percent).
+  - `reports-view.js`, `reports.css` — RTL HTML rendering of the four reports; the print stylesheet shows only `#report-print`, so the browser's "Save as PDF" produces the PDF.
   - `history-ranker.js` — local, text-only Pass 2 history selection.
 - `cloudflare-worker/`
   - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
@@ -249,7 +250,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **126 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **132 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
