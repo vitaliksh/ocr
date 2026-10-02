@@ -13,7 +13,7 @@ const build = (rows = parsed) => buildImportedRows(rows, matchClassNames(rows.ma
 
 test("импорт Excel: расход переносится как исходные суммы с признанием 100/100", () => {
   const [row] = build();
-  assert.deepEqual(row.values, ["01/01/26", "203", "Shop A", "Shop A", "", "1001", "", "118.00", "100.00", "18.00", 100, 100]);
+  assert.deepEqual(row.values, ["01/01/26", "203", "Shop A", "Shop A", "", "1001", "", "118.00", "100.00", "18.00", "100", "100"]);
   assert.deepEqual([row.rawNet, row.rawVat, row.vatPercent, row.imageFile, row.active], ["100.00", "18.00", "18", "", true]);
   assert.equal(row.documentId, "import-1-id");
 });

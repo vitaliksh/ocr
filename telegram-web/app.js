@@ -11,6 +11,7 @@ import {
   saveSourceImage,
 } from "./declaration-store.js";
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
+import { readChartOfAccounts } from "./chart-of-accounts.js";
 import { relevantHistory } from "./history-ranker.js";
 import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
 import {
@@ -106,6 +107,7 @@ let dataRoot = null,
   passkeyGrant = null,
   rivhitMapping = { ...builtInMapping },
   customMapping = {},
+  chartAccounts = {},
   customMappingMetadata = {},
   form6111Mappings = {},
   pendingClassificationRow = null,
@@ -306,7 +308,7 @@ async function activateDeclaration(selected) {
   );
   for (const saved of selected.draft?.rows || []) {
     try {
-      restoreRow(saved, await readSourceImage(selected.directory, saved.imageFile));
+      restoreRow(saved, saved.imageFile ? await readSourceImage(selected.directory, saved.imageFile) : null);
       imageCount = Math.max(imageCount, Number(saved.imageIndex) || 0);
     } catch (error) {
       throw new Error(`לא ניתן לשחזר תמונה ${saved.imageFile || ""}: ${error.message}`);
@@ -370,9 +372,10 @@ async function switchDataRoot(selected) {
   workspaceSummary.textContent = "נבחרה תיקיית נתונים חדשה. יש לבחור לקוח והצהרה.";
   workspaceSummary.classList.remove("workspace-ready");
   customMapping = {};
+  chartAccounts = {};
   customMappingMetadata = {};
   form6111Mappings = {};
-  rivhitMapping = { ...builtInMapping };
+  rivhitMapping = currentMapping();
   try {
     await loadCustomMapping(selected);
   } catch (error) {
@@ -387,13 +390,19 @@ function refreshClassificationSelectors() {
     row.cells[1].replaceChildren(classificationSelect(value));
   }
 }
+// Chart-of-accounts codes (Excel import) are shown by name; built-in and custom codes take precedence.
+function currentMapping() {
+  const chart = Object.fromEntries(Object.entries(chartAccounts).map(([code, account]) => [code, account.name]));
+  return { ...chart, ...builtInMapping, ...customMapping };
+}
 async function loadCustomMapping(root) {
-  [customMapping, customMappingMetadata, form6111Mappings] = await Promise.all([
+  [customMapping, customMappingMetadata, form6111Mappings, chartAccounts] = await Promise.all([
     readCustomRivhitMapping(root, builtInMapping),
     readCustomRivhitMappingMetadata(root, builtInMapping),
     readForm6111Mappings(root, builtInMapping),
+    readChartOfAccounts(root, builtInMapping).then((chart) => chart ?? {}),
   ]);
-  rivhitMapping = { ...builtInMapping, ...customMapping };
+  rivhitMapping = currentMapping();
   refreshClassificationSelectors();
 }
 const workspaceControls = setupWorkspaceControls({
@@ -1460,7 +1469,7 @@ async function ensureIncomeClassification() {
   const code = nextFreeClassificationCode();
   if (!code) throw new Error("לא נותר קוד מיון פנוי להכנסות.");
   customMapping = await saveCustomRivhitMapping(dataRoot, { ...customMapping, [code]: "הכנסות" }, builtInMapping);
-  rivhitMapping = { ...builtInMapping, ...customMapping };
+  rivhitMapping = currentMapping();
   newCustomCodes.add(code);
   return code;
 }
@@ -1548,7 +1557,7 @@ function rowSnapshot(row) {
   };
 }
 function restoreRow(saved, blob) {
-  const imageUrl = URL.createObjectURL(blob),
+  const imageUrl = blob ? URL.createObjectURL(blob) : "",
     row = addPendingRecord(
       imageUrl,
       saved.receivedAt || new Date().toISOString(),
@@ -1559,6 +1568,7 @@ function restoreRow(saved, blob) {
     ),
     values = Array.isArray(saved.values) ? saved.values : [];
   row.dataset.imageFile = saved.imageFile || "";
+  if (!blob) row.cells[13].textContent = "—";
   row.dataset.rawNet = String(saved.rawNet || 0);
   row.dataset.rawVat = String(saved.rawVat || 0);
   row.dataset.vatPercent = String(saved.vatPercent ?? (Number(saved.rawVat) ? 18 : 0));
@@ -1590,6 +1600,7 @@ function restoreRow(saved, blob) {
   );
   updateDuplicateState(row);
   row.runRecognition = (onlyThis = true) => {
+    if (!blob) return showError("לשורה שיובאה מ-Excel אין תמונה לעיבוד מחדש.");
     if (!session) return showError("יש להתחיל העלאת תמונות כדי לעבד מחדש שורה מהארכיון.");
     enqueueRecognition(
       row,
@@ -1803,7 +1814,7 @@ saveCustomClassification.addEventListener("click", async () => {
   try {
     saveCustomClassification.disabled = true;
     customMapping = await saveCustomRivhitMapping(dataRoot, { ...customMapping, [code]: label }, builtInMapping);
-    rivhitMapping = { ...builtInMapping, ...customMapping };
+    rivhitMapping = currentMapping();
     newCustomCodes.add(code);
     const row = pendingClassificationRow;
     refreshClassificationSelectors();
@@ -1850,7 +1861,7 @@ function renderCustomClassificationList() {
       delete next[code];
       try {
         customMapping = await saveCustomRivhitMapping(dataRoot, next, builtInMapping);
-        rivhitMapping = { ...builtInMapping, ...customMapping };
+        rivhitMapping = currentMapping();
         refreshClassificationSelectors();
         renderCustomClassificationList();
       } catch (error) {

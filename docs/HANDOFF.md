@@ -143,6 +143,7 @@ Custom codes are root-local, available to every client in that root, exactly thr
 
 ## Journal behaviour already implemented
 
+- Rows imported from Excel have no source image (`imageFile` is empty): they restore without a photo, cannot be re-run through Gemini, and `invoices.pdf` export reports a missing image. Chart-of-accounts codes appear in the classification selector by name (`currentMapping()` in `app.js`).
 - Open-row fields, including dates, are editable.
 - Dates display as `DD/MM/YY`; export also accepts four-digit years and `-`, `/`, or `.` separators.
 - Gross and net remain separate inputs; recalculate/save on Enter or blur, not while typing.
@@ -244,7 +245,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **102 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **105 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
