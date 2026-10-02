@@ -455,6 +455,12 @@ setupExcelImport({
     dataRoot && committedWorkspace
       ? { dataRoot, client: committedWorkspace, reserved: { ...builtInMapping, ...customMapping } }
       : null,
+  // Saving the open table after the import would overwrite the imported rows, so detach it first.
+  onBeforeCommit: async (month) => {
+    if (currentDeclaration?.month !== month) return;
+    await saveCurrentDraft();
+    clearActiveDeclaration(currentDeclaration.declarationId);
+  },
   onImported: async ({ chart }, month) => {
     chartAccounts = chart;
     rivhitMapping = currentMapping();

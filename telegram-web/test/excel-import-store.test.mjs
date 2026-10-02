@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SEED_CHART_OF_ACCOUNTS, matchClassNames, normaliseChart } from "../chart-of-accounts.js";
 import { buildImportedRows } from "../excel-import.js";
-import { importRowsIntoDeclaration } from "../excel-import-store.js";
+import { importRowsIntoDeclaration, inspectImportTarget } from "../excel-import-store.js";
 import { parseJournalGrid } from "../excel-journal.js";
 import { createDeclaration, listDeclarations, loadDeclaration } from "../declaration-store.js";
 import { buildJournalGrid } from "./excel-journal-fixture.mjs";
@@ -59,5 +59,32 @@ test("импорт в декларацию: пустой набор строк �
   await assert.rejects(
     importRowsIntoDeclaration({ clientDirectory: memoryDirectory("c"), clientId: "c1", month: "2026-06", rows: [], now }),
     /אין שורות/,
+  );
+});
+
+test("импорт в декларацию: осмотр месяца различает отсутствует, пустая, со строками и закрыта", async () => {
+  const client = memoryDirectory("client");
+  assert.deepEqual(await inspectImportTarget(client, "2026-01"), { state: "missing", count: 0 });
+  await createDeclaration(client, { clientId: "c1", month: "2026-02" });
+  assert.deepEqual(await inspectImportTarget(client, "2026-02"), { state: "empty", count: 0 });
+  await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-03", rows: rows(), now });
+  assert.deepEqual(await inspectImportTarget(client, "2026-03"), { state: "rows", count: 8 });
+  await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-04", rows: rows(), closeNow: true, now });
+  assert.equal((await inspectImportTarget(client, "2026-04")).state, "closed");
+});
+
+test("импорт в декларацию: замена сохраняет копию старой таблицы, закрытая декларация не заменяется", async () => {
+  const client = memoryDirectory("client");
+  await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-05", rows: rows(), now });
+  const fewer = rows().slice(0, 3);
+  await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-05", rows: fewer, replace: true, now });
+  assert.equal((await loadDeclaration(client, "2026-05")).draft.rows.length, 3);
+  const directory = (await client.getDirectoryHandle("declarations")).children.get("2026-05");
+  const [backup] = [...directory.children.keys()].filter((name) => name.startsWith("draft-table.before-import-"));
+  assert.equal(JSON.parse(directory.children.get(backup).text).rows.length, 8);
+  await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-06", rows: rows(), closeNow: true, now });
+  await assert.rejects(
+    importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-06", rows: rows(), replace: true, now }),
+    /סגורה/,
   );
 });

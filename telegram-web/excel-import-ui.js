@@ -1,6 +1,7 @@
 // Dialog for the one-time Excel migration. All logic lives in excel-import-flow.js; this file only renders.
 import { ACCOUNT_TYPES } from "./chart-of-accounts.js";
 import { commitImport, prepareImport } from "./excel-import-flow.js";
+import { inspectImportTarget } from "./excel-import-store.js";
 
 const TYPE_LABELS = {
   income: "הכנסה",
@@ -41,14 +42,55 @@ function element(tag, text, className) {
 }
 
 // getContext() returns { dataRoot, client, reserved } or null when no data root or client is selected.
-export function setupExcelImport({ button, dialog, getContext, onImported, onError, loadLibrary }) {
+// What the user is told about the chosen month; the import is blocked for a closed declaration.
+const TARGET_TEXTS = {
+  missing: (month) => `ההצהרה ל-${month} לא קיימת ותיווצר.`,
+  empty: (month) => `ההצהרה ל-${month} קיימת וריקה. השורות ייכנסו אליה.`,
+  rows: (month, count) => `ב-${month} כבר יש ${count} שורות.`,
+  closed: (month) => `ההצהרה ל-${month} סגורה, אי אפשר לייבא אליה.`,
+};
+
+// onBeforeCommit(month) lets the host stop editing the target declaration before the rows are written.
+export function setupExcelImport({ button, dialog, getContext, onImported, onError, loadLibrary, onBeforeCommit }) {
   const part = (id) => dialog.querySelector(`#${id}`);
   const [file, details, summary, problems, month, unknownBox, unknownList, closeNow, errorLine, run] = [
     "excel-import-file", "excel-import-details", "excel-import-summary", "excel-import-problems", "excel-import-month",
     "excel-import-unknown", "excel-import-unknown-list", "excel-import-close", "excel-import-error", "excel-import-run",
   ].map(part);
+  const [clientLine, targetLine, replaceLabel, replaceBox, replaceText] = [
+    "excel-import-client", "excel-import-target", "excel-import-replace-label", "excel-import-replace",
+    "excel-import-replace-text",
+  ].map(part);
   let prepared = null;
   let context = null;
+  let target = null;
+  let targetCheck = 0;
+
+  const updateRunState = () => {
+    const blocked = !target || target.state === "closed" || (target.state === "rows" && !replaceBox.checked);
+    run.disabled = Boolean(!prepared || prepared.errors.length || !prepared.rows.length || blocked);
+  };
+  const refreshTarget = async () => {
+    const check = (targetCheck += 1);
+    target = null;
+    replaceBox.checked = false;
+    replaceLabel.hidden = true;
+    targetLine.textContent = "";
+    updateRunState();
+    if (!/^\d{4}-\d{2}$/.test(month.value)) return;
+    try {
+      const found = await inspectImportTarget(context.client.directory, month.value);
+      if (check !== targetCheck) return;
+      target = found;
+      targetLine.textContent = TARGET_TEXTS[found.state](month.value, found.count);
+      targetLine.className = found.state === "rows" || found.state === "closed" ? "target-warning" : "";
+      replaceText.textContent = `להחליף את ${found.count} השורות הקיימות בשורות מהקובץ (עותק של הטבלה הישנה יישמר בתיקיית ההצהרה)`;
+      replaceLabel.hidden = found.state !== "rows";
+      updateRunState();
+    } catch (error) {
+      if (check === targetCheck) errorLine.textContent = error.message;
+    }
+  };
 
   const reset = () => {
     prepared = null;
@@ -57,6 +99,9 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     errorLine.textContent = "";
     run.disabled = true;
     closeNow.checked = false;
+    target = null;
+    targetCheck += 1;
+    clientLine.textContent = `לקוח: ${context.client.config.clientName ?? ""}`;
   };
   const unknownInputs = () => [...unknownList.querySelectorAll("[data-name]")].map((row) => ({
     name: row.dataset.name,
@@ -89,7 +134,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       return row;
     }));
     details.hidden = false;
-    run.disabled = Boolean(errors.length || !rows.length);
+    refreshTarget();
   };
 
   button.addEventListener("click", () => {
@@ -98,6 +143,10 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     reset();
     dialog.showModal();
   });
+
+  month.addEventListener("input", refreshTarget);
+  month.addEventListener("change", refreshTarget);
+  replaceBox.addEventListener("change", updateRunState);
 
   file.addEventListener("change", async () => {
     errorLine.textContent = "";
@@ -118,14 +167,15 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       errorLine.textContent = "יש לבחור חודש הצהרה.";
       return;
     }
-    if (closeNow.checked && !window.confirm("לסגור את ההצהרה מיד אחרי הייבוא? לא ייווצר ייצוא PDF/TXT.")) return;
     run.disabled = true;
     errorLine.textContent = "";
     try {
+      await onBeforeCommit?.(month.value);
       const result = await commitImport(prepared, {
         newAccounts: unknownInputs(),
         month: month.value,
         closeNow: closeNow.checked,
+        replace: replaceBox.checked && target?.state === "rows",
         dataRoot: context.dataRoot,
         client: context.client,
         reserved: context.reserved,
@@ -134,7 +184,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       await onImported(result, month.value);
     } catch (error) {
       errorLine.textContent = error.message;
-      run.disabled = false;
+      refreshTarget();
     }
   });
 }

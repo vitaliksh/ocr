@@ -42,7 +42,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The drawer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.02.5 · 17:55 IDT
+גרסת ממשק: 2026.10.02.6 · 18:12 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -82,9 +82,9 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `excel-journal-reader.js` — `.xlsx` → grid; loads SheetJS 0.20.3 on demand from `cdn.sheetjs.com` (dev copy: `xlsx` tarball).
   - `chart-of-accounts.js` — per-root chart of accounts (`common/chart-of-accounts.json`, schema 1): classification name → code and type (`income`, `expense`, `outsideVatBase`, `equipment`); seed from the ledger, unknown-name matching, `classTypes` for the Excel parser.
   - `excel-import.js` — parsed journal rows → draft-table rows (source amounts, recognition 100/100, no image).
-  - `excel-import-store.js` — writes imported rows into a new or empty open declaration; optional close without an export folder (`finalExport = "excel-import"`, history appended once). Never merges into a declaration that has rows.
+  - `excel-import-store.js` — writes imported rows into a new or empty open declaration; optional close without an export folder (`finalExport = "excel-import"`, history appended once). Replaces a declaration that has rows only on request (the old table is first copied to `draft-table.before-import-<time>.json`); closed declarations are never touched.
   - `excel-import-flow.js` — wizard steps without DOM: `prepareImport` (read, parse, match names, totals) and `commitImport` (extend and save the chart first, then write rows).
-  - `excel-import-ui.js` — the "ייבוא מ‑Excel" dialog (`#excel-import-dialog`); imports into the currently selected client; `app.js` wires it and opens the imported declaration.
+  - `excel-import-ui.js` — the "ייבוא מ‑Excel" dialog (`#excel-import-dialog`); imports into the currently selected client; `app.js` wires it and opens the imported declaration. The dialog shows the state of the chosen month (missing / empty / N rows / closed) and, for a declaration with rows, a "replace" checkbox; `app.js` detaches the open table (`onBeforeCommit`) so its autosave cannot overwrite imported rows.
   - `reports.js` — pure VAT, advances, profit-and-loss and classification-ledger calculations (see `REPORTS_SPEC.md`).
   - `report-data.js` — loads all declarations of a client for the reports and the per-client `report-settings.json` (VAT period monthly/bimonthly, advance percent).
   - `reports-view.js`, `reports.css` — RTL HTML rendering of the four reports; the print stylesheet shows only `#report-print`, so the browser's "Save as PDF" produces the PDF.
@@ -227,7 +227,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the drawer and verify frontend `2026.10.02.5 · 17:55 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the drawer and verify frontend `2026.10.02.6 · 18:12 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -251,7 +251,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **140 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **144 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

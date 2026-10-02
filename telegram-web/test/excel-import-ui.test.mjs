@@ -5,8 +5,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 import * as XLSX from "xlsx";
-import { readChartOfAccounts } from "../chart-of-accounts.js";
-import { loadDeclaration } from "../declaration-store.js";
+import { SEED_CHART_OF_ACCOUNTS, matchClassNames, normaliseChart, readChartOfAccounts } from "../chart-of-accounts.js";
+import { createDeclaration, loadDeclaration } from "../declaration-store.js";
+import { buildImportedRows } from "../excel-import.js";
+import { importRowsIntoDeclaration } from "../excel-import-store.js";
+import { parseJournalGrid } from "../excel-journal.js";
 import { buildJournalGrid, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
 import { memoryDirectory } from "./memory-directory.mjs";
 
@@ -30,7 +33,7 @@ async function setup({ context = true, confirm = () => true } = {}) {
   dialog.close = () => { dialog.open = false; };
   const dataRoot = memoryDirectory("root");
   const client = { directory: memoryDirectory("client"), config: { clientId: "c1" } };
-  const calls = { errors: [], imported: [] };
+  const calls = { errors: [], imported: [], before: [] };
   const { setupExcelImport } = await import("../excel-import-ui.js");
   setupExcelImport({
     button: window.document.querySelector("#import-excel"),
@@ -39,6 +42,7 @@ async function setup({ context = true, confirm = () => true } = {}) {
     onImported: async (result, month) => { calls.imported.push({ result, month }); },
     onError: (message) => calls.errors.push(message),
     loadLibrary: async () => XLSX,
+    onBeforeCommit: async (month) => { calls.before.push(month); },
   });
   const pick = async (grid) => {
     const input = dialog.querySelector("#excel-import-file");
@@ -87,15 +91,66 @@ test("диалог импорта: неизвестный класс получ�
   assert.match(broken.q("excel-import-problems").textContent, /שגיאה/);
 });
 
-test("диалог импорта: отказ от подтверждения закрытия сразу ничего не пишет", async () => {
+async function seed(client, month, { closeNow = false } = {}) {
+  const parsed = parseJournalGrid(buildJournalGrid()).rows;
+  const accounts = normaliseChart({ accounts: SEED_CHART_OF_ACCOUNTS });
+  const rows = buildImportedRows(parsed, matchClassNames(parsed.map((r) => r.classificationName), accounts).codes);
+  await importRowsIntoDeclaration({ clientDirectory: client.directory, clientId: "c1", month, rows, closeNow, now: "2026-10-01T10:00:00.000Z" });
+}
+const settle = () => new Promise((r) => setTimeout(r, 80));
+
+test("диалог импорта: состояние выбранного месяца — не существует, пустая, со строками, закрыта", async () => {
+  const { q, open, pick, client, window } = await setup();
+  await seed(client, "2026-02");
+  await seed(client, "2026-03", { closeNow: true });
+  await createDeclaration(client.directory, { clientId: "c1", month: "2026-04" });
+  open();
+  await pick(buildJournalGrid({ month: 1 }));
+  await settle();
+  const check = async (month) => {
+    q("excel-import-month").value = month;
+    q("excel-import-month").dispatchEvent(new window.Event("change"));
+    await settle();
+    return [q("excel-import-target").textContent, q("excel-import-run").disabled, q("excel-import-replace-label").hidden];
+  };
+  assert.deepEqual(await check("2026-01"), ["ההצהרה ל-2026-01 לא קיימת ותיווצר.", false, true]);
+  assert.deepEqual(await check("2026-04"), ["ההצהרה ל-2026-04 קיימת וריקה. השורות ייכנסו אליה.", false, true]);
+  assert.deepEqual(await check("2026-02"), ["ב-2026-02 כבר יש 8 שורות.", true, false]);
+  assert.deepEqual(await check("2026-03"), ["ההצהרה ל-2026-03 סגורה, אי אפשר לייבא אליה.", true, true]);
+});
+
+test("диалог импорта: замена непустой декларации требует галочки, сохраняет копию и вызывает onBeforeCommit", async () => {
+  const { q, open, pick, client, calls, window } = await setup();
+  await seed(client, "2026-02");
+  open();
+  await pick(buildJournalGrid({ month: 2 }));
+  await settle();
+  assert.equal(q("excel-import-month").value, "2026-02");
+  assert.equal(q("excel-import-run").disabled, true);
+  q("excel-import-replace").checked = true;
+  q("excel-import-replace").dispatchEvent(new window.Event("change"));
+  assert.equal(q("excel-import-run").disabled, false);
+  assert.match(q("excel-import-replace-text").textContent, /8 השורות הקיימות/);
+  q("excel-import-run").click();
+  for (let i = 0; i < 100 && !calls.imported.length; i += 1) await settle();
+  assert.deepEqual(calls.before, ["2026-02"]);
+  assert.equal(calls.imported.length, 1);
+  const declarationDirectory = (await client.directory.getDirectoryHandle("declarations")).children.get("2026-02");
+  const backups = [...declarationDirectory.children.keys()].filter((name) => name.startsWith("draft-table.before-import-"));
+  assert.equal(backups.length, 1);
+  assert.equal(JSON.parse(declarationDirectory.children.get(backups[0]).text).rows.length, 8);
+  assert.equal((await loadDeclaration(client.directory, "2026-02")).draft.rows.length, 8);
+});
+
+test("диалог импорта: «закрыть сразу» не требует системного подтверждения", async () => {
   const { calls, pick, q, open, client } = await setup({ confirm: () => false });
   open();
   await pick(buildJournalGrid());
+  await settle();
   q("excel-import-close").checked = true;
   q("excel-import-run").click();
-  await new Promise((r) => setTimeout(r, 50));
-  assert.equal(calls.imported.length, 0);
-  assert.equal(client.directory.children.size, 0);
+  for (let i = 0; i < 100 && !calls.imported.length; i += 1) await settle();
+  assert.equal((await loadDeclaration(client.directory, "2026-01")).declaration.status, "closed");
 });
 
 test("диалог импорта: предупреждения и ошибки показываются по-ивритски", async () => {

@@ -38,7 +38,7 @@ export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary
 
 // `newAccounts` is [{ name, code, type }] for every name in prepared.unknown. The chart is saved first:
 // imported rows refer to its codes, and an extended chart is harmless if the import then fails.
-export async function commitImport(prepared, { newAccounts = [], month, closeNow, dataRoot, client, reserved = {}, now }) {
+export async function commitImport(prepared, { newAccounts = [], month, closeNow, replace = false, dataRoot, client, reserved = {}, now }) {
   if (prepared.errors.length) throw new Error("בקובץ יש שגיאות. לא ניתן לייבא.");
   let chart = prepared.chart;
   for (const account of newAccounts) chart = addAccount(chart, account, reserved);
@@ -52,6 +52,7 @@ export async function commitImport(prepared, { newAccounts = [], month, closeNow
     month,
     rows,
     closeNow,
+    replace,
     now,
   });
   return { declaration, chart, rowCount: rows.length };
