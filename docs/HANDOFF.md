@@ -80,6 +80,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `pdf-import.js`, `pdf-report.js` — local PDF import and reports.
   - `excel-journal.js` — pure parser of the Rivhit journal grid (see `EXCEL_IMPORT_SPEC.md`).
   - `excel-journal-reader.js` — `.xlsx` → grid; loads SheetJS 0.20.3 on demand from `cdn.sheetjs.com` (dev copy: `xlsx` tarball).
+  - `chart-of-accounts.js` — per-root chart of accounts (`common/chart-of-accounts.json`, schema 1): classification name → code and type (`income`, `expense`, `outsideVatBase`, `equipment`); seed from the ledger, unknown-name matching, `classTypes` for the Excel parser.
   - `history-ranker.js` — local, text-only Pass 2 history selection.
 - `cloudflare-worker/`
   - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
@@ -96,7 +97,8 @@ Do not restore the deliberately removed Python application or exploratory packag
 <data-root>/
 ├─ common/
 │  ├─ PKUDA_AI_TEST.TXT
-│  └─ custom-rivhit-mapping.json
+│  ├─ custom-rivhit-mapping.json
+│  └─ chart-of-accounts.json   (created by the Excel import, see MIGRATION_HANDOFF.md)
 └─ clients/<client>/
    ├─ workspace.json
    ├─ history.jsonl
@@ -240,7 +242,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **83 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **91 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
