@@ -83,6 +83,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `chart-of-accounts.js` — per-root chart of accounts (`common/chart-of-accounts.json`, schema 1): classification name → code and type (`income`, `expense`, `outsideVatBase`, `equipment`); seed from the ledger, unknown-name matching, `classTypes` for the Excel parser.
   - `excel-import.js` — parsed journal rows → draft-table rows (source amounts, recognition 100/100, no image).
   - `excel-import-store.js` — writes imported rows into a new or empty open declaration; optional close without an export folder (`finalExport = "excel-import"`, history appended once). Never merges into a declaration that has rows.
+  - `excel-import-flow.js` — wizard steps without DOM: `prepareImport` (read, parse, match names, totals) and `commitImport` (extend and save the chart first, then write rows).
   - `history-ranker.js` — local, text-only Pass 2 history selection.
 - `cloudflare-worker/`
   - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
@@ -245,7 +246,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **105 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **110 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
