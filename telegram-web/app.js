@@ -5,6 +5,7 @@ import { pdfSourceFileName, renderPdfPages, validatePdfFile } from "./pdf-import
 import {
   createDraftExportDirectory,
   finalizeDeclaration,
+  loadDeclaration,
   readClosedHistory,
   readSourceImage,
   saveDraft,
@@ -12,6 +13,7 @@ import {
 } from "./declaration-store.js";
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
 import { readChartOfAccounts } from "./chart-of-accounts.js";
+import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
 import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
 import {
@@ -440,6 +442,23 @@ const workspaceControls = setupWorkspaceControls({
     updateStartAvailability();
   },
   onDeleted: clearActiveClient,
+  onError: showError,
+});
+setupExcelImport({
+  button: document.querySelector("#import-excel"),
+  dialog: document.querySelector("#excel-import-dialog"),
+  getContext: () =>
+    dataRoot && committedWorkspace
+      ? { dataRoot, client: committedWorkspace, reserved: { ...builtInMapping, ...customMapping } }
+      : null,
+  onImported: async ({ chart }, month) => {
+    chartAccounts = chart;
+    rivhitMapping = currentMapping();
+    refreshClassificationSelectors();
+    await workspaceControls.refreshFromUserAction();
+    const selected = await loadDeclaration(committedWorkspace.directory, month);
+    await activateDeclaration({ workspace: committedWorkspace, ...selected });
+  },
   onError: showError,
 });
 updateStartAvailability();
