@@ -102,7 +102,7 @@ rows are included — reproduce this through the type in the chart of accounts, 
 
 ## Open questions
 
-- Missing month files (3 and 7) and the code-217 transaction.
+- ~~Missing month files (3 and 7)~~ Closed: those months were merged into neighbouring declarations; no files exist (see `REPORTS_SPEC.md`).
 - Does the report layout need a one-to-one visual match, or only the same figures? (Said "Rivhit format acceptable";
   confirm the extent before drawing PDFs.)
 - Closed-declaration recovery (reason, immutable audit, preserve prior final export).

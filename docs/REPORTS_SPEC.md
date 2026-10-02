@@ -41,10 +41,13 @@ section equal the PDFs. Expense net and gross differ by exactly one class, `217`
 transaction is in none of the files (probably the July file; Rivhit counts 59 non-updated transactions for July-August
 and the August file has 58). With that class added, P&L expenses, ledger section and ledger totals match too.
 
-## Open questions
+## Decisions (2 October 2026)
 
-- Month 3 and 7 files and the code-217 transaction (ask the client).
-- Rounding choices (payable from rounded lines; P&L totals from exact sums) agree with the PDFs on this sample but
-  could differ by one shekel elsewhere.
-- Equipment VAT in the VAT report: separate line here; confirm against a Rivhit VAT report of a month with equipment
-  (April has one).
+- Months 3 and 7 have no separate files: the bookkeeper merges low-volume months into a neighbouring declaration.
+  There is nothing to request. The single class-217 transaction that is in no provided file stays unexplained;
+  it is the only difference between the app's figures and the Rivhit PDFs.
+- Rounding stays as implemented: the VAT payable is the difference of the rounded lines (so the printed form adds up),
+  P&L and ledger totals are computed from exact amounts and rounded once. Both agree with the PDFs on the sample.
+  A one-shekel difference against another source is possible and is not a bug.
+- Equipment VAT remains a separate line of the VAT report and is not verified against Rivhit (no sample with equipment);
+  nothing more is planned for it.
