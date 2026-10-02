@@ -12,6 +12,7 @@ uploads/
 !cloudflare-worker/package.json
 !cloudflare-worker/package-lock.json
 !telegram-web/package.json
+!telegram-web/package-lock.json
 processed_documents/
 .server-*.pid
 examples/

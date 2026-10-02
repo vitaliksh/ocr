@@ -236,7 +236,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **41 passing**.
+Expected: **60 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

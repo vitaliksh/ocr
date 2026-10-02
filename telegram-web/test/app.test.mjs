@@ -1,0 +1,186 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadApp } from "./app-harness.mjs";
+
+const record = (overrides = {}) => ({
+  date: "2026-09-03", purpose: "Office supplies", supplier_name: "Test Supplier", supplier_vat_id: "514000001",
+  invoice_number: "INV-0042", allocation_number: "", net_amount: 100, vat_amount: 18, vat_percent: 18,
+  rivhit_code: "802", recognized_percent: 100, vat_recognized_percent: 100, include: true, confidence: 90,
+  agent_opinion: "ok", highlight_regions: [{ x: 0, y: 0, w: 1, h: 1 }], document_kind: "invoice", ...overrides,
+});
+let documentSeed = 0;
+async function addRecord(app, overrides) {
+  const row = app.addPendingRecord("blob:test", "2026-09-01T10:00:00Z", `doc-${++documentSeed}`, documentSeed);
+  await app.applyRecord(row, record(overrides));
+  return row;
+}
+// jsdom objects come from another realm; the JSON round-trip lets deepEqual compare them with local literals.
+const plain = (value) => JSON.parse(JSON.stringify(value));
+const snapshotValues = (app, row) => plain(app.rowSnapshot(row).values);
+// values: date, code, purpose, supplier, supplierId, reference, allocation, gross, net, vat, vatPercent, expensePercent
+const amounts = (app, row) => snapshotValues(app, row).slice(7, 10);
+
+test("pure formatters", async () => {
+  const { app } = await loadApp();
+  assert.equal(app.displayDate("2026-09-03"), "03/09/26");
+  assert.equal(app.displayDate("03/09/26"), "03/09/26");
+  assert.equal(app.displayDate(""), "—");
+  assert.equal(app.displayedReference("INV-12345"), "2345");
+  assert.equal(app.displayedReference(" abc "), "abc");
+  assert.equal(app.normalReference(" ab-12 /x "), "AB12X");
+  assert.equal(app.receivedAtText("not a date"), "not a date");
+  assert.equal(app.receivedAtText(""), "—");
+  assert.deepEqual([...new Uint8Array(app.fromBase64Url("_-8"))], [255, 239]);
+});
+
+test("applyRecord fills a taxable row and marks it ready", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app);
+  assert.deepEqual(snapshotValues(app, row), [
+    "03/09/26", "802", "Office supplies", "Test Supplier", "514000001", "0042", "",
+    "118.00", "100.00", "18.00", "100", "100",
+  ]);
+  const snapshot = app.rowSnapshot(row);
+  assert.equal(snapshot.active, true);
+  assert.equal(snapshot.statusClass, "ready");
+  assert.equal(snapshot.confidence, "90%");
+});
+
+test("a row without source highlights needs review even when included", async () => {
+  const { app } = await loadApp();
+  const snapshot = app.rowSnapshot(await addRecord(app, { highlight_regions: [] }));
+  assert.equal(snapshot.active, true);
+  assert.equal(snapshot.statusClass, "review");
+});
+
+test("a record the agent did not include is unchecked and not for export", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app, { include: false });
+  assert.equal(app.rowSnapshot(row).active, false);
+  assert.ok(row.classList.contains("not-for-export"));
+});
+
+test("limited-VAT codes default to 66.67% VAT recognition", async () => {
+  const { app } = await loadApp();
+  for (const code of ["806", "807", "812"]) {
+    const row = await addRecord(app, { rivhit_code: code });
+    assert.deepEqual([...amounts(app, row), snapshotValues(app, row)[10]], ["118.00", "106.00", "12.00", "66.67"], code);
+  }
+});
+
+test("zero-VAT rows keep gross equal to net", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app, { rivhit_code: "807", net_amount: 50, vat_amount: 0, vat_percent: 0 });
+  assert.deepEqual(amounts(app, row), ["50.00", "50.00", "0.00"]);
+});
+
+test("home-business utilities are recognised at 25%", async () => {
+  const { app } = await loadApp({ businessKind: "home" });
+  const row = await addRecord(app, { rivhit_code: "809" });
+  assert.deepEqual(amounts(app, row), ["29.50", "25.00", "4.50"]);
+  assert.deepEqual(snapshotValues(app, row).slice(10), ["25", "25"]);
+});
+
+test("office-business utilities stay at 100%", async () => {
+  const { app } = await loadApp({ businessKind: "office" });
+  const row = await addRecord(app, { rivhit_code: "809" });
+  assert.deepEqual(amounts(app, row), ["118.00", "100.00", "18.00"]);
+  assert.deepEqual(snapshotValues(app, row).slice(10), ["100", "100"]);
+});
+
+test("editing gross re-splits source net and VAT by the stored VAT rate", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app);
+  row.cells[8].querySelector("input").value = "236.00";
+  app.manualAmountChanged(row, 8);
+  assert.equal(row.dataset.rawNet, "200.00");
+  assert.equal(row.dataset.rawVat, "36.00");
+  assert.deepEqual(amounts(app, row), ["236.00", "200.00", "36.00"]);
+});
+
+test("editing net re-derives VAT and gross", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app);
+  row.cells[9].querySelector("input").value = "1000.00";
+  app.manualAmountChanged(row, 9);
+  assert.deepEqual(amounts(app, row), ["1180.00", "1000.00", "180.00"]);
+});
+
+test("negative manual amounts are rejected and the displayed value is restored", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app);
+  row.cells[8].querySelector("input").value = "-5";
+  app.manualAmountChanged(row, 8);
+  assert.equal(row.dataset.rawNet, "100");
+  assert.equal(row.dataset.rawVat, "18");
+  assert.deepEqual(amounts(app, row), ["118.00", "100.00", "18.00"]);
+});
+
+test("clearing an amount field does not zero the row", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app);
+  row.cells[8].querySelector("input").value = "";
+  app.manualAmountChanged(row, 8);
+  assert.equal(row.dataset.rawNet, "100");
+  assert.equal(row.dataset.rawVat, "18");
+  assert.deepEqual(amounts(app, row), ["118.00", "100.00", "18.00"]);
+});
+
+test("lowering expense recognition aligns VAT recognition", async () => {
+  const { app, window } = await loadApp();
+  const row = await addRecord(app);
+  const expense = row.cells[12].querySelector("select");
+  expense.value = "25";
+  expense.dispatchEvent(new window.Event("change", { bubbles: true }));
+  assert.equal(row.cells[11].querySelector("select").value, "25");
+  assert.deepEqual(amounts(app, row), ["29.50", "25.00", "4.50"]);
+});
+
+test("a repeated reference marks the later row as a possible duplicate and unchecks it", async () => {
+  const { app } = await loadApp();
+  const first = await addRecord(app, { invoice_number: "INV-0099" });
+  const second = await addRecord(app, { invoice_number: "INV-0099" });
+  assert.equal(first.dataset.duplicate, undefined);
+  assert.equal(second.dataset.duplicate, "true");
+  assert.equal(app.rowSnapshot(second).active, false);
+  assert.equal(app.rowSnapshot(second).statusClass, "review");
+});
+
+test("different references are not duplicates", async () => {
+  const { app } = await loadApp();
+  await addRecord(app, { invoice_number: "INV-0001" });
+  const other = await addRecord(app, { invoice_number: "INV-0002" });
+  assert.equal(other.dataset.duplicate, undefined);
+  assert.equal(app.rowSnapshot(other).active, true);
+});
+
+test("snapshot → restoreRow round-trips a row", async () => {
+  const { app, rows } = await loadApp();
+  const row = await addRecord(app, { rivhit_code: "807", allocation_number: "A1" });
+  const saved = plain(app.rowSnapshot(row));
+  row.remove();
+  app.restoreRow(saved, new Blob(["x"]));
+  assert.equal(rows().length, 1);
+  const again = app.rowSnapshot(rows()[0]);
+  for (const key of ["documentId", "values", "rawNet", "rawVat", "vatPercent", "active", "statusClass", "agentOpinion"])
+    assert.deepEqual(plain(again[key]), saved[key], key);
+});
+
+test("deleting a row renumbers the rest and restores the empty row at zero", async () => {
+  const { app, rows, document } = await loadApp();
+  await addRecord(app, { invoice_number: "A-1" });
+  await addRecord(app, { invoice_number: "B-2" });
+  rows()[0].querySelector("button.delete").click();
+  assert.equal(rows().length, 1);
+  assert.equal(rows()[0].cells[0].textContent, "1");
+  assert.match(document.querySelector("#count").textContent, /1$/);
+  rows()[0].querySelector("button.delete").click();
+  assert.equal(rows().length, 0);
+  assert.ok(document.querySelector("#empty-row")?.isConnected);
+});
+
+test("the next free classification code starts above the built-in range", async () => {
+  const { app, window } = await loadApp();
+  const taken = Object.keys(window.RIVHIT_MAPPING).map(Number);
+  assert.equal(Number(app.nextFreeClassificationCode()), Math.max(799, ...taken) + 1);
+});
