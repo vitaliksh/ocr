@@ -15,6 +15,7 @@ import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./
 import { readChartOfAccounts } from "./chart-of-accounts.js";
 import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
+import { setupReports } from "./reports-ui.js";
 import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
 import {
   readCustomRivhitMapping,
@@ -459,6 +460,14 @@ setupExcelImport({
     const selected = await loadDeclaration(committedWorkspace.directory, month);
     await activateDeclaration({ workspace: committedWorkspace, ...selected });
   },
+  onError: showError,
+});
+setupReports({
+  button: document.querySelector("#open-reports"),
+  dialog: document.querySelector("#reports-dialog"),
+  printRoot: document.querySelector("#report-print"),
+  getContext: () =>
+    dataRoot && committedWorkspace ? { client: committedWorkspace, dataRoot, names: rivhitMapping } : null,
   onError: showError,
 });
 updateStartAvailability();
