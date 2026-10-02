@@ -107,8 +107,8 @@ rows are included — reproduce this through the type in the chart of accounts, 
   confirm the extent before drawing PDFs.)
 - Closed-declaration recovery (reason, immutable audit, preserve prior final export).
 - Backups (postponed).
-- Excel library choice: the app has no bundler; `pdf-import.js` loads pdf.js from a pinned CDN URL, and the xlsx
-  reader should follow the same approach (pinned version). In the test harness esbuild/jsdom are dev-only.
+- ~~Excel library choice~~ Decided: SheetJS 0.20.3 (Apache-2.0) from its official CDN `cdn.sheetjs.com`, loaded on
+  demand like pdf.js; `xlsx` from the same tarball is a dev dependency for tests. The npm registry copy is outdated.
 
 ## Proposed order of work
 

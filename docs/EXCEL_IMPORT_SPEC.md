@@ -11,6 +11,8 @@ tests or docs. Tests use synthetic grids from `telegram-web/test/excel-journal-f
   `גיליון2`; if it is missing, take the only sheet that has cells; otherwise reject the file.
 - All cells are text, except the date column, which is a real Excel date (serial number, e.g. `46023` = 2026-01-01).
   The reader adapter converts it to `YYYY-MM-DD`; the parser accepts either a serial number or an ISO string.
+- `telegram-web/excel-journal-reader.js` does this: it checks the ZIP signature (SheetJS otherwise parses any bytes as
+  text), anchors the range at `A1` and keeps dates as serial numbers.
 - The reader returns a grid `rows[rowIndex][colIndex]` (0-based) with empty cells as `""`. The parser never touches
   the xlsx library.
 - Text cells may carry U+200F (RLM) and spaces. Trim every text cell. Labels are matched on trimmed text.

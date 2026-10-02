@@ -79,6 +79,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `rivhit-export.js` — CP1255 186-column TXT builder and validation.
   - `pdf-import.js`, `pdf-report.js` — local PDF import and reports.
   - `excel-journal.js` — pure parser of the Rivhit journal grid (see `EXCEL_IMPORT_SPEC.md`).
+  - `excel-journal-reader.js` — `.xlsx` → grid; loads SheetJS 0.20.3 on demand from `cdn.sheetjs.com` (dev copy: `xlsx` tarball).
   - `history-ranker.js` — local, text-only Pass 2 history selection.
 - `cloudflare-worker/`
   - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
@@ -239,7 +240,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **77 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **83 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
