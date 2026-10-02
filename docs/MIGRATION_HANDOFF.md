@@ -113,7 +113,7 @@ rows are included — reproduce this through the type in the chart of accounts, 
 ## Proposed order of work
 
 1. **Done:** Excel format spec [`EXCEL_IMPORT_SPEC.md`](EXCEL_IMPORT_SPEC.md) and synthetic fixtures (`telegram-web/test/excel-journal-fixture.mjs`). Real files only for a local, git-ignored check.
-2. Pure parser module with tests (text numbers, parentheses, spacers, footer checksums, Hebrew header).
+2. **Done:** pure parser `telegram-web/excel-journal.js` with tests. Checked locally on all six sample files: 220 rows, no errors, all footer checksums match.
 3. Chart of accounts (storage, seed, wizard confirmation).
 4. Import wizard in the UI (client/declaration pick, mapping step, open vs closed).
 5. Reports from the app's own data; compare to the four PDFs.

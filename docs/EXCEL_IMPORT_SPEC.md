@@ -97,9 +97,13 @@ name and tax ID, classification code. Amounts are already recognised: imported r
 expense 100 % and VAT 100 %, and the business rules (`applyBusinessRule`, codes 806/807/812, home-utility 25 %) are
 not run on them.
 
-## Parser output (planned, stage 2)
+## Parser output (`telegram-web/excel-journal.js`)
 
 `parseJournalGrid(rows)` returns `{ declarationMonth, rows, footer, errors, warnings }`. A row is
-`{ status, vat, net, gross, reference1, reference2, details, classificationName, line, date, kind }` with money as
-numbers rounded to two decimals and `kind` one of `income`, `expense`, `credit`. Rows with a draft status add a
+`{ status, vat, net, gross, reference1, reference2, details, classificationName, line, date, kind, sourceRow }` with
+money as signed numbers exactly as in the file, rounded to two decimals, `date` as `YYYY-MM-DD`, `kind` one of
+`income`, `expense`, `credit`, and `sourceRow` the 1-based sheet row for error messages. `errors` and `warnings` are
+`{ code, message, row? | key? }`; any error means the file must not be imported. The class types used by checksum 5
+(income, equipment, outside the VAT input base) come from the optional `classTypes` argument, defaulting to the
+sample classes until the chart of accounts exists. Rows with a draft status add a
 warning that the source transactions were not final.
