@@ -12,7 +12,7 @@ async function writeTemplate(directory, file) { const handle = await directory.g
 async function ensureAccess(directory) { let permission = await directory.queryPermission({ mode: "readwrite" }); if (permission !== "granted") permission = await directory.requestPermission({ mode: "readwrite" }); if (permission !== "granted") throw new Error("לא ניתנה הרשאה לתיקייה המקומית."); }
 function directoryName(clientName) { return clientName.replace(/[\\/:*?"<>|]/g, "-").replace(/[. ]+$/, "").replace(/\s+/g, " ").trim(); }
 
-export function setupWorkspaceControls({ clientMonthInput = null, clientList, showNewButton, openExistingButton, archivedToggle, dataRootButton, dataRootSummary, templateButton, creationPanel, createButton, deleteButton, archiveButton, restoreButton, saveClientButton, clientMenu, clientMenuName, clientNameInput, clientActivityInput, clientKindInput, businessActivityInput, businessKindInput, summary, templateSummary, onDataRoot, onTemplate, onDeclaration, onUpdated, onArchived, onDeleted, onDeclarationRemoved, onError }) {
+export function setupWorkspaceControls({ clientMonthInput = null, declarationDialog = null, clientList, showNewButton, openExistingButton, archivedToggle, dataRootButton, dataRootSummary, templateButton, creationPanel, createButton, deleteButton, archiveButton, restoreButton, saveClientButton, clientMenu, clientMenuName, clientNameInput, clientActivityInput, clientKindInput, businessActivityInput, businessKindInput, summary, templateSummary, onDataRoot, onTemplate, onDeclaration, onUpdated, onArchived, onDeleted, onDeclarationRemoved, onError }) {
   if (!("showDirectoryPicker" in window) || !("showOpenFilePicker" in window) || !("indexedDB" in window)) { dataRootButton.disabled = true; templateButton.disabled = true; summary.textContent = "נדרש Edge או Chrome עם גישה לתיקיות מקומיות."; return; }
   let activeClients = [], archivedClients = [], dataRoot = null, canonicalTemplate = null, menuClient = null, showingArchived = false, activeClientId = null, activeDeclarationId = null, expandedClientId = null;
   const showingArchivedDeclarations = new Set();
@@ -35,16 +35,39 @@ export function setupWorkspaceControls({ clientMonthInput = null, clientList, sh
   const setDataRoot = async (directory, restoring = false) => { if (!restoring) { await ensureAccess(directory); await directory.getDirectoryHandle("common", { create: true }); await directory.getDirectoryHandle("clients", { create: true }); await setting("data-root", directory); } dataRoot = directory; templateButton.disabled = false; showDataRoot(); await onDataRoot?.(dataRoot); try { if (!await loadTemplateFromRoot()) clearTemplate(); await scanClientsFromRoot(); } catch (error) { if (!restoring || error.name !== "NotAllowedError") throw error; } };
   const selectDeclaration = async (client, month) => { await ensureAccess(client.directory); const selected = await loadDeclaration(client.directory, month); const workspace = { directory: client.directory, config: client.config }; if (await onDeclaration({ workspace, ...selected }) === false) return; activeClientId = client.id; activeDeclarationId = selected.declaration.declarationId; summary.textContent = `נבחרה הצהרה: «${client.clientName}» · ${selected.declaration.month}.`; summary.classList.add("workspace-ready"); renderClients(); };
   const toggleClient = async (client) => { await ensureAccess(client.directory); activeClientId = client.id; expandedClientId = expandedClientId === client.id ? null : client.id; renderClients(); };
-  const askDeclarationMonth = (client) => {
-    const answer = window.prompt("לאיזה חודש ליצור הצהרה? (YYYY-MM)", nextDeclarationMonth(client));
-    if (answer === null) return null;
-    const month = declarationMonth(answer.trim());
+  const validDeclarationMonth = (client, value) => {
+    const month = declarationMonth(String(value ?? "").trim());
     if (!month) throw new Error("יש להזין חודש בפורמט YYYY-MM.");
     if ((client.declarations || []).some((item) => item.declaration.month === month)) throw new Error("כבר קיימת הצהרה לחודש זה.");
     return month;
   };
+  // Resolves to the chosen month, or null when cancelled. An in-page dialog is used when available: window.prompt is
+  // not shown by every embedded browser.
+  const askDeclarationMonth = (client) => {
+    if (!declarationDialog) {
+      const answer = window.prompt("לאיזה חודש ליצור הצהרה? (YYYY-MM)", nextDeclarationMonth(client));
+      return Promise.resolve(answer === null ? null : validDeclarationMonth(client, answer));
+    }
+    const input = declarationDialog.querySelector("#new-declaration-month");
+    const errorLine = declarationDialog.querySelector("#new-declaration-error");
+    input.value = nextDeclarationMonth(client);
+    errorLine.textContent = "";
+    return new Promise((resolve) => {
+      let chosen = null;
+      declarationDialog.querySelector("#new-declaration-create").onclick = () => {
+        try {
+          chosen = validDeclarationMonth(client, input.value);
+          declarationDialog.close();
+        } catch (error) {
+          errorLine.textContent = error.message;
+        }
+      };
+      declarationDialog.addEventListener("close", () => resolve(chosen), { once: true });
+      declarationDialog.showModal();
+    });
+  };
   const firstDeclarationMonth = () => declarationMonth(clientMonthInput?.value) || declarationMonth(new Date());
-  const createCurrentDeclaration = async (client) => { const month = askDeclarationMonth(client); if (!month) return; const created = await createDeclaration(client.directory, { clientId: client.config.clientId, month }); await scanClientsFromRoot(); expandedClientId = client.id; await selectDeclaration(activeClients.find((item) => item.id === client.id), created.declaration.month); };
+  const createCurrentDeclaration = async (client) => { const month = await askDeclarationMonth(client); if (!month) return; const created = await createDeclaration(client.directory, { clientId: client.config.clientId, month }); await scanClientsFromRoot(); expandedClientId = client.id; await selectDeclaration(activeClients.find((item) => item.id === client.id), created.declaration.month); };
   const openExisting = async () => { const directory = await window.showDirectoryPicker({ mode: "readwrite", startIn: "documents" }); const config = await readConfig(directory); const temporary = { id: config.clientId || directory.name, clientName: config.clientName, directory, parent: null, config, declarations: await listDeclarations(directory) }; expandedClientId = temporary.id; activeClients = [temporary]; archivedClients = []; renderClients(); };
   const createNew = async () => { const clientName = clientNameInput.value.trim(), businessActivity = clientActivityInput.value.trim(), name = directoryName(clientName); if (!clientName || !businessActivity) throw new Error("יש למלא שם לקוח וסוג פעילות."); if (!name) throw new Error("שם הלקוח אינו יכול לשמש כשם תיקייה."); if (!dataRoot) throw new Error("יש לבחור תחילה תיקיית נתונים."); const parent = await dataRoot.getDirectoryHandle("clients", { create: true }), directory = await parent.getDirectoryHandle(name, { create: true }); try { await readConfig(directory); throw new Error("בתיקייה זו כבר קיים לקוח. יש לפתוח אותו במקום ליצור מחדש."); } catch (error) { if (error.message.includes("כבר קיים")) throw error; if (error.name !== "NotFoundError") throw error; } const config = { schemaVersion: 1, clientId: crypto.randomUUID(), clientName, businessActivity, businessKind: clientKindInput.value, archived: false }; await createDeclaration(directory, { clientId: config.clientId, month: firstDeclarationMonth() }); await writeConfig(directory, config); creationPanel.hidden = true; clientNameInput.value = ""; clientActivityInput.value = ""; expandedClientId = config.clientId; await scanClientsFromRoot(); };
   const saveMenuConfig = async (changes, callback) => { if (!menuClient || !menuClient.parent) throw new Error("פעולה זו זמינה רק ללקוח שבתיקיית הנתונים."); const result = normalizeWorkspaceConfig({ ...menuClient.config, ...changes }); if (!result.valid) throw new Error(result.error); await writeConfig(menuClient.directory, result.config); const saved = { ...menuClient, config: result.config, clientName: result.config.clientName }; if (result.config.archived && activeClientId === saved.id) activeClientId = null; hideMenu(); await scanClientsFromRoot(); callback?.(saved); };

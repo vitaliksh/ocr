@@ -430,6 +430,7 @@ const workspaceControls = setupWorkspaceControls({
   clientActivityInput: document.querySelector("#new-client-activity"),
   clientKindInput: document.querySelector("#new-client-kind"),
   clientMonthInput: document.querySelector("#new-client-month"),
+  declarationDialog: document.querySelector("#new-declaration-dialog"),
   businessActivityInput: businessActivity,
   businessKindInput: businessKind,
   summary: workspaceSummary,
