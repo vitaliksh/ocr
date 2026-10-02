@@ -112,7 +112,7 @@ rows are included — reproduce this through the type in the chart of accounts, 
 
 ## Proposed order of work
 
-1. Excel format spec (like `RIVHIT_IMPORT_SPEC.md`) and synthetic fixtures. Real files only for a local, git-ignored check.
+1. **Done:** Excel format spec [`EXCEL_IMPORT_SPEC.md`](EXCEL_IMPORT_SPEC.md) and synthetic fixtures (`telegram-web/test/excel-journal-fixture.mjs`). Real files only for a local, git-ignored check.
 2. Pure parser module with tests (text numbers, parentheses, spacers, footer checksums, Hebrew header).
 3. Chart of accounts (storage, seed, wizard confirmation).
 4. Import wizard in the UI (client/declaration pick, mapping step, open vs closed).
