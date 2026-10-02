@@ -247,7 +247,7 @@ npm run check
 npx wrangler deploy
 ~~~
 
-Expected: **5 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
+Expected: **30 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
 
 After a browser-only change, push `main`, wait for Pages, force-refresh, and verify the visible build marker. After a Worker change, record the returned version in `cloudflare-worker/DEPLOYMENT.md`, commit/push source and docs, and manually test the changed production flow.
 
