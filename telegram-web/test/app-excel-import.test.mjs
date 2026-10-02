@@ -47,3 +47,15 @@ test("корень без плана счетов не меняет список
   await app.loadCustomMapping(rootWithChart(null));
   assert.equal(app.nextFreeClassificationCode(), "889");
 });
+
+test("ошибка при открытой панели дублируется в сводку панели, при закрытой — нет", async () => {
+  const { app, document } = await loadApp();
+  const summary = document.querySelector("#workspace-summary");
+  const before = summary.textContent;
+  app.showError("closed drawer");
+  assert.equal(document.querySelector("#status").textContent, "closed drawer");
+  assert.equal(summary.textContent, before);
+  document.querySelector("#workspaces-drawer").hidden = false;
+  app.showError("open drawer");
+  assert.equal(summary.textContent, "open drawer");
+});

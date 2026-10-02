@@ -10,7 +10,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const exposed = [
   "applyRecord", "addPendingRecord", "restoreRow", "rowSnapshot", "recalculateRow", "manualAmountChanged",
   "displayDate", "displayedReference", "normalReference", "receivedAtText", "cellValue", "fromBase64Url",
-  "nextFreeClassificationCode", "applyBusinessRules", "loadCustomMapping",
+  "nextFreeClassificationCode", "applyBusinessRules", "loadCustomMapping", "showError",
 ];
 
 async function bundleApp() {

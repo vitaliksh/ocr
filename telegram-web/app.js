@@ -135,6 +135,8 @@ async function loadBackendVersion() {
 }
 function showError(message) {
   status.textContent = message;
+  // The open drawer covers #status, so mirror the message where the user is looking.
+  if (!workspacesDrawer.hidden) workspaceSummary.textContent = message;
 }
 function showExportValidation(issues) {
   exportValidationList.replaceChildren(
