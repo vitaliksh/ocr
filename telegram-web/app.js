@@ -13,6 +13,7 @@ import {
 } from "./declaration-store.js";
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
 import { readChartOfAccounts } from "./chart-of-accounts.js";
+import { confirmDialog } from "./confirm-dialog.js";
 import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
 import { setupReports } from "./reports-ui.js";
@@ -293,7 +294,7 @@ async function activateDeclaration(selected) {
     currentDeclaration &&
     currentDeclaration.declarationId !== selected.declaration.declarationId &&
     records.querySelector("tr[data-document-id]") &&
-    !window.confirm("לעבור להצהרה אחרת? הטיוטה הנוכחית תישמר מקומית.")
+    !(await confirmDialog("לעבור להצהרה אחרת? הטיוטה הנוכחית תישמר מקומית.", { confirmLabel: "מעבר" }))
   )
     return false;
   await saveCurrentDraft();
@@ -1753,7 +1754,8 @@ closeDeclarationButton.addEventListener("click", async () => {
       .map((row, index) => ({ ...snapshots[index], imageBlob: row.documentImage }))
       .filter((row) => row.active);
   if (!reportRows.length) return showError("יש לסמן לפחות שורה פעילה לפני סגירת ההצהרה.");
-  if (!window.confirm("לסגור את ההצהרה? הפעולה תיצור ייצוא סופי, תעדכן את ההיסטוריה ותנעל את הטבלה.")) return;
+  const closeMessage = "לסגור את ההצהרה? הפעולה תיצור ייצוא סופי, תעדכן את ההיסטוריה ותנעל את הטבלה.";
+  if (!(await confirmDialog(closeMessage, { title: "סגירת הצהרה", confirmLabel: "סגירה" }))) return;
   closeDeclarationButton.disabled = true;
   status.textContent = "סוגר הצהרה…";
   try {
@@ -1819,7 +1821,10 @@ openPackage?.addEventListener("click", async () => {
       manifestFile = await (await directory.getFileHandle("table.json")).getFile(),
       manifest = JSON.parse(await manifestFile.text());
     if (!Array.isArray(manifest.rows) || !manifest.client) throw new Error("קובץ table.json אינו חבילת מסמכים תקינה.");
-    if (records.querySelector("tr[data-document-id]") && !window.confirm("הטבלה הנוכחית תוחלף בחבילה השמורה. להמשיך?"))
+    if (
+      records.querySelector("tr[data-document-id]") &&
+      !(await confirmDialog("הטבלה הנוכחית תוחלף בחבילה השמורה. להמשיך?", { confirmLabel: "החלפה" }))
+    )
       return;
     const images = await directory.getDirectoryHandle("images"),
       cache = new Map();
@@ -1894,7 +1899,7 @@ function renderCustomClassificationList() {
     remove.disabled = used;
     remove.title = used ? "הקוד נמצא בשימוש בטבלה הנוכחית." : "";
     remove.addEventListener("click", async () => {
-      if (!window.confirm(`למחוק את קוד המיון ${code} — ${label}?`)) return;
+      if (!(await confirmDialog(`למחוק את קוד המיון ${code} — ${label}?`, { title: "מחיקת קוד מיון", confirmLabel: "מחיקה" }))) return;
       const next = { ...customMapping };
       delete next[code];
       try {
