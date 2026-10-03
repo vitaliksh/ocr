@@ -25,6 +25,7 @@ import { readUiSettings, saveUiSettings } from "./ui-settings.js";
 import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
 import { setupReports } from "./reports-ui.js";
+import { setupBackup } from "./backup-ui.js";
 import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
 import {
   readCustomRivhitMapping,
@@ -389,6 +390,7 @@ async function switchDataRoot(selected) {
       folderPathInput.value = settings.folderPath;
     })
     .catch(() => {});
+  backup.runAuto("start");
   clientsHome.showHome();
   dataRootTitle.textContent = `תיקיית נתונים: ${selected.name}`;
   workspace = null;
@@ -439,6 +441,12 @@ async function loadCustomMapping(root) {
   rivhitMapping = currentMapping();
   refreshClassificationSelectors();
 }
+const backup = setupBackup({
+  dialog: document.querySelector("#backup-dialog"),
+  openButton: document.querySelector("#open-backup"),
+  getDataRoot: () => dataRoot,
+  onError: showError,
+});
 const workspaceControls = setupWorkspaceControls({
   onClientsChanged: () => clientsHome.refresh(),
   onClientOpen: (clientId) => clientsHome.openClient(clientId),
@@ -1782,6 +1790,7 @@ closeDeclarationButton.addEventListener("click", async () => {
     setTableLocked(true);
     updateStartAvailability();
     status.textContent = "ההצהרה ננעלה. ההיסטוריה עודכנה.";
+    backup.runAuto("lock");
   } catch (error) {
     if (error.name !== "AbortError") {
       const message = `לא ניתן לנעול את ההצהרה: ${error.message}`;

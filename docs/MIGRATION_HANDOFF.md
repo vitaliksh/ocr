@@ -106,7 +106,7 @@ rows are included — reproduce this through the type in the chart of accounts, 
 ## Open questions
 
 - Closed-declaration recovery: decided and done on 3 Oct (option A): locking is reversible, "פתיחה מחדש" requires a reason kept in `reopenLog`; no tamper-proof audit.
-- Backups (postponed on 2 Oct, still the biggest risk: the local folder is the only copy).
+- Backups (postponed on 2 Oct; built on 3 Oct as an encrypted in-app copy into a Google Drive folder and a USB drive, see `BACKUP_SPEC.md`; rollout and a restore drill are still to do).
 - Equipment VAT line of the VAT report is not verified against a Rivhit report that has equipment (no sample).
 
 Closed: missing month files 3 and 7 (those months were merged into neighbouring declarations; no files exist);
@@ -165,7 +165,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.20 · 13:34 IDT`. Tests: **239** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.21 · 16:50 IDT`. Tests: **257** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct, with the interface of that time):** real disk folder, import of the
@@ -192,7 +192,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
   them; `test/app-harness.mjs` loads the real `index.html`); `app.js` addresses journal cells by index; colours only in
   `tokens.css` (a test enforces it); a bump of the frontend marker is needed per push. The jsdom harness does not enforce
   module-scope ordering (temporal dead zone), so changes to `app.js` need one run in a real browser.
-- Later, when he decides: backups (biggest risk, local folder is the only copy) and closed-declaration recovery.
+- Backups: built, see `BACKUP_SPEC.md`; to do: rollout on the real PC and a restore drill.
 - Not done on purpose: client tax ID (עוסק מורשה) is not stored, so the report PDFs show only the client name; the
   ledger PDF lacks line number / value date / counter account / reference 2 columns (no such data in the app).
 

@@ -1,6 +1,6 @@
 # Backup store — format and decisions
 
-**Status (3 October 2026):** core module `telegram-web/backup-store.js` is done and tested (17 tests); no UI yet. Owner approval and the
+**Status (3 October 2026):** core module `telegram-web/backup-store.js` and the dialog (`backup-ui.js`, state in `backup-state.js`) are done and tested (17 + 18 tests) and ran end to end in a real browser on an origin-private folder; not yet run against Google Drive or a flash drive through the UI. Owner approval and the
 product-boundary exception are in `AGENTS.md` and `HANDOFF.md`. Background: the data root is the only copy of the data, the PC of the
 user sleeps except 15:00–19:00, and she already has Google Drive for desktop (mirroring) and copies to a USB flash drive by hand
 once a month. The app writes **encrypted files into a folder the user picks**; the sync client or the USB drive carries them away.
@@ -53,8 +53,24 @@ Deleting old snapshots or unreferenced packs is a manual, confirmed action still
 - AES-GCM plus hashing ran at ~330 MB/s, so encryption is not the bottleneck.
 - The data root itself must not be inside a synced folder; only backup files are written there.
 
+## The dialog (sidebar item "גיבוי")
+
+- Two slots with their own folder, "גיבוי עכשיו" and "בדיקת תקינות" (deep verify): `cloud` (a folder inside Google Drive for
+  desktop) and `usb` (the monthly flash copy). A folder inside the data root is refused.
+- Recovery code: created once, shown once; the key is stored in IndexedDB (non-extractable) only after the user ticks that the code is
+  written down and confirms. Restore asks for the code when the key is not on this PC.
+- Restore: pick the folder that holds `annateria-backup`, pick a snapshot, pick an empty target folder; then switch the data root to it.
+- The sidebar item carries a status dot: green when both slots are fresh, red when the cloud copy is older than 2 days or the
+  flash copy older than 35 days, yellow when something was never done.
+- `common/backup-state.json` (schema 1) only remembers the last success per slot and `includeImages`; it is part of the data and is
+  therefore also inside later copies, so after a restore on another PC it can claim a copy that does not exist there until the first run.
+- Triggers: `runAuto("start")` when a data root is opened (only if the cloud copy is older than a day) and `runAuto("lock")` after a
+  declaration is locked. Both need a saved key, a cloud folder and an already granted permission; they never ask for permission and
+  report only real failures in the status bar. After a browser restart the folder permission is "prompt" again, so the first backup
+  of a session is the button.
+
 ## Still to do
 
-Status plate (Drive copy older than 2 days or flash older than 35 days = red), the backup section in the settings dialog (choose
-folders, "copy now", recovery code once, restore), start-up and after-lock triggers, manual clean-up, then the hand-off package
-(export a declaration with its images, sealed with the same key, to a shared Drive folder; import appends rows).
+Manual, confirmed clean-up of old snapshots and unreferenced packs; the hand-off package (export a declaration with its images, sealed
+with the same key, to a shared Drive folder; import appends rows); rollout on the real PC with a restore drill (restore into an empty
+folder, open it in the app, report totals match).

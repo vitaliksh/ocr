@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="journal.css">
   <link rel="stylesheet" href="reports.css">
   <link rel="stylesheet" href="clients.css">
+  <link rel="stylesheet" href="backup.css">
   <link rel="stylesheet" href="sidebar.css">
   <link rel="stylesheet" href="shell.css">
   <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js" defer></script>
@@ -34,8 +35,9 @@
         </section>
       </div>
       <footer class="sidebar-footer">
+        <button id="open-backup" type="button" class="nav-item" data-level="warning"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span class="label">גיבוי</span></button>
         <button id="open-settings" type="button" class="nav-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg><span class="label">הגדרות</span></button>
-        <div class="sidebar-versions"><p class="app-version drawer-version" aria-label="גרסת ממשק">גרסת ממשק: 2026.10.03.20 · 13:34 IDT</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p></div>
+        <div class="sidebar-versions"><p class="app-version drawer-version" aria-label="גרסת ממשק">גרסת ממשק: 2026.10.03.21 · 16:50 IDT</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p></div>
       </footer>
       <div id="sidebar-resizer" class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="שינוי רוחב החלונית" tabindex="0"></div>
     </aside>
@@ -93,6 +95,46 @@
   <dialog id="passkey-enrollment-dialog" class="workspace-dialog" aria-labelledby="passkey-enrollment-title"><form method="dialog"><header><h2 id="passkey-enrollment-title">חיבור המחשב לשיפור AI</h2><button id="cancel-passkey-enrollment" value="cancel" aria-label="ביטול" class="dialog-close">×</button></header><p>זהו חיבור חד־פעמי למחשב זה. סרוק את הקוד ב‑Telegram, ואז לחץ על הכפתור כדי לאשר ב‑Windows Hello. בהמשך שיפור לפי היסטוריה יבקש רק Windows Hello.</p><div class="qr-panel"><canvas id="passkey-qr" width="260" height="260" aria-label="קוד QR לחיבור חד־פעמי של Telegram"></canvas><p><a id="passkey-telegram-link" target="_blank" rel="noopener">פתיחת Telegram</a></p></div><p id="passkey-enrollment-status" role="status">ממתין לחיבור Telegram…</p><div class="dialog-actions"><button id="continue-passkey-enrollment" type="button" class="secondary" disabled>המשך ל‑Windows Hello</button><span></span><button id="cancel-passkey-enrollment-action" value="cancel" class="secondary">ביטול</button></div></form></dialog>
   <dialog id="new-client-dialog" class="workspace-dialog" aria-labelledby="new-client-title"><form method="dialog"><header><h2 id="new-client-title">לקוח חדש</h2><button value="cancel" formnovalidate aria-label="סגור" class="dialog-close">×</button></header><div id="new-client-form" class="new-client-form"><label>שם הלקוח <input id="new-client-name" maxlength="120"></label><label>סוג פעילות העסק <input id="new-client-activity" maxlength="500"></label><label>סוג העסק <select id="new-client-kind"><option value="home">עסק בבית פרטי</option><option value="office">עסק במשרד</option></select></label><label>חודש הצהרה ראשונה <input id="new-client-month" type="text" class="month-field" inputmode="numeric" maxlength="7" placeholder="MM/YYYY" dir="ltr" autocomplete="off"></label></div><p id="new-client-error" role="alert"></p><div class="dialog-actions"><button id="create-client" type="button">יצירת לקוח</button><span></span><button value="cancel" formnovalidate class="secondary">ביטול</button></div></form></dialog>
   <dialog id="settings-dialog" class="workspace-dialog" aria-labelledby="settings-title"><form method="dialog"><header><h2 id="settings-title">הגדרות</h2><button value="cancel" formnovalidate aria-label="סגור" class="dialog-close">×</button></header><div class="application-settings-content"><section class="data-root-setting" aria-label="תיקיית נתונים"><h3>תיקיית נתונים</h3><p id="data-root-summary">טרם נבחרה תיקיית נתונים.</p><button id="select-data-root" type="button" class="secondary">בחירת תיקיית נתונים</button><label class="folder-path">נתיב מלא (להצגה בלבד) <input id="data-root-path" dir="ltr" maxlength="260" autocomplete="off"></label><p class="muted">הדפדפן אינו חושף את הנתיב המלא של התיקייה, לכן אפשר לרשום אותו כאן ידנית; הוא נשמר בתיקיית הנתונים.</p><p id="data-root-title" class="sr-only">תיקיית נתונים לא נבחרה</p></section><label for="model">מודל Gemini <select id="model"><option value="gemini-3.5-flash-lite" selected>gemini-3.5-flash-lite</option><option value="gemini-3.6-flash">gemini-3.6-flash</option><option value="gemini-3.5-flash">gemini-3.5-flash</option><option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option></select></label><div class="template-setting"><button id="select-template" type="button" class="secondary">בחירת תבנית Rivhit כללית</button><p id="template-summary">תבנית Rivhit כללית טרם נבחרה.</p></div><div class="template-setting"><button id="manage-classifications" type="button" class="secondary">ניהול קודי מיון</button></div><div class="template-setting"><button id="register-passkey" type="button" class="secondary">חיבור המחשב לשיפור AI</button><p id="passkey-summary">המחשב טרם חובר. נדרש חיבור Telegram חד־פעמי בלבד.</p></div></div><div class="dialog-actions"><span></span><button value="cancel" formnovalidate class="secondary">סגור</button></div></form></dialog>
+  <dialog id="backup-dialog" class="workspace-dialog" aria-labelledby="backup-title"><form method="dialog">
+    <header><h2 id="backup-title">גיבוי</h2><button value="cancel" formnovalidate aria-label="סגור" class="dialog-close">×</button></header>
+    <div class="backup-body">
+      <p id="backup-summary" class="plate" role="status"></p>
+      <section class="backup-slot" data-slot="cloud" aria-label="Google Drive">
+        <h3>Google Drive</h3>
+        <p class="muted">תיקייה שנמצאת בתוך Google Drive למחשב. הגיבוי מוצפן, והסנכרון נעשה על ידי Google Drive.</p>
+        <p data-role="folder"></p><p data-role="state"></p>
+        <div class="backup-actions"><button type="button" class="secondary" data-action="choose">בחירת תיקייה</button><button type="button" data-action="run">גיבוי עכשיו</button><button type="button" class="secondary" data-action="verify">בדיקת תקינות</button></div>
+      </section>
+      <section class="backup-slot" data-slot="usb" aria-label="כונן נייד">
+        <h3>כונן נייד (USB)</h3>
+        <p class="muted">גיבוי ידני פעם בחודש. אחרי הגיבוי מוציאים את הכונן מהמחשב.</p>
+        <p data-role="folder"></p><p data-role="state"></p>
+        <div class="backup-actions"><button type="button" class="secondary" data-action="choose">בחירת תיקייה</button><button type="button" data-action="run">גיבוי עכשיו</button><button type="button" class="secondary" data-action="verify">בדיקת תקינות</button></div>
+      </section>
+      <label class="check-line"><input id="backup-images" type="checkbox"> לכלול תמונות מקור וייצואים ישנים (כבד; בנייר יש עותק)</label>
+      <section aria-label="קוד שחזור">
+        <h3>קוד שחזור</h3>
+        <p id="backup-key-state"></p>
+        <div id="backup-code-box" hidden>
+          <p class="muted">רשום את הקוד ושמור אותו במקום בטוח (נייר בכספת). הוא מוצג פעם אחת בלבד, ובלעדיו אי אפשר לשחזר גיבוי.</p>
+          <output id="backup-code" dir="ltr"></output>
+          <label class="check-line"><input id="backup-code-saved" type="checkbox"> רשמתי ושמרתי את הקוד</label>
+          <button id="backup-code-confirm" type="button" disabled>שמירת הקוד במחשב</button>
+        </div>
+        <button id="backup-create-key" type="button" class="secondary">יצירת קוד שחזור</button>
+      </section>
+      <section aria-label="שחזור">
+        <h3>שחזור מגיבוי</h3>
+        <button id="backup-restore-choose" type="button" class="secondary">בחירת תיקיית גיבוי…</button>
+        <div id="backup-restore-details" hidden>
+          <label>גיבוי <select id="backup-restore-snapshot"></select></label>
+          <label>קוד שחזור (אם אינו שמור במחשב זה) <input id="backup-restore-code" dir="ltr" autocomplete="off"></label>
+          <button id="backup-restore-run" type="button">בחירת תיקיית יעד ריקה ושחזור</button>
+        </div>
+      </section>
+    </div>
+    <p id="backup-error" role="alert"></p>
+    <div class="dialog-actions"><span></span><button value="cancel" formnovalidate class="secondary">סגור</button></div></form></dialog>
   <dialog id="client-menu" class="workspace-dialog" aria-labelledby="client-menu-name"><form method="dialog"><header><h2 id="client-menu-name"></h2><button value="cancel" formnovalidate aria-label="סגור" class="dialog-close">×</button></header><label>סוג פעילות העסק <input id="business-activity" maxlength="500" required></label><label>סוג העסק <select id="business-kind"><option value="home">עסק בבית פרטי</option><option value="office">עסק במשרד</option></select></label><button id="save-client-settings" type="button" class="secondary">שמירת פרטי לקוח</button><div class="client-menu-actions"><button id="archive-client" type="button" class="secondary">ארכוב לקוח</button><button id="restore-client" type="button" class="secondary" hidden>שחזור לקוח</button><button id="delete-client" type="button" class="delete">מחיקה לצמיתות</button></div></form></dialog>
   <dialog id="custom-classification-dialog" class="workspace-dialog" aria-labelledby="custom-classification-title"><form method="dialog"><header><h2 id="custom-classification-title">הוספת קוד מיון חדש</h2><button value="cancel" formnovalidate aria-label="סגור" class="dialog-close">×</button></header><p>יש למלא את שני השדות כדי לשמור את הקוד.</p><label>קוד מיון <input id="custom-classification-code" inputmode="numeric" pattern="[0-9]{3}" maxlength="3" required></label><label>שם הקוד <input id="custom-classification-name" maxlength="120" required></label><p id="custom-classification-error" role="alert"></p><div class="dialog-actions"><button id="save-custom-classification" type="button">שמירה</button><span></span><button value="cancel" formnovalidate class="secondary">ביטול</button></div></form></dialog>
   <dialog id="classification-management-dialog" class="workspace-dialog" aria-labelledby="classification-management-title"><form method="dialog"><header><h2 id="classification-management-title">ניהול קודי מיון</h2><button value="cancel" aria-label="סגור" class="dialog-close">×</button></header><p>אפשר למחוק רק קוד מותאם אישית שאינו בשימוש בטבלה הנוכחית.</p><div id="custom-classification-list"></div><div class="dialog-actions"><span></span><button value="cancel" class="secondary">סגור</button></div></form></dialog>
