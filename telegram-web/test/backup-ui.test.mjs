@@ -108,12 +108,15 @@ test("recovery code is shown once and stored as a non-extractable key only after
 });
 
 test("backup needs a key; then it writes the copy, remembers the time and keeps the dot a warning until the flash copy exists", async () => {
-  const { slotButton, choose, click, giveKey, clock, root, error, plate, openButton } = await setup();
+  const { q, slotButton, choose, click, giveKey, clock, root, error, plate, openButton } = await setup();
   const drive = withPermission(binaryDirectory("drive"));
   await choose("cloud", drive);
   await click(slotButton("cloud", "run"));
   assert.match(error(), /קוד שחזור/);
   assert.match(plate(), /קוד שחזור/, "the error is also on the top plate");
+  await click(q("#backup-create-key"));
+  await click(slotButton("cloud", "run"));
+  assert.match(error(), /שמירת הקוד במחשב/, "a created but unconfirmed code is named");
   await giveKey();
   await click(slotButton("cloud", "run"));
   assert.equal(error(), "");

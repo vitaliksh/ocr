@@ -107,7 +107,7 @@ export function setupBackup({
     if (running) return false;
     const root = getDataRoot();
     if (!root) throw new Error("יש לבחור תחילה תיקיית נתונים.");
-    if (!key) throw new Error("יש ליצור קוד שחזור לפני הגיבוי הראשון.");
+    if (!key) throw new Error(pendingCode ? "הקוד עדיין לא נשמר: סמן שרשמת אותו ולחץ על «שמירת הקוד במחשב»." : "יש ליצור קוד שחזור לפני הגיבוי הראשון.");
     const destination = await destinationFor(slot, interactive);
     if (!destination) return false;
     await checkOutsideRoot(root, destination);
