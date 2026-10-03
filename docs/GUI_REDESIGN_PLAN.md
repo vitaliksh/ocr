@@ -1,6 +1,6 @@
 # GUI redesign plan — ANNATERIA
 
-**Written:** 3 October 2026. **Status:** agreed with Vitalik, not started. Supersedes the "step 6" notes in
+**Written:** 3 October 2026. **Status:** agreed with Vitalik. Stage 1 and the lock/reopen task are done (3 Oct); stage 2 is done and awaiting his check (see "Stage 2 as built"). Supersedes the "step 6" notes in
 `MIGRATION_HANDOFF.md`.
 
 ## Decisions (from the discussion)
@@ -68,6 +68,22 @@ Reason: the top bar cannot be designed around a primary action that still depend
   of `body`.
 - Fonts added here; the wordmark and `<title>` change here.
 - Risk: z-index and positioning of the floating photo window and dialogs inside the new shell.
+
+### Stage 2 as built (3 October)
+
+- Done as planned: `tokens.css`, `base.css`, `shell.css`, `shell.js`, self-hosted fonts, top bar (☰, ANNATERIA wordmark,
+  client/month breadcrumb in `#current-client`, open/locked badge `#declaration-badge`, "Reports", "+ Add documents"
+  menu with Telegram upload and Excel import, "⋯" menu with lock / reopen / legacy Rivhit export), scrolling
+  workspace, status bar (`#upload-requirements`, `#status` with info/error colouring).
+- All hard-coded colours of the four old stylesheets were mapped to tokens by a script and the files were
+  pretty-printed; rules replaced by the new files (old header, card, buttons, links, journal heading) were deleted.
+  The table header, rows and dialogs only changed colour; their structure is restyled in stages 5 and 6.
+- Deviations: the Telegram QR panel stays inside the active upload strip (it is needed the moment a session starts)
+  instead of opening on demand; `report-viewer.js` keeps its own inline CSS until stage 7 (it is a separate
+  document and cannot share `tokens.css` without loading it); the draft-export (TXT) item lives in the "⋯" menu.
+- Existing code changed: `app.js` (`updateStartAvailability` sets the badge and hides lock/reopen; `showError` marks
+  the status line as an error; two element lookups), `workspace.css` (`#current-client` no longer hidden, dialog
+  titles inherit their colour), `package.json` (`check` also syntax-checks `shell.js`).
 
 ### Stage 3 — Clients home, client card, navigation model
 

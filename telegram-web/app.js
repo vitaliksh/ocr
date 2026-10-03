@@ -58,6 +58,7 @@ const inactive = document.querySelector("#inactive"),
   createPdf = document.querySelector("#create-pdf"),
   closeDeclarationButton = document.querySelector("#close-declaration"),
   reopenDeclarationButton = document.querySelector("#reopen-declaration"),
+  declarationBadge = document.querySelector("#declaration-badge"),
   openPackage = document.querySelector("#open-package"),
   uploadModeDialog = document.querySelector("#upload-mode-dialog"),
   addToExisting = document.querySelector("#add-to-existing"),
@@ -139,6 +140,7 @@ async function loadBackendVersion() {
   }
 }
 function showError(message) {
+  status.dataset.nextKind = "error";
   status.textContent = message;
   // The open drawer covers #status, so mirror the message where the user is looking.
   if (!workspacesDrawer.hidden) workspaceSummary.textContent = message;
@@ -285,6 +287,9 @@ function updateStartAvailability() {
   start.disabled = !actions.canStart;
   closeDeclarationButton.disabled = !actions.canClose;
   createPdf.disabled = !actions.canClose;
+  declarationBadge.hidden = !currentDeclaration;
+  declarationBadge.textContent = actions.open ? "פתוחה" : "נעולה";
+  declarationBadge.dataset.state = actions.open ? "open" : "locked";
   reopenDeclarationButton.hidden = !actions.canReopen;
   closeDeclarationButton.hidden = actions.canReopen;
   uploadRequirements.textContent = !dataRoot

@@ -1,34 +1,124 @@
 /* Keep the full journal visible on the page while prioritising the useful fields. */
 th:nth-child(1),
-th:nth-child(19) { width: 2%; }
-th:nth-child(2) { width: 11%; }
-th:nth-child(3) { width: 5%; }
-th:nth-child(4) { width: 8%; }
-th:nth-child(5) { width: 7%; }
+th:nth-child(19) {
+  width: 2%;
+}
+
+th:nth-child(2) {
+  width: 11%;
+}
+
+th:nth-child(3) {
+  width: 5%;
+}
+
+th:nth-child(4) {
+  width: 8%;
+}
+
+th:nth-child(5) {
+  width: 7%;
+}
+
 th:nth-child(6),
 th:nth-child(7),
-th:nth-child(8) { width: 4%; }
-th:nth-child(9),
-th:nth-child(10) { width: 5%; }
-th:nth-child(11),
-th:nth-child(14) { width: 4%; }
-th:nth-child(12) { width: 6%; }
-th:nth-child(13) { width: 5%; }
-th:nth-child(15) { width: 15%; }
-th:nth-child(16) { width: 3%; }
-th:nth-child(17) { width: 5%; }
-th:nth-child(18) { width: 2%; }
-th:nth-child(19) { width: 4%; }
+th:nth-child(8) {
+  width: 4%;
+}
 
-td select { width: 100%; min-width: 0; font: inherit; }
-.classification-picker { display: grid; gap: 2px; }
-.classification-picker input { width: 100%; min-width: 0; padding: 2px 4px; border: 1px solid #9facb8; font: inherit; }
-td .photo-button { max-width: 100%; white-space: normal; }
-td.amount-cell { padding: 1px; }
-td.amount-cell input { width: 100%; min-width: 0; padding: 4px 2px; border: 1px solid #9facb8; font: inherit; text-align: inherit; }
-.not-for-export td { background: #e3e7ea !important; color: #66727b; }
-.not-for-export .editable { background: #e3e7ea; }
-.field-swap { float: left; margin: -2px 0 -2px 3px; padding: 1px 4px; border-color: #7e97a8; background: #eef4f7; color: #23485d; font-size: .8rem; }
+th:nth-child(9),
+th:nth-child(10) {
+  width: 5%;
+}
+
+th:nth-child(11),
+th:nth-child(14) {
+  width: 4%;
+}
+
+th:nth-child(12) {
+  width: 6%;
+}
+
+th:nth-child(13) {
+  width: 5%;
+}
+
+th:nth-child(15) {
+  width: 15%;
+}
+
+th:nth-child(16) {
+  width: 3%;
+}
+
+th:nth-child(17) {
+  width: 5%;
+}
+
+th:nth-child(18) {
+  width: 2%;
+}
+
+th:nth-child(19) {
+  width: 4%;
+}
+
+td select {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+}
+
+.classification-picker {
+  display: grid;
+  gap: 2px;
+}
+
+.classification-picker input {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--border-strong);
+  font: inherit;
+}
+
+td .photo-button {
+  max-width: 100%;
+  white-space: normal;
+}
+
+td.amount-cell {
+  padding: 1px;
+}
+
+td.amount-cell input {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 2px;
+  border: 1px solid var(--border-strong);
+  font: inherit;
+  text-align: inherit;
+}
+
+.not-for-export td {
+  background: var(--surface-hover) !important;
+  color: var(--text-muted);
+}
+
+.not-for-export .editable {
+  background: var(--surface-hover);
+}
+
+.field-swap {
+  float: left;
+  margin: -2px 0 -2px 3px;
+  padding: 1px 4px;
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+  color: var(--accent);
+  font-size: .8rem;
+}
 
 .column-resizer {
   position: absolute;
@@ -40,5 +130,9 @@ td.amount-cell input { width: 100%; min-width: 0; padding: 4px 2px; border: 1px 
   cursor: col-resize;
   touch-action: none;
 }
+
 .column-resizer:hover,
-.column-resizer:active { background: #2877a766; }
+.column-resizer:active {
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+

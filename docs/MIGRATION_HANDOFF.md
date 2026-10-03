@@ -164,7 +164,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.8 · 11:03 IDT`. Tests: **168** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.9 · 11:11 IDT`. Tests: **172** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct):** real disk folder, import of the sample files, the new-declaration
@@ -178,7 +178,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
   not supported for imported rows; Rivhit is abandoned); closing a regular declaration is unchanged and still needs the
   TXT template; month names in the ledger are Hebrew, amounts in the ledger keep agorot while other reports use whole
   shekels.
-- Next: **step 6, GUI redesign**, in a fresh session. Ask Vitalik for references or a list of annoyances first; do not
+- GUI redesign is under way: see `GUI_REDESIGN_PLAN.md` (stage 2 shell and tokens are in; stage 3 is next). Earlier note: **step 6, GUI redesign**, in a fresh session. Ask Vitalik for references or a list of annoyances first; do not
   guess a style. Screens to restyle: main page and journal table, side panel (drawer: clients, declarations, settings),
   import dialog, reports dialog and the report viewer window (`report-viewer.js` has its own inline CSS), the dialogs in
   `index.html` (`workspace.css`), the PDF look is deliberately Rivhit-like and is not part of the redesign.

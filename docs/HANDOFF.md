@@ -5,7 +5,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.8 · 11:03 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.9 · 11:11 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -43,7 +43,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The drawer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.03.8 · 11:03 IDT
+גרסת ממשק: 2026.10.03.9 · 11:11 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -73,6 +73,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
 ## Repository map
 
 - `telegram-web/`
+  - Look and shell (GUI redesign, `GUI_REDESIGN_PLAN.md`): `tokens.css` (all colours, fonts, spacing, shadows; the only file with hex colours, enforced by `test/styles.test.mjs`), `base.css` (buttons, fields, badges, status plates, `[hidden]`), `shell.css` (top bar, scrolling `main.workspace`, status bar, `details.menu` menus), `shell.js` (menu behaviour and the info/error kind of `#status`; not loaded by the test harness), `fonts/` (self-hosted Heebo and Frank Ruhl Libre woff2 with their OFL licences). `styles.css`, `workspace.css`, `table-layout.css`, `reports.css` are now pretty-printed and use the tokens; they are restyled screen by screen in later stages.
   - `app.js` — UI, queues, journal, exports, Pass 2, custom-code request headers.
   - `month-format.js` — months are stored as `YYYY-MM` and typed/shown as `MM/YYYY` (`parseMonthText` also accepts `M/YYYY`, `MM.YYYY`, `MM-YYYY`); all month inputs are text fields with that placeholder (native `type="month"` follows the browser language and cannot show MM/YYYY).
   - `confirm-dialog.js` — in-page `confirmDialog` and `dialogResult` (used by `app.js` and `workspace.js` instead of `window.confirm`/`prompt`, which some embedded browsers decline silently; results do not depend on the dialog `close` event).
@@ -232,7 +233,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the drawer and verify frontend `2026.10.03.8 · 11:03 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the drawer and verify frontend `2026.10.03.9 · 11:11 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -256,7 +257,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **168 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **172 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
