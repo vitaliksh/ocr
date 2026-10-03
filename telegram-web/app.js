@@ -328,7 +328,7 @@ async function activateDeclaration(selected) {
   applyBusinessRules();
   status.textContent = currentDeclaration.status === "open" ? "" : "ההצהרה סגורה לקריאה בלבד.";
   updateStartAvailability();
-  setWorkspacesDrawer(false);
+  if (!selected.keepDrawer) setWorkspacesDrawer(false);
   return true;
 }
 function updateWorkspace(selected) {

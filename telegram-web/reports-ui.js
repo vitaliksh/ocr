@@ -12,8 +12,31 @@ export function defaultPeriod(kind, latestMonth, vatPeriod) {
   return { from: `${latestMonth.slice(0, 4)}-01`, to: latestMonth };
 }
 
+// Opens the report in its own tab with a toolbar (print / close), so the user is never stranded in the print preview.
+// Returns false when the browser blocks the window.
+export function openReportViewer(sheet, { open = () => window.open("", "_blank") } = {}) {
+  const viewer = open();
+  if (!viewer) return false;
+  const { document: doc } = viewer;
+  const css = new URL("reports.css", document.baseURI).href;
+  doc.open();
+  doc.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><link rel="stylesheet" href="${css}">`
+    + `<style>body{margin:0;font-family:Arial,"Noto Sans Hebrew",system-ui,sans-serif;background:#edf1f5}`
+    + `.viewer-bar{position:sticky;top:0;display:flex;gap:10px;padding:10px 16px;background:#34566c}`
+    + `.viewer-bar button{padding:7px 14px;font:inherit;font-weight:700;cursor:pointer}`
+    + `@media screen{#report-print{display:block!important;max-width:900px;margin:16px auto;padding:20px;background:#fff}}`
+    + `</style></head><body><header class="viewer-bar"><button id="viewer-print" type="button">הדפסה / שמירה כ‑PDF</button>`
+    + `<button id="viewer-close" type="button">סגירה</button></header><div id="report-print"></div></body></html>`);
+  doc.close();
+  doc.title = sheet.querySelector("h2")?.textContent ?? "דוח";
+  doc.querySelector("#report-print").append(doc.importNode(sheet, true));
+  doc.querySelector("#viewer-print").onclick = () => viewer.print();
+  doc.querySelector("#viewer-close").onclick = () => viewer.close();
+  return true;
+}
+
 // getContext() returns { client, dataRoot, names } or null when no client is selected.
-export function setupReports({ button, dialog, printRoot, getContext, onError }) {
+export function setupReports({ button, dialog, printRoot, getContext, onError, openViewer = openReportViewer }) {
   const part = (id) => dialog.querySelector(`#${id}`);
   const [kind, from, to, vatPeriod, percent, errorLine, preview, show, print] = [
     "reports-kind", "reports-from", "reports-to", "reports-vat-period", "reports-advance-percent", "reports-error",
@@ -89,6 +112,7 @@ export function setupReports({ button, dialog, printRoot, getContext, onError })
       errorLine.textContent = "יש להציג דוח לפני ההדפסה.";
       return;
     }
+    if (openViewer(preview.firstElementChild)) return;
     printRoot.replaceChildren(preview.firstElementChild.cloneNode(true));
     window.print();
   });

@@ -23,3 +23,4 @@
 #excel-import-target{min-height:1.3em;margin:6px 0}#excel-import-target.target-warning{color:#a61b1b;font-weight:700}
 #confirm-dialog-message{white-space:pre-line;margin:12px 0;line-height:1.5}
 .month-field{width:8em;text-align:left;font-variant-numeric:tabular-nums}
+#current-client{display:none}.month-picker{display:flex;gap:12px}.month-picker label{flex:1}

@@ -136,6 +136,11 @@ Usability work done after Vitalik's first manual tests (all in `main`):
 - In-page dialogs (`confirm-dialog.js`) replace `window.confirm`/`prompt`; errors raised while the drawer is open are
   mirrored into the drawer (`showError`).
 - Reports default to the latest month that has data.
+- After Vitalik's second manual pass (2026.10.03.2): new-declaration dialog uses month and year selects (a hidden
+  `MM/YYYY` input still carries the value); creating a month keeps the drawer open (`keepDrawer`); the empty
+  "no client / no declaration" header text and the intro paragraph are gone; the report "PDF" button opens the report in
+  its own tab with print and close buttons (`openReportViewer`), falling back to in-page print if the popup is blocked.
+  A month with no income rows legitimately shows turnover 0 (month 1 of the samples has none; its footer checksums agree).
 
 ## Embedded-browser limits (read before testing in the Claude desktop pane)
 
@@ -153,7 +158,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.1 · 07:59 IDT`. Tests: **153** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.2 · 08:26 IDT`. Tests: **155** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Not yet verified by a person on the published page:** choosing a real disk folder; importing the six sample files into

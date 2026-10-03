@@ -15,7 +15,7 @@ import { memoryDirectory } from "./memory-directory.mjs";
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "index.html"), "utf8");
 const now = "2026-10-02T10:00:00.000Z";
 
-async function setup({ declarations = ["2026-01", "2026-02"], context = true } = {}) {
+async function setup({ declarations = ["2026-01", "2026-02"], context = true, openViewer } = {}) {
   const { window } = new JSDOM(html, { url: "https://vitaliksh.github.io/ocr/" });
   Object.assign(globalThis, { document: window.document, window });
   const dialog = window.document.querySelector("#reports-dialog");
@@ -37,6 +37,7 @@ async function setup({ declarations = ["2026-01", "2026-02"], context = true } =
     printRoot: window.document.querySelector("#report-print"),
     getContext: () => (context ? { client, dataRoot, names: {} } : null),
     onError: (message) => errors.push(message),
+    ...(openViewer ? { openViewer } : {}),
   });
   const q = (id) => dialog.querySelector(`#${id}`);
   const open = async () => { window.document.querySelector("#open-reports").click(); await new Promise((r) => setTimeout(r, 80)); };
@@ -117,4 +118,33 @@ test("диалог отчётов: все четыре вида отчётов �
     await click("reports-show");
     assert.match(q("reports-preview").textContent, new RegExp(title));
   }
+});
+
+test("просмотр отчёта: отдельное окно с кнопками печати и закрытия", async () => {
+  await setup();
+  const { openReportViewer } = await import("../reports-ui.js");
+  const viewer = new JSDOM("<!doctype html><title>x</title>").window;
+  let printed = 0;
+  let closed = 0;
+  viewer.print = () => { printed += 1; };
+  viewer.close = () => { closed += 1; };
+  const sheet = globalThis.document.createElement("article");
+  sheet.innerHTML = "<h2>דוח בדיקה</h2><p>גוף</p>";
+  assert.equal(openReportViewer(sheet, { open: () => viewer }), true);
+  assert.equal(viewer.document.title, "דוח בדיקה");
+  assert.match(viewer.document.querySelector("#report-print").textContent, /גוף/);
+  viewer.document.querySelector("#viewer-print").click();
+  viewer.document.querySelector("#viewer-close").click();
+  assert.deepEqual([printed, closed], [1, 1]);
+  assert.equal(openReportViewer(sheet, { open: () => null }), false);
+});
+
+test("диалог отчётов: кнопка PDF открывает окно просмотра, а не печать в текущей странице", async () => {
+  const shown = [];
+  const { open, click, printed } = await setup({ openViewer: (sheet) => { shown.push(sheet.textContent); return true; } });
+  await open();
+  await click("reports-show");
+  await click("reports-print");
+  assert.equal(shown.length, 1);
+  assert.equal(printed(), 0);
 });
