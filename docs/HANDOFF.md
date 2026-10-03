@@ -1,7 +1,9 @@
-# Handoff — Rivhit document intake
+# Handoff — ANNATERIA (formerly Rivhit document intake)
 
-**Updated:** 3 October 2026 (Excel migration, reports and usability work added; see `MIGRATION_HANDOFF.md`).
-The Rivhit-intake sections below were last re-verified on 19 September 2026.
+**Updated:** 3 October 2026. Since then the app is called **ANNATERIA** and its product is **client management plus reports**;
+the Rivhit TXT export is deprecated (code kept, hidden in the "⋯" menu). Read in this order: this file, `MIGRATION_HANDOFF.md`
+(Excel migration, reports, working agreements), `GUI_REDESIGN_PLAN.md` (what the new interface is and why).
+The Rivhit-intake sections below were last re-verified on 19 September 2026 and describe the legacy export.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
@@ -12,13 +14,13 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026.
 
 ## Product and hard boundaries
 
-This is a local-first browser application for preparing Israeli Rivhit expense-journal imports. It is a bookkeeping aid, not accounting or tax advice.
+This is a local-first browser application that keeps a bookkeeper's clients and monthly declarations on the Windows PC and produces the VAT, advances, profit-and-loss and classification reports from them. It started as a preparation tool for Israeli Rivhit expense-journal imports (still available as a deprecated export). It is a bookkeeping aid, not accounting or tax advice.
 
 1. The bookkeeper selects a local data root, client, and monthly declaration in Chrome/Edge on Windows.
 2. Documents arrive from an iPhone through Telegram or are selected as a local PDF.
 3. Gemini Pass 1 produces editable draft rows.
 4. The bookkeeper reviews and edits every row.
-5. Open declarations export repeatedly as PDF + Rivhit TXT.
+5. Reports (VAT, advances, profit and loss, ledger) are computed from all declarations of the client and shown as a page, a child window and Rivhit-style PDFs saved in `<client>/reports/`. The old PDF + Rivhit TXT export of an open declaration is deprecated and sits in the "⋯" menu.
 6. Closing appends text-only closed history exactly once, then locks the table (no export since 3 Oct: `finalExport = "no-export"`; the Rivhit TXT export is deprecated and needs no template for upload or closing).
 7. Gemini Pass 2 improves accounting judgement from relevant local closed history, but never source facts.
 
@@ -108,19 +110,46 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
 
 Do not restore the deliberately removed Python application or exploratory package flow.
 
+## Screens and navigation (ANNATERIA)
+
+One window, no router: `clients-home.js` keeps exactly one of four views visible in `main.workspace` and sets `body[data-view]`.
+
+| View | Element | How to get there |
+| --- | --- | --- |
+| Clients (start screen) | `#clients-view` | "כל הלקוחות" in the sidebar, breadcrumb "לקוחות" |
+| Client card | `#client-view` | click a client (list or sidebar); breadcrumb on the client name |
+| Reports | `#reports-view` | "דוחות" in the sidebar, a tile on the client card, the "דוחות" button in the journal |
+| Journal | `#journal-view` | click a declaration (card or sidebar) |
+
+Shell: top bar (☰ sidebar toggle, breadcrumb, open/locked badge, then — journal only — "דוחות", "+ הוספת מסמכים" with the groups
+Telegram / from the computer (PDF, Excel), and "⋯" with lock/reopen and the legacy Rivhit export), the docked sidebar (clients and
+the expanded client's declarations, settings, versions; collapsible, resizable), the scrolling workspace and a status bar
+(`#upload-requirements`, `#status`). The wordmark ANNATERIA sits alone in the top-left corner. The bottom grid row is reserved for
+the future AI assistant dock. Settings (Gemini model, data folder with a typed full path, Rivhit template, classification codes,
+AI connection) are a dialog. Journal: dark sticky header, "עמודות" chooser, "סינון" menu, sticky labelled summary bar
+(turnover, expenses, VAT lines, payable or refund, rows to review / outside the reports). Dialogs share one template; Enter
+presses the primary action. Declarations are **locked** (UI) = storage status `closed`; "פתיחה מחדש" needs a reason.
+
+Browser-side per-viewer storage (never the source of truth): `annateria-sidebar-v1` (collapsed, width),
+`annateria-column-widths-v2` (column weights), `rivhit-passkey-credential-id-v1`, IndexedDB `rivhit-local-workspaces-v1`
+(directory handles). Per data root: `common/ui-settings.json` (hidden journal columns, typed folder path).
+
 ## Local data model
 
 ~~~text
 <data-root>/
 ├─ common/
-│  ├─ PKUDA_AI_TEST.TXT
+│  ├─ PKUDA_AI_TEST.TXT          (legacy Rivhit export only; optional)
 │  ├─ custom-rivhit-mapping.json
-│  └─ chart-of-accounts.json   (created by the Excel import, see MIGRATION_HANDOFF.md)
+│  ├─ chart-of-accounts.json     (created by the Excel import, see MIGRATION_HANDOFF.md)
+│  └─ ui-settings.json           (hidden journal columns, typed folder path)
 └─ clients/<client>/
    ├─ workspace.json
-   ├─ history.jsonl
+   ├─ history.jsonl              (rows of locked declarations; removed on reopen, written again on lock)
+   ├─ report-settings.json       (VAT period, advance percent)
+   ├─ reports/                   (saved report PDFs)
    └─ declarations/YYYY-MM/
-      ├─ declaration.json
+      ├─ declaration.json        (status open|closed, finalExport, reopenLog [{ at, reason }])
       ├─ draft-table.json
       ├─ images/
       └─ exports/YYYY-MM-DD_HH-mm[_NNN]/
@@ -246,9 +275,13 @@ Recommended short production check:
 
 Next phase (Excel migration, reports, GUI): see [`MIGRATION_HANDOFF.md`](MIGRATION_HANDOFF.md).
 
-1. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row.
-2. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
-3. Closed-declaration recovery: done on 3 Oct as reopen-with-reason (`reopenLog`); the log is plain JSON, not tamper-proof.
+1. **Backups** — still the biggest risk: the local folder is the only copy of the client data.
+2. Store the client tax ID (עוסק מורשה) so the report PDFs can show it (data-model change; the client card has room for it).
+3. The AI assistant dock (reserved empty row in the shell grid; the journal rows can be selected for it later).
+4. Remove the Rivhit export code (`rivhit-export.js`, the template handling, `invoices.pdf` path) once the client confirms it is not needed.
+5. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row (legacy question).
+6. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
+7. Closed-declaration recovery: done on 3 Oct as reopen-with-reason (`reopenLog`); the log is plain JSON, not tamper-proof.
 
 ## Validation and deployment
 

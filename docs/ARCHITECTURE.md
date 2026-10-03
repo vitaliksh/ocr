@@ -2,10 +2,12 @@
 
 ## Product goal
 
-Rivhit document intake is a local-first browser tool for preparing Israeli
-expense-journal imports. A bookkeeper receives invoice photos through Telegram,
-reviews AI-produced draft rows, and produces a marked PDF plus a Rivhit TXT
-import. It assists bookkeeping; it does not replace accounting judgement.
+ANNATERIA (formerly Rivhit document intake) is a local-first browser tool for a
+bookkeeper's clients. Documents arrive through Telegram, as a PDF or as a one-time
+Excel migration; AI-produced draft rows are reviewed in a monthly journal, and the VAT,
+advances, profit-and-loss and ledger reports are computed from the local data. The
+older Rivhit TXT export is deprecated. It assists bookkeeping; it does not replace
+accounting judgement.
 
 ## Deployed components
 
@@ -101,7 +103,9 @@ unit tests.
   declaration and passkey flows; `workspace.js` owns the workspace logic behind the sidebar;
   `declaration-core.js` and `declaration-store.js` own lifecycle and local
   persistence; `history-ranker.js` selects safe pass-2 history; `rivhit-export.js`
-  produces the CP1255 186-column TXT; `pdf-report.js` produces the PDF.
+  produces the CP1255 186-column TXT (deprecated); `pdf-report.js` produces the legacy PDF.
+  The interface modules (shell, sidebar, clients views, journal columns and toolbar,
+  reports page, dialogs) are listed in `docs/HANDOFF.md`, "Repository map".
 - `cloudflare-worker/` — deployable Worker. `src/index.js` has routes, Telegram,
   Gemini, `UploadSession` and `DeviceRegistry` Durable Objects. `DEPLOYMENT.md`
   records the non-secret production baseline.

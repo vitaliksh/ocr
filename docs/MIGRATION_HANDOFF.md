@@ -1,8 +1,9 @@
 # Handoff — Rivhit → OCR migration, Excel import and reports
 
 **Written:** 2 October 2026. **Updated:** 3 October 2026.
-**Status:** steps 1–5 are implemented, tested, pushed to `main` and manually checked by Vitalik on the published page
-(two rounds of fixes, 3 Oct). Step 6 (GUI redesign) is next and has not started. See "Status and what is left" at the end.
+**Status:** steps 1–5 (migration, reports) and step 6 (the GUI redesign, now the product **ANNATERIA**) are implemented, tested
+and pushed to `main`. Vitalik checked steps 1–5 and most of the redesign on the published page; stages 7–8 (reports page,
+keyboard polish) await his check. See "Status and what is left" at the end and `GUI_REDESIGN_PLAN.md`.
 **Primary user:** Vitalik (Russian, informal). UI stays Hebrew. Read `AGENTS.md` first.
 
 ## Client request (three items)
@@ -167,17 +168,18 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 - `main` contains everything above. Frontend marker at this handoff: `2026.10.03.20 · 13:34 IDT`. Tests: **222** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
-- **Verified by Vitalik on the published page (3 Oct):** real disk folder, import of the sample files, the new-declaration
-  dialog, the drawer staying open, the reports dialog, the viewer window and saving PDFs. Not explicitly reported as checked:
+- **Verified by Vitalik on the published page (3 Oct, with the interface of that time):** real disk folder, import of the
+  sample files, the new-declaration dialog, the reports, the viewer window and saving PDFs; later stages 1–6 of the redesign
+  were checked as they were delivered. Not explicitly reported as checked:
   replace and close-immediately on a real folder, all four reports against the Rivhit PDFs figure by figure, and the
   in-page confirm dialogs for delete / archive / close declaration.
 - Expected figures with the six sample files (Vitalik's own data, not in the repo): VAT July–August turnover 46,490, output
   VAT 8,368, input VAT 1,598, payable 6,770; advances at 12 % 5,579; P&L year income 172,046; every figure matches the Rivhit
   PDFs except class 217 (8,693), whose single transaction is in none of the files.
-- Known limitations: imported rows have no source image, so `invoices.pdf` export fails for them (Rivhit TXT export is
-  not supported for imported rows; Rivhit is abandoned); closing a regular declaration is unchanged and still needs the
-  TXT template; month names in the ledger are Hebrew, amounts in the ledger keep agorot while other reports use whole
-  shekels.
+- Known limitations: imported rows have no source image, so the legacy `invoices.pdf` export fails for them (Rivhit TXT
+  export is not supported for imported rows; Rivhit is abandoned); locking a declaration no longer needs the template or an
+  export (changed 3 Oct); month names in the ledger are Hebrew, amounts in the ledger keep agorot while other reports use
+  whole shekels; the browser never reveals the full path of the data folder (the user can type it in the settings).
 - **GUI redesign (step 6) is done** (3 Oct, stages 1-8, see `GUI_REDESIGN_PLAN.md`): ANNATERIA shell with tokens and
   fonts, clients home and client card, docked sidebar, journal table with a column chooser, dialog template and the Excel
   wizard, reports as a page, plus lock/reopen of declarations. The PDF look of the reports is deliberately Rivhit-like and

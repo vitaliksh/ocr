@@ -4,13 +4,11 @@ This is the static, secret-free GitHub Pages application. It creates a
 temporary Telegram upload session, receives images from the Cloudflare Worker,
 sends them to Gemini pass 1 and presents the resulting journal rows for review.
 
-The browser currently contains an exploratory local-workspace and PDF-package
-foundation. It can select a local folder, validate a shared Rivhit template,
-create a marked PDF package and reopen that package. It does **not** yet create
-the Rivhit TXT, retain durable client history, run the second AI pass, or
-implement the agreed workspace layout (a docked sidebar replaced the drawer in October 2026). Do not treat the exploratory
-package format as the final workspace contract; see
-[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
+The browser keeps clients, monthly declarations (locked or open), the journal, reports and the (deprecated) Rivhit
+export in a local folder chosen with the File System Access API. The interface is ANNATERIA: a docked sidebar, a
+clients start screen and client cards, a journal with a column chooser, reports as a page, and one dialog template.
+The file map, the screens and the data model are in [`../docs/HANDOFF.md`](../docs/HANDOFF.md); the design decisions in
+[`../docs/GUI_REDESIGN_PLAN.md`](../docs/GUI_REDESIGN_PLAN.md).
 
 No image, PDF, TXT or client history is sent from this client to GitHub Pages.
 The Worker receives images only for temporary delivery and Gemini processing.

@@ -1,9 +1,10 @@
-# Rivhit document intake
+# ANNATERIA (formerly Rivhit document intake)
 
-Browser application for receiving invoice images through Telegram, extracting
-draft expense records with Gemini, reviewing them in a Rivhit journal and
-creating local accounting artefacts. It is a bookkeeping aid; a qualified
-bookkeeper remains responsible for the final tax treatment and Rivhit import.
+Browser application for a bookkeeper's clients: it receives invoice images through
+Telegram or a PDF, extracts draft expense records with Gemini, keeps monthly
+declarations in a journal and produces the VAT, advances, profit-and-loss and
+ledger reports locally. The Rivhit TXT export is deprecated. It is a bookkeeping
+aid; a qualified bookkeeper remains responsible for the final tax treatment.
 
 The live browser UI is hosted on GitHub Pages. Telegram transport and Gemini
 vision processing run in a Cloudflare Worker. Client data, completed PDFs,
