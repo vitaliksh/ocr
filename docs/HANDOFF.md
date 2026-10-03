@@ -1,10 +1,11 @@
 # Handoff — Rivhit document intake
 
-**Updated:** 19 September 2026, 17:49 IDT
+**Updated:** 3 October 2026 (Excel migration, reports and usability work added; see `MIGRATION_HANDOFF.md`).
+The Rivhit-intake sections below were last re-verified on 19 September 2026.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `a7053eb` — makes `812` mobile phone, adds `888` internet, and writes the selected declaration month to every Rivhit TXT record.
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.1 · 07:59 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.

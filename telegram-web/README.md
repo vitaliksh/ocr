@@ -20,6 +20,16 @@ scan its temporary Telegram QR, then approve Windows Hello. Later refinements
 use Windows Hello only; they never open Telegram or expose a Gemini key in the
 browser.
 
+## Excel migration and reports
+
+The journal can import Rivhit's printed journal (`.xlsx`, one file per month) through **ייבוא מ‑Excel**: parsing is
+deterministic, amounts are stored as source values, and the classification names are mapped through a per-root chart of
+accounts (`common/chart-of-accounts.json`). **דוחות** produces the VAT, advances, profit-and-loss and classification
+ledger reports from the declarations in the local folder; the PDF comes from the browser's print dialog. SheetJS is
+loaded on demand from its official CDN (`cdn.sheetjs.com`). Formats and formulas:
+[`../docs/EXCEL_IMPORT_SPEC.md`](../docs/EXCEL_IMPORT_SPEC.md), [`../docs/REPORTS_SPEC.md`](../docs/REPORTS_SPEC.md);
+status and testing notes: [`../docs/MIGRATION_HANDOFF.md`](../docs/MIGRATION_HANDOFF.md).
+
 ## Local check
 
 From the repository root:

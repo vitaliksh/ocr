@@ -1,6 +1,8 @@
 # Handoff — Rivhit → OCR migration, Excel import and reports
 
-**Written:** 2 October 2026. **Status:** analysis and decisions only; no code written for this phase.
+**Written:** 2 October 2026. **Updated:** 3 October 2026.
+**Status:** steps 1–5 are implemented, tested and pushed to `main`; waiting for Vitalik's manual check on the published
+page; step 6 (GUI polish) has not started. See "Status and what is left" at the end.
 **Primary user:** Vitalik (Russian, informal). UI stays Hebrew. Read `AGENTS.md` first.
 
 ## Client request (three items)
@@ -96,37 +98,82 @@ All figures below are derived from the Excel rows; the PDFs are the expected val
   Expenses are shown negative here.
 
 Verified relations (use as the migration test): per-class sums from the Excel files equal the ledger totals for every
-class except code 217 (one row without VAT that is in no provided file — probably month 3 or 7; ask the client for the
-missing file). Business insurance and property tax are excluded from the "inputs" aggregate while zero-VAT parking
+class except code 217 (one row without VAT that is in no provided file; months 3 and 7 were merged into other
+declarations, so no file exists). Business insurance and property tax are excluded from the "inputs" aggregate while zero-VAT parking
 rows are included — reproduce this through the type in the chart of accounts, and confirm with the footer checksums.
 
 ## Open questions
 
-- ~~Missing month files (3 and 7)~~ Closed: those months were merged into neighbouring declarations; no files exist (see `REPORTS_SPEC.md`).
-- Does the report layout need a one-to-one visual match, or only the same figures? (Said "Rivhit format acceptable";
-  confirm the extent before drawing PDFs.)
-- Closed-declaration recovery (reason, immutable audit, preserve prior final export).
-- Backups (postponed).
-- ~~Excel library choice~~ Decided: SheetJS 0.20.3 (Apache-2.0) from its official CDN `cdn.sheetjs.com`, loaded on
-  demand like pdf.js; `xlsx` from the same tarball is a dev dependency for tests. The npm registry copy is outdated.
+- Closed-declaration recovery (reason, immutable audit, preserve prior final export). Undecided.
+- Backups (postponed on 2 Oct, still the biggest risk: the local folder is the only copy).
+- Equipment VAT line of the VAT report is not verified against a Rivhit report that has equipment (no sample).
 
-## Proposed order of work
+Closed: missing month files 3 and 7 (those months were merged into neighbouring declarations; no files exist);
+visual 1:1 layout (decided: same figures and section layout, shown as HTML, PDF through the browser's print);
+Excel library (SheetJS 0.20.3 from `cdn.sheetjs.com`, loaded on demand; `xlsx` from the same tarball is a dev
+dependency for tests; the npm registry copy is outdated).
 
-1. **Done:** Excel format spec [`EXCEL_IMPORT_SPEC.md`](EXCEL_IMPORT_SPEC.md) and synthetic fixtures (`telegram-web/test/excel-journal-fixture.mjs`). Real files only for a local, git-ignored check.
-2. **Done:** pure parser `telegram-web/excel-journal.js` with tests. Checked locally on all six sample files: 220 rows, no errors, all footer checksums match.
-3. **Done (storage, seed, matching; no UI):** `telegram-web/chart-of-accounts.js`. Root-level file `common/chart-of-accounts.json`, schema 1: `{ "accounts": { "203": { "name": "אחזקה", "type": "expense" } } }`. Verified locally: all class names of the six sample files resolve and checksum 5 matches with the seed types. **Left for step 4:** the wizard confirmation and manual mapping of unknown names (`matchClassNames`, `addAccount`).
-4. **Done, awaiting manual check on the published page:** import wizard (`excel-import-flow.js`, `excel-import-ui.js`, button "ייבוא מ‑Excel" in the journal header). Imports into the selected client; month from the file header, editable; unknown class names get a code and type; optional close without export. Verified in the browser pane with synthetic data on real directory handles (origin-private FS) and the live SheetJS CDN; not yet with a user-picked folder.
-5. Reports from the app's own data; compare to the four PDFs. **Calculations done** (`reports.js`, [`REPORTS_SPEC.md`](REPORTS_SPEC.md); figures match the PDFs except class 217, whose transaction is in no file). Data loading, per-client settings, HTML rendering and the "דוחות" dialog are done; PDF is the browser's "Save as PDF" from the print view (decided 2 Oct). Awaiting manual check on the published page.
-6. GUI polish.
+## Work done (in order)
 
-## State of the repository at handoff
+Details of each module are in `docs/HANDOFF.md` (repository map); specs: [`EXCEL_IMPORT_SPEC.md`](EXCEL_IMPORT_SPEC.md),
+[`REPORTS_SPEC.md`](REPORTS_SPEC.md).
 
-- `main` is pushed up to `9b16e4d` (app.js and Worker formatted, 60 frontend and 30 Worker tests green).
-- **Uncommitted:** `.gitignore` (adds `pdf examples/` and `new examples/`) and this file. `CLAUDE.md` is untracked
-  (left to the owner).
-- `AGENTS.md` was rewritten for this project; keep to it (minimal diffs, one task per commit, tests and docs in the
-  same commit, no new globals).
-- Test harness for `app.js`: `telegram-web/test/app-harness.mjs` loads the real `index.html` and `app.js` in jsdom (esbuild
-  bundles in memory and exposes selected functions), so no test hooks are needed in `app.js`. Run `npm ci` first.
-- Known gaps in tests: income-report classification (needs File System Access), export buttons, Telegram webhook,
-  `UploadSession`, 429 retry, `workspace.js` and other modules with very long lines.
+1. Excel format spec and synthetic fixtures (`test/excel-journal-fixture.mjs`; real files only for local checks).
+2. Pure parser `excel-journal.js`: deterministic, footer checksums, errors versus warnings.
+3. Chart of accounts `chart-of-accounts.js`: `common/chart-of-accounts.json` (root level, schema 1), seed from the ledger.
+4. Import wizard: `excel-import.js` (rows), `excel-import-store.js` (write, replace with backup, close without export),
+   `excel-import-flow.js`, `excel-import-ui.js`, SheetJS adapter `excel-journal-reader.js`.
+5. Reports: `reports.js`, `report-data.js`, `reports-view.js`, `reports-ui.js`, `reports.css`; "דוחות" dialog, print to PDF.
+
+Usability work done after Vitalik's first manual tests (all in `main`):
+
+- Import dialog shows the state of the chosen month (missing / empty / N rows / closed); replacing an open declaration
+  with rows needs a checkbox and first copies the old table to `draft-table.before-import-<time>.json`.
+- `app.js` detaches the open declaration (`onBeforeCommit`) before an import, otherwise `activateDeclaration`/autosave
+  overwrote the imported rows.
+- New client form has a month field; "+ הצהרה חדשה…" asks for the month in a dialog.
+- All months are typed and shown as `MM/YYYY` (`month-format.js`); storage and folder names stay `YYYY-MM`.
+- In-page dialogs (`confirm-dialog.js`) replace `window.confirm`/`prompt`; errors raised while the drawer is open are
+  mirrored into the drawer (`showError`).
+- Reports default to the latest month that has data.
+
+## Embedded-browser limits (read before testing in the Claude desktop pane)
+
+The built-in browser of the Claude desktop app cannot run the folder-based flows by itself:
+
+- `showDirectoryPicker()` never resolves (no dialog), so a data root cannot be chosen there. Vitalik must test in Edge or
+  Chrome.
+- `window.confirm` returns `false` immediately and `prompt` is not shown (hence the in-page dialogs).
+- The `close` event of `<dialog>` is not delivered; never rely on it (`dialogResult` resolves from the button press).
+
+A scripted end-to-end run in the pane is possible by stubbing the picker with an origin-private folder:
+`window.showDirectoryPicker = async () => await (await navigator.storage.getDirectory()).getDirectoryHandle("e2e", { create: true })`.
+This tests the logic on real `FileSystemDirectoryHandle`s but not a user-picked disk folder. Serve `telegram-web/` with a
+static server that sends `text/javascript` for `.mjs` (Python's `http.server` does not).
+
+## Status and what is left
+
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.1 · 07:59 IDT`. Tests: **153** frontend,
+  **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
+- `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
+- **Not yet verified by a person on the published page:** choosing a real disk folder; importing the six sample files into
+  one client; replace and close-immediately; the four reports against the Rivhit PDFs; print to PDF; the in-page confirm
+  dialogs (delete / archive / close declaration / switch declaration); the `MM/YYYY` fields.
+- Expected figures with the six sample files (Vitalik's own data, not in the repo): VAT July–August turnover 46,490, output
+  VAT 8,368, input VAT 1,598, payable 6,770; advances at 12 % 5,579; P&L year income 172,046; every figure matches the Rivhit
+  PDFs except class 217 (8,693), whose single transaction is in none of the files.
+- Known limitations: imported rows have no source image, so `invoices.pdf` export fails for them (Rivhit TXT export is
+  not supported for imported rows; Rivhit is abandoned); closing a regular declaration is unchanged and still needs the
+  TXT template; month names in the ledger are Hebrew, amounts in the ledger keep agorot while other reports use whole
+  shekels.
+- Next: step 6, GUI polish (import dialog, reports, side panel, table). Ask Vitalik for references or a list of
+  annoyances first. Then backups and closed-declaration recovery when he decides.
+
+## Working agreements (from `CLAUDE.md` and `AGENTS.md`)
+
+- Answer Vitalik in Russian, informally, briefly; code, comments and commits in English.
+- Minimal diffs, new behaviour through optional parameters, list changes to existing functions in the report.
+- Commit only on request and push only when told ("push it"); one task per commit; tests and docs in the same commit;
+  bump the frontend marker in `index.html` (and `docs/HANDOFF.md`) before a push that changes `telegram-web/`.
+- Real client data (`new examples/`) never goes into code, tests, docs or commits.
+- Test harness for `app.js`: `telegram-web/test/app-harness.mjs` (jsdom + esbuild in memory). Run `npm ci` first.
