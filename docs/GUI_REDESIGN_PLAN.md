@@ -1,0 +1,180 @@
+# GUI redesign plan — ANNATERIA
+
+**Written:** 3 October 2026. **Status:** agreed with Vitalik, not started. Supersedes the "step 6" notes in
+`MIGRATION_HANDOFF.md`.
+
+## Decisions (from the discussion)
+
+- Product name: **ANNATERIA**, Latin script, as a wordmark in the top bar and in `<title>`. UI text stays Hebrew, RTL.
+  Name availability (domain, trademark) has not been checked.
+- Main product: **clients DB management + reports**. The Rivhit TXT export is deprecated; its code stays for now but
+  leaves the main UI (menu "⋯", marked legacy) and must no longer gate anything.
+- Style: modern and solid, "Claude Light": warm off-white background, white surfaces, warm grey borders, terracotta
+  accent. No dark theme, no phone support (desktop only).
+- Terracotta is **only** for the primary button and the active item. Status colours are a separate fixed set
+  (success green, warning amber, error cool red, info blue-grey) so an accent is never mistaken for a warning.
+  Text on terracotta fills must pass WCAG AA (use about `#C15F3C` or darker, not the light `#D97757`).
+- Fonts: Heebo (UI) and Frank Ruhl Libre (headings, wordmark), both OFL, **self-hosted** woff2 in `telegram-web/fonts/`.
+- Layout: full-height app shell, only the middle region scrolls. A bottom dock slot is reserved for the future AI
+  assistant, but **nothing is rendered there until the assistant exists** (Vitalik: no placeholder text on the front
+  page).
+- Sidebar: persistent, collapsible to an icon rail, width changeable by dragging, state remembered.
+- Table columns: user-selectable (see stage 5). Hidden never means deleted.
+- Closing a declaration no longer needs the Rivhit template and creates no export (stage 1).
+- New start screen "Clients" and a client card (stage 3).
+
+## Rules for every stage
+
+- One stage = one commit (tests and docs in the same commit), pushed with a bumped frontend marker.
+- Existing element ids are never renamed (`app.js`, `test/app-harness.mjs` and other tests query them).
+- `app.js` addresses table cells by index (`row.cells[N]`, about 55 places). **Cells are never removed or reordered**;
+  columns are hidden with CSS only.
+- Old CSS rules of a screen are deleted in the same commit that restyles it. New CSS is written readable (multi-line),
+  not minified.
+- Real client data from `new examples/` never appears in code, tests, docs or screenshots that get committed.
+- Each stage ends with Vitalik checking it in Edge on the published page (the Claude pane cannot pick folders,
+  see `MIGRATION_HANDOFF.md`). I can check layout in the pane with the OPFS stub.
+- Changes to existing functions are listed in the stage report.
+
+## Stages
+
+### Stage 1 — Decouple from the Rivhit template (behaviour, not visual)
+
+Reason: the top bar cannot be designed around a primary action that still depends on a deprecated file.
+
+- `updateStartAvailability` (`app.js`): `start` and `closeDeclarationButton` no longer require `hasCanonicalTemplate()`;
+  the "choose a Rivhit template" requirement text goes away.
+- Close handler (`app.js`, `closeDeclarationButton` click): keep the confirm, require at least one active row, save the
+  draft, call `finalizeDeclaration` with a marker `finalExport` (new value `"no-export"`, like the existing
+  `"excel-import"`), lock the table, append history once. No PDF/TXT, no export folder.
+- Confirm text changes ("lock the table and update history").
+- The draft-export button keeps working when a template exists; it is moved out of sight in stage 2.
+- Tests: close without a template, history appended once, closed table locked.
+- Risk: `finalExport` is validated as non-empty only (`declaration-core.js`), so no schema change.
+
+### Stage 2 — Tokens, base components, app shell
+
+- `tokens.css`: colours, type scale, spacing 4/8/12/16/24/32, radii, shadows, focus ring.
+- `base.css`: buttons (primary / secondary / quiet / danger), inputs, selects, checkboxes, badges, status plates
+  (success, warning, error, info), icons (one inline SVG set instead of emoji).
+- Shell (grid, 100dvh): top bar · [sidebar | main] · status bar. The third row is reserved for the AI dock.
+  - Top bar: ANNATERIA wordmark, breadcrumb "client › month" (`#current-client`, `#journal-title` content),
+    declaration badge (open / closed), the primary action "add documents" (menu: Telegram, PDF, Excel), stop-processing
+    button (`#stop-processing`) when active, "⋯" menu (close declaration, legacy Rivhit export).
+  - Upload card shrinks into the add-documents menu and a compact status strip; the QR panel opens on demand.
+  - `#status` and `#upload-requirements` move into the bottom status bar; same ids.
+- `report-viewer.js` inline `STYLE` reads the same tokens (stage 7 restyles it fully).
+- Print fallback (`reports.css`, `body>*:not(#report-print)`) must keep working: `#report-print` stays a direct child
+  of `body`.
+- Fonts added here; the wordmark and `<title>` change here.
+- Risk: z-index and positioning of the floating photo window and dialogs inside the new shell.
+
+### Stage 3 — Clients home, client card, navigation model
+
+New views, switched by state (no router needed): **Clients** (start screen), **Client** (card), **Journal**.
+
+- Clients home: table with name, activity, last declaration, number of open declarations, status (active / archived);
+  search; "new client" button. Replaces the empty "no client selected" state.
+- Client card: details (name, activity, business kind), reporting settings (VAT period, advance percent, from
+  `report-settings.json`), declarations list grouped by year (month, open/closed badge, row count loaded lazily so no
+  schema change), actions (new declaration, import Excel, reports, archive / delete in the "⋯" menu with confirm).
+- A slot for the client tax ID (עוסק מורשה) is left in the layout. **Storing it is a data-model change and a separate
+  decision**; until then the PDFs keep showing the name only.
+- Data comes from `workspace.js` (`activeClients`, `scanClientsFromRoot`); new module for the view logic, pure parts
+  testable.
+- Risk: `workspace.js` keeps client-list rendering in one very long line (about 6 KB); the client and declaration
+  rendering is rewritten here. Before the rewrite, add characterisation tests in the harness (select client, select
+  declaration, archive, delete, new declaration with `keepDrawer`).
+
+### Stage 4 — Sidebar (replaces the drawer)
+
+- Persistent, collapsible, resizable, state in `localStorage` (a pure per-viewer convenience).
+- Content: client switcher with search; the active client's declarations (year groups, badges); navigation
+  "Clients · Journal · Import · Reports · Settings"; at the bottom the data-folder indicator (name, green dot) and the
+  version lines (`גרסת ממשק`, `גרסת שרת`).
+- Settings leave the tree and become a **settings dialog**: Gemini model, Rivhit template (legacy, optional),
+  classification codes, passkey connection. Ids unchanged (`#model`, `#select-template`, `#manage-classifications`,
+  `#register-passkey`, ...).
+- Destructive actions only inside "⋯" with confirmation.
+- Drawer markup, backdrop and `.drawer-open` handling are removed; `app.js` drawer wiring (`setWorkspacesDrawer`,
+  `#open-workspaces-drawer`) is adapted. Ids that tests use stay.
+
+### Stage 5 — Journal table (largest effect, highest risk)
+
+Column model:
+
+- A pure `table-column-model.js`: ordered list of `{ key, labelHe, group, defaultVisible, locked }` with the same
+  order as today's 19 cells, so the key ↔ index map is explicit and testable.
+- Groups: **core** (code, date, details, supplier, gross, net, VAT; locked), **tax** (supplier ID, reference,
+  allocation number, VAT recognised %, expense recognised %), **AI** (agent decision, confidence), **service**
+  (image, for export, delete, status).
+- Default "Minimum" preset: #, code, date, details, supplier, reference, gross, net, VAT, status, image.
+  Hidden by default: supplier ID, allocation number, both recognition %, agent decision, confidence, for export.
+  Presets: Minimum, Full, Reset. Changing the default set is a one-line edit.
+- Persistence: `common/ui-settings.json` in the data root (schema 1) plus a small store module; fallback to defaults
+  when absent.
+
+Controls (combination chosen after discussion):
+
+1. "Columns" button in the table toolbar: popover with grouped checkboxes and presets.
+2. A hide icon in every header (visible on hover).
+3. A hidden column stays as a narrow stub with a "+" in its header, so it can be restored in place.
+
+Implementation constraints:
+
+- Hide via `<col>` (`visibility: collapse`, or a stub width) plus a generated `<style>` using the column keys; no cell
+  is touched, so `row.cells[N]` keeps working. A short spike at the start of the stage must confirm
+  `visibility: collapse` on `<col>` with `table-layout: fixed` in Chromium (RTL), otherwise fall back to per-cell classes.
+- `table-columns.js` (resizers, widths in `localStorage` key `rivhit-table-column-widths-v3`) changes minimally: skip
+  hidden neighbours when redistributing width; bump the key to `v4` because the semantics change.
+- Validation errors that concern a hidden column get a "show column" link in the error list
+  (`export-validation-dialog`, row errors in the close/import paths).
+- A subtle marker in the VAT cell when recognition is not 100 % (so partial recognition is visible while its columns
+  are hidden).
+
+Look and behaviour:
+
+- Table inside the scrolling middle region: sticky header, sticky first columns (#, code), `tabular-nums` right-aligned
+  amounts, no wrapping of numbers, quiet inputs (border only on hover and focus, Excel-like), status badges instead of
+  coloured text, delete as a row icon with confirm instead of a red button per row, row selection (kept in state for
+  the future AI assistant).
+- Toolbar above the table: filters (all · needs review · duplicates · not for export), columns button, search.
+- Totals footer: row count, net, VAT, gross of the visible rows.
+- Risks: sticky plus fixed layout plus RTL; hover and zebra contrast; `renderRow`-style code creates cells in several
+  places (`addPendingRecord` and the restore path), so the class/data attributes for column keys are added in one
+  helper called from both.
+
+### Stage 6 — Dialogs and the Excel import wizard
+
+- One dialog template: title without a coloured bar, quiet close icon, label above field, footer with the primary
+  action first and "cancel" next to it, fixed size that never changes when a button is pressed, result plates inside
+  the dialog next to the button.
+- Restyle all `workspace-dialog`s (confirm, new declaration, client menu, custom classification, classification
+  management, export validation / result, upload mode, passkey).
+- Excel import: stepper "File → Month → Check → Done" in the same fixed-size dialog; logic in `excel-import-flow.js`
+  unchanged, `excel-import-ui.js` reorganised only in how it shows the existing elements. Existing ids stay.
+
+### Stage 7 — Reports dialog and viewer
+
+- Reports dialog: two columns (parameters, preview), larger preview, status next to the buttons.
+- `report-viewer.js` styles from the shared tokens (buttons, bar, fonts). The generated PDF stays Rivhit-like and is not
+  touched.
+
+### Stage 8 — Clean-up and polish
+
+- Delete dead rules and the remaining minified blocks; one CSS entry list in `index.html`.
+- Keyboard: Esc and Enter consistent in every dialog, visible focus everywhere, tooltips on icon buttons.
+- Short empty and loading states with an action (no filler text on the front page).
+- Update `docs/HANDOFF.md`, `docs/MIGRATION_HANDOFF.md`, `telegram-web/README.md` (screens, files, ids, column model).
+
+## Order and checkpoints
+
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. After stages 2, 4 and 5 Vitalik reviews a screenshot or the published page before the
+next stage. Stage 5 is the largest and starts with the column-collapse spike.
+
+## Out of scope (separate decisions)
+
+- Client tax ID storage; the AI assistant itself; backups; closed-declaration recovery.
+- Removing the Rivhit export code (only hidden from the UI here).
+- Any change to the PDF look of the reports.
+- Checking that the name ANNATERIA is free.
