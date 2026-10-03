@@ -197,6 +197,9 @@ New views, switched by state (no router needed): **Clients** (start screen), **C
   (temporal dead zone). The setup now runs after the declarations, and a failing summary no longer breaks filtering.
   The jsdom harness bundles to an IIFE and does not enforce this, so such ordering errors need a real browser run.
 
+- 3 Oct, later: the table search was removed (never used). The settings dialog has a "full path (display only)"
+  field stored in `ui-settings.json`, because the File System Access API exposes only the folder name.
+
 ### Stage 5 plan text
 
 — Journal table (largest effect, highest risk)

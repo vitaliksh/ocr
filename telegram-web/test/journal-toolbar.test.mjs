@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
-import { FILTERS, matchesFilter, matchesSearch, rowKinds, setupJournalToolbar } from "../journal-toolbar.js";
+import { FILTERS, matchesFilter, rowKinds, setupJournalToolbar } from "../journal-toolbar.js";
 import { formatShekels, summarise, summaryItems } from "../journal-summary.js";
 
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "index.html"), "utf8").replace(/<script\b[^>]*><\/script>/g, "");
@@ -27,14 +27,7 @@ function page() {
     records.append(row);
     return row;
   };
-  const search = {
-    toggle: document.querySelector("#journal-search-toggle"),
-    box: document.querySelector("#journal-search-box"),
-    input: document.querySelector("#journal-search"),
-    count: document.querySelector("#journal-search-count"),
-    clear: document.querySelector("#journal-search-clear"),
-  };
-  return { dom, document, records, addRow, search, menu: document.querySelector("#filter-menu"), summaryElement: document.querySelector("#journal-summary") };
+  return { dom, document, records, addRow, menu: document.querySelector("#filter-menu"), summaryElement: document.querySelector("#journal-summary") };
 }
 
 test("a row needs review only when flagged, included, and either photographed or a possible duplicate", () => {
@@ -47,24 +40,12 @@ test("a row needs review only when flagged, included, and either photographed or
   assert.deepEqual(FILTERS.map((filter) => filter.key), ["all", "review", "duplicate", "excluded"]);
 });
 
-test("search looks at cell text and at field values", () => {
-  const { addRow, document } = page();
-  const row = addRow({ id: "a", supplier: "בזק" });
-  const input = document.createElement("input");
-  input.value = "118.00";
-  row.cells[8].append(input);
-  assert.equal(matchesSearch(row, "בזק"), true);
-  assert.equal(matchesSearch(row, "118.00"), true);
-  assert.equal(matchesSearch(row, "nope"), false);
-  assert.equal(matchesSearch(row, "  "), true);
-});
-
 test("the filter menu lists counts, filters rows, and disables empty filters", () => {
   const { records, addRow, menu } = page();
   addRow({ id: "a" });
   addRow({ id: "b", state: "review", duplicate: true });
   addRow({ id: "c", excluded: true });
-  const toolbar = setupJournalToolbar({ records, menu, search: null, summary: null });
+  const toolbar = setupJournalToolbar({ records, menu, summary: null });
   const labels = () => [...menu.querySelectorAll(".menu-panel button")].map((button) => button.textContent);
   assert.deepEqual(labels(), ["הכול · 3", "לבדיקה · 1", "כפילויות · 1", "מחוץ לדוחות · 1"]);
   menu.querySelector('[data-filter="duplicate"]').click();
@@ -80,38 +61,14 @@ test("the filter menu lists counts, filters rows, and disables empty filters", (
   assert.equal(menu.querySelector('[data-filter="duplicate"]').disabled, true);
 });
 
-test("search shows how many rows were found, filters them and closes with Escape or the clear button", () => {
-  const { dom, records, addRow, search, menu } = page();
-  addRow({ id: "a", supplier: "בזק" });
-  addRow({ id: "b", supplier: "פז" });
-  addRow({ id: "c", supplier: "בזק שירות" });
-  setupJournalToolbar({ records, menu, search, summary: null });
-  assert.equal(search.box.hidden, true);
-  search.toggle.click();
-  assert.equal(search.box.hidden, false);
-  search.input.value = "בזק";
-  search.input.dispatchEvent(new dom.window.Event("input"));
-  assert.deepEqual([...records.rows].map((row) => row.hidden), [false, true, false]);
-  assert.equal(search.count.textContent, "נמצאו 2 מתוך 3");
-  search.input.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  assert.equal(search.box.hidden, true);
-  assert.equal(search.count.textContent, "");
-  assert.deepEqual([...records.rows].map((row) => row.hidden), [false, false, false]);
-  search.toggle.click();
-  search.input.value = "פז";
-  search.input.dispatchEvent(new dom.window.Event("input"));
-  search.clear.click();
-  assert.deepEqual([...records.rows].map((row) => row.hidden), [false, false, false]);
-});
-
 test("the summary bar shows labelled figures, flags review and excluded rows, and hides when the journal is empty", () => {
   const { records, addRow, menu, summaryElement } = page();
   const figures = { rows: 1, turnover: 10000, expenses: 200, outputVat: 1800, inputVat: 36, equipmentVat: 0, payable: 1764 };
-  setupJournalToolbar({ records, menu, search: null, summary: { element: summaryElement, compute: () => (records.querySelector("tr") ? figures : { rows: 0 }) } });
+  setupJournalToolbar({ records, menu, summary: { element: summaryElement, compute: () => (records.querySelector("tr") ? figures : { rows: 0 }) } });
   assert.equal(summaryElement.hidden, true);
   addRow({ id: "a", state: "review" });
   addRow({ id: "b", excluded: true });
-  const toolbar = setupJournalToolbar({ records, menu: null, search: null, summary: { element: summaryElement, compute: () => figures } });
+  const toolbar = setupJournalToolbar({ records, menu: null, summary: { element: summaryElement, compute: () => figures } });
   toolbar.refresh();
   assert.equal(summaryElement.hidden, false);
   const text = [...summaryElement.querySelectorAll(".summary-item")].map((item) => item.textContent);

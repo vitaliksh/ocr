@@ -1,4 +1,4 @@
-// Journal toolbar: filter menu, search and the summary bar. Works on the rendered rows only. A row "needs review" when
+// Journal toolbar: filter menu and the summary bar. Works on the rendered rows only. A row "needs review" when
 // its status cell has the review class and it is not left out of the reports and either has a source image or was
 // flagged as a possible duplicate (rows imported from Excel have no image and nothing to review). "Excluded" rows are
 // unchecked ones; the reports leave them out.
@@ -23,23 +23,10 @@ export function matchesFilter(row, filter) {
   return filter === "all" || rowKinds(row)[filter] === true;
 }
 
-// Text a user can see or edit in the row, inputs and selects included.
-export function rowText(row) {
-  const fields = [...row.querySelectorAll("input:not([type=checkbox]), select")].map((field) => (field.tagName === "SELECT" ? field.selectedOptions[0]?.textContent ?? "" : field.value));
-  return `${row.textContent} ${fields.join(" ")}`.toLowerCase();
-}
-
-export function matchesSearch(row, query) {
-  const needle = String(query ?? "").trim().toLowerCase();
-  return !needle || rowText(row).includes(needle);
-}
-
-// menu: <details class="menu"> with a <summary> and a .menu-panel; search: { toggle, box, input, count, clear };
-// summary: { element, compute() -> figures from journal-summary.js }
-export function setupJournalToolbar({ records, menu, search, summary }) {
+// menu: <details class="menu"> with a <summary> and a .menu-panel; summary: { element, compute() -> figures from journal-summary.js }
+export function setupJournalToolbar({ records, menu, summary }) {
   const doc = records.ownerDocument;
   let filter = "all";
-  let query = "";
   const dataRows = () => [...records.querySelectorAll("tr[data-document-id]")];
 
   const panel = menu?.querySelector(".menu-panel");
@@ -52,21 +39,6 @@ export function setupJournalToolbar({ records, menu, search, summary }) {
     panel?.append(button);
     return { key, label, button };
   });
-
-  function closeSearch() {
-    query = "";
-    if (search) { search.input.value = ""; search.box.hidden = true; }
-    refresh();
-  }
-  if (search) {
-    search.toggle.addEventListener("click", () => {
-      search.box.hidden = false;
-      search.input.focus();
-    });
-    search.input.addEventListener("input", () => { query = search.input.value; refresh(); });
-    search.input.addEventListener("keydown", (event) => { if (event.key === "Escape") closeSearch(); });
-    search.clear.addEventListener("click", closeSearch);
-  }
 
   function refresh() {
     const rows = dataRows();
@@ -81,19 +53,13 @@ export function setupJournalToolbar({ records, menu, search, summary }) {
     if (summaryLabel) {
       summaryLabel.dataset.active = filter === "all" ? "" : FILTERS.find((item) => item.key === filter).label;
     }
-    let shown = 0;
-    for (const row of rows) {
-      const visible = matchesFilter(row, filter) && matchesSearch(row, query);
-      row.hidden = !visible;
-      if (visible) shown += 1;
-    }
-    if (search) search.count.textContent = query.trim() ? `נמצאו ${shown} מתוך ${rows.length}` : "";
+    for (const row of rows) row.hidden = !matchesFilter(row, filter);
     if (summary?.element) {
       let parts = [];
       try {
         parts = summaryItems(summary.compute(), { review: counts.review, excluded: counts.excluded });
       } catch {
-        // A failing summary must not break filtering and search.
+        // A failing summary must not break filtering.
       }
       summary.element.hidden = parts.length === 0;
       summary.element.replaceChildren(...parts.map((part) => {

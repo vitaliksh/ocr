@@ -308,20 +308,10 @@ tr[data-image-file=""] .retry:not(.history-refine) {
   text-align: center;
 }
 
-/* Toolbar: search, filter menu */
+/* Toolbar: filter menu */
 .journal-heading {
   flex-wrap: wrap;
   align-items: center;
-}
-
-.search-box {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
-}
-
-#journal-search {
-  width: 220px;
 }
 
 .filter-panel button[aria-checked="true"] {

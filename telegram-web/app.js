@@ -380,7 +380,13 @@ function clearActiveDeclaration(declarationId) {
 async function switchDataRoot(selected) {
   await saveCurrentDraft();
   dataRoot = selected;
-  readUiSettings(selected).then((settings) => journalColumns.setHidden(settings.hiddenColumns, { persist: false })).catch(() => {});
+  folderPathInput.value = "";
+  readUiSettings(selected)
+    .then((settings) => {
+      journalColumns.setHidden(settings.hiddenColumns, { persist: false });
+      folderPathInput.value = settings.folderPath;
+    })
+    .catch(() => {});
   clientsHome.showHome();
   dataRootTitle.textContent = `תיקיית נתונים: ${selected.name}`;
   workspace = null;
@@ -475,16 +481,13 @@ const workspaceControls = setupWorkspaceControls({
   onError: showError,
 });
 clientsHome.bind(workspaceControls, { onError: showError });
+const folderPathInput = document.querySelector("#data-root-path");
+folderPathInput.addEventListener("change", () => {
+  if (dataRoot) saveUiSettings(dataRoot, { folderPath: folderPathInput.value }).catch((error) => showError(`לא ניתן לשמור את הנתיב: ${error.message}`));
+});
 setupJournalToolbar({
   records: document.querySelector("#records"),
   menu: document.querySelector("#filter-menu"),
-  search: {
-    toggle: document.querySelector("#journal-search-toggle"),
-    box: document.querySelector("#journal-search-box"),
-    input: document.querySelector("#journal-search"),
-    count: document.querySelector("#journal-search-count"),
-    clear: document.querySelector("#journal-search-clear"),
-  },
   summary: {
     element: document.querySelector("#journal-summary"),
     compute: () =>

@@ -72,6 +72,19 @@ test("ui settings: defaults, normalisation and a round trip through the data roo
   assert.deepEqual((await readUiSettings(dataRoot)).hiddenColumns, []);
 });
 
+test("ui settings keep the typed folder path and saving one field leaves the other alone", async () => {
+  const dataRoot = memoryDirectory("root");
+  assert.equal((await readUiSettings(dataRoot)).folderPath, "");
+  await saveUiSettings(dataRoot, { hiddenColumns: ["agent"] });
+  await saveUiSettings(dataRoot, { folderPath: "  D:\ocr_data  " });
+  const settings = await readUiSettings(dataRoot);
+  assert.deepEqual([settings.hiddenColumns, settings.folderPath], [["agent"], "D:\ocr_data"]);
+  await saveUiSettings(dataRoot, { hiddenColumns: [] });
+  assert.equal((await readUiSettings(dataRoot)).folderPath, "D:\ocr_data");
+  assert.equal(normaliseUiSettings({ folderPath: "x".repeat(400) }).folderPath.length, 260);
+  assert.equal(normaliseUiSettings({ folderPath: 5 }).folderPath, "");
+});
+
 function journal() {
   const dom = new JSDOM(html.replace(/<script\b[^>]*><\/script>/g, ""), { url: "https://vitaliksh.github.io/ocr/" });
   const { document } = dom.window;
