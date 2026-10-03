@@ -1,8 +1,8 @@
 # Handoff — Rivhit → OCR migration, Excel import and reports
 
 **Written:** 2 October 2026. **Updated:** 3 October 2026.
-**Status:** steps 1–5 are implemented, tested and pushed to `main`; waiting for Vitalik's manual check on the published
-page; step 6 (GUI polish) has not started. See "Status and what is left" at the end.
+**Status:** steps 1–5 are implemented, tested, pushed to `main` and manually checked by Vitalik on the published page
+(two rounds of fixes, 3 Oct). Step 6 (GUI redesign) is next and has not started. See "Status and what is left" at the end.
 **Primary user:** Vitalik (Russian, informal). UI stays Hebrew. Read `AGENTS.md` first.
 
 ## Client request (three items)
@@ -167,9 +167,10 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 - `main` contains everything above. Frontend marker at this handoff: `2026.10.03.5 · 09:07 IDT`. Tests: **162** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
-- **Not yet verified by a person on the published page:** choosing a real disk folder; importing the six sample files into
-  one client; replace and close-immediately; the four reports against the Rivhit PDFs; print to PDF; the in-page confirm
-  dialogs (delete / archive / close declaration / switch declaration); the `MM/YYYY` fields.
+- **Verified by Vitalik on the published page (3 Oct):** real disk folder, import of the sample files, the new-declaration
+  dialog, the drawer staying open, the reports dialog, the viewer window and saving PDFs. Not explicitly reported as checked:
+  replace and close-immediately on a real folder, all four reports against the Rivhit PDFs figure by figure, and the
+  in-page confirm dialogs for delete / archive / close declaration.
 - Expected figures with the six sample files (Vitalik's own data, not in the repo): VAT July–August turnover 46,490, output
   VAT 8,368, input VAT 1,598, payable 6,770; advances at 12 % 5,579; P&L year income 172,046; every figure matches the Rivhit
   PDFs except class 217 (8,693), whose single transaction is in none of the files.
@@ -177,14 +178,27 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
   not supported for imported rows; Rivhit is abandoned); closing a regular declaration is unchanged and still needs the
   TXT template; month names in the ledger are Hebrew, amounts in the ledger keep agorot while other reports use whole
   shekels.
-- Next: step 6, GUI polish (import dialog, reports, side panel, table). Ask Vitalik for references or a list of
-  annoyances first. Then backups and closed-declaration recovery when he decides.
+- Next: **step 6, GUI redesign**, in a fresh session. Ask Vitalik for references or a list of annoyances first; do not
+  guess a style. Screens to restyle: main page and journal table, side panel (drawer: clients, declarations, settings),
+  import dialog, reports dialog and the report viewer window (`report-viewer.js` has its own inline CSS), the dialogs in
+  `index.html` (`workspace.css`), the PDF look is deliberately Rivhit-like and is not part of the redesign.
+- UX preferences Vitalik has voiced so far (apply them to the redesign): no placeholder text on the front page; a dialog
+  must not change size or turn into something else when a button is pressed; results of an action must be visible next to
+  the button (status lines are green/red boxes); new things open in a separate child window, not a browser tab; he
+  never wants to be stranded in a print preview.
+- Constraints for the redesign: UI text stays Hebrew and RTL; do not rename existing element ids (tests and `app.js`
+  query them; `test/app-harness.mjs` loads the real `index.html`); styles are spread over `styles.css`, `workspace.css`,
+  `table-layout.css`, `reports.css` (some are single-line minified); a bump of the frontend marker is needed per push.
+- Later, when he decides: backups (biggest risk, local folder is the only copy) and closed-declaration recovery.
+- Not done on purpose: client tax ID (עוסק מורשה) is not stored, so the report PDFs show only the client name; the
+  ledger PDF lacks line number / value date / counter account / reference 2 columns (no such data in the app).
 
-## Working agreements (from `CLAUDE.md` and `AGENTS.md`)
+## Working agreements (from `CLAUDE.md`, `AGENTS.md` and Vitalik's instructions)
 
 - Answer Vitalik in Russian, informally, briefly; code, comments and commits in English.
 - Minimal diffs, new behaviour through optional parameters, list changes to existing functions in the report.
-- Commit only on request and push only when told ("push it"); one task per commit; tests and docs in the same commit;
+- Since 3 Oct Vitalik wants **commit and push after every finished task that he is asked to test** (no separate
+  "push it"); one task per commit; tests and docs in the same commit;
   bump the frontend marker in `index.html` (and `docs/HANDOFF.md`) before a push that changes `telegram-web/`.
 - Real client data (`new examples/`) never goes into code, tests, docs or commits.
 - Test harness for `app.js`: `telegram-web/test/app-harness.mjs` (jsdom + esbuild in memory). Run `npm ci` first.
