@@ -62,10 +62,21 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     "excel-import-client", "excel-import-target", "excel-import-replace-label", "excel-import-replace",
     "excel-import-replace-text",
   ].map(part);
+  const [nextButton, backButton, resultLine] = ["excel-import-next", "excel-import-back", "excel-import-result"].map(part);
   let prepared = null;
   let context = null;
   let target = null;
   let targetCheck = 0;
+
+  // The dialog keeps one size; the step only decides which panel and which buttons are shown (see dialogs.css).
+  const STEP_ORDER = ["file", "check", "month", "done"];
+  const setStep = (step) => {
+    dialog.dataset.step = step;
+    dialog.querySelectorAll("[data-step-name]").forEach((item) => {
+      const position = STEP_ORDER.indexOf(item.dataset.stepName) - STEP_ORDER.indexOf(step);
+      item.dataset.state = position === 0 ? "current" : position < 0 ? "done" : "todo";
+    });
+  };
 
   const updateRunState = () => {
     const blocked = !target || target.state === "closed" || (target.state === "rows" && !replaceBox.checked);
@@ -100,6 +111,9 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     details.hidden = true;
     errorLine.textContent = "";
     run.disabled = true;
+    nextButton.disabled = true;
+    resultLine.textContent = "";
+    setStep("file");
     closeNow.checked = false;
     target = null;
     targetCheck += 1;
@@ -136,6 +150,8 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       return row;
     }));
     details.hidden = false;
+    nextButton.disabled = Boolean(prepared.errors.length || !prepared.rows.length);
+    setStep("check");
     refreshTarget();
   };
 
@@ -146,6 +162,8 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     dialog.showModal();
   });
 
+  nextButton.addEventListener("click", () => setStep("month"));
+  backButton.addEventListener("click", () => setStep(dialog.dataset.step === "month" ? "check" : "file"));
   month.addEventListener("input", refreshTarget);
   month.addEventListener("change", refreshTarget);
   replaceBox.addEventListener("change", updateRunState);
@@ -154,6 +172,8 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     errorLine.textContent = "";
     details.hidden = true;
     run.disabled = true;
+    nextButton.disabled = true;
+    setStep("file");
     if (!file.files?.length) return;
     try {
       prepared = await prepareImport(file.files[0], { dataRoot: context.dataRoot, reserved: context.reserved, loadLibrary });
@@ -183,8 +203,9 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
         client: context.client,
         reserved: context.reserved,
       });
-      dialog.close();
       await onImported(result, iso);
+      resultLine.textContent = `יובאו ${prepared.rows.length} שורות להצהרה ${formatMonth(iso)}${closeNow.checked ? " וההצהרה ננעלה" : ""}.`;
+      setStep("done");
     } catch (error) {
       errorLine.textContent = error.message;
       refreshTarget();

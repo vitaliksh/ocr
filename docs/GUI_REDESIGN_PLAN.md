@@ -257,6 +257,20 @@ Look and behaviour:
 - Excel import: stepper "File → Month → Check → Done" in the same fixed-size dialog; logic in `excel-import-flow.js`
   unchanged, `excel-import-ui.js` reorganised only in how it shows the existing elements. Existing ids stay.
 
+### Stage 6 as built (3 October)
+
+- `dialogs.css` replaces `workspace.css` (deleted): one template for all 14 dialogs. Reserved result line, plates for
+  errors, labels above fields, primary action first and cancel next to it, destructive actions at the far end.
+- Excel import is a wizard: file (picking the file parses it and moves on), check (summary, problems, unknown
+  accounts; "next" is disabled when the file has errors), declaration (month, state of the target, replace, lock
+  immediately), done (result plate and a close button). Back and cancel are always available; the dialog is 660 x 640
+  at every step. Verified in the browser with a generated `.xlsx` from the test fixture: 8 rows imported, journal opened.
+- Deviations: the settings and other dialogs got only the shared template (no stepper where there is no sequence);
+  the reports dialog layout (two columns) is stage 7.
+- Existing code changed: `excel-import-ui.js` (step handling, no longer closes the dialog after a successful import;
+  `onImported` is still called first), `index.html` (wizard markup), test for the finished import (dialog stays open
+  on the done step).
+
 ### Stage 7 — Reports dialog and viewer
 
 - Reports dialog: two columns (parameters, preview), larger preview, status next to the buttons.

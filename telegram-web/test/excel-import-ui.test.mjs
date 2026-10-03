@@ -72,7 +72,9 @@ test("диалог импорта: файл разбирается, показы
   q("excel-import-run").click();
   for (let i = 0; i < 100 && !calls.imported.length; i += 1) await new Promise((r) => setTimeout(r, 10));
   assert.equal(calls.imported[0].month, "2026-08");
-  assert.equal(dialog.open, false);
+  assert.equal(dialog.open, true);
+  assert.equal(dialog.dataset.step, "done");
+  assert.match(q("excel-import-result").textContent, /^יובאו \d+ שורות להצהרה 08\/2026/);
   assert.equal((await loadDeclaration(client.directory, "2026-08")).draft.rows.length, SAMPLE_ROWS.length);
   assert.equal((await readChartOfAccounts(dataRoot))[203].name, "אחזקה");
 });
@@ -185,4 +187,46 @@ test("диалог импорта: месяц вводится как MM/YYYY (�
   for (let i = 0; i < 100 && !calls.imported.length; i += 1) await new Promise((r) => setTimeout(r, 20));
   assert.equal(calls.imported[0].month, "2026-03");
   assert.equal((await loadDeclaration(client.directory, "2026-03")).draft.rows.length, SAMPLE_ROWS.length);
+});
+
+test("мастер импорта: шаги файл → проверка → хозяйство → итог, кнопки и размер диалога не меняются", async () => {
+  const { dialog, calls, pick, q, open } = await setup();
+  const steps = () => [...dialog.querySelectorAll("[data-step-name]")].map((item) => item.dataset.state);
+  const visibleButtons = () => [...dialog.querySelectorAll(".dialog-actions [data-for]")].filter((button) => button.dataset.for.split(" ").includes(dialog.dataset.step)).map((button) => button.textContent);
+  open();
+  assert.equal(dialog.dataset.step, "file");
+  assert.deepEqual(steps(), ["current", "todo", "todo", "todo"]);
+  assert.deepEqual(visibleButtons(), ["ביטול"]);
+  await pick(buildJournalGrid({ month: 8 }));
+  assert.equal(dialog.dataset.step, "check");
+  assert.deepEqual(steps(), ["done", "current", "todo", "todo"]);
+  assert.deepEqual(visibleButtons(), ["הבא", "חזרה", "ביטול"]);
+  assert.equal(q("excel-import-next").disabled, false);
+  q("excel-import-next").click();
+  assert.equal(dialog.dataset.step, "month");
+  assert.deepEqual(visibleButtons(), ["ייבוא", "חזרה", "ביטול"]);
+  q("excel-import-back").click();
+  assert.equal(dialog.dataset.step, "check");
+  q("excel-import-back").click();
+  assert.equal(dialog.dataset.step, "file");
+  await pick(buildJournalGrid({ month: 8 }));
+  q("excel-import-next").click();
+  q("excel-import-run").click();
+  for (let i = 0; i < 100 && !calls.imported.length; i += 1) await new Promise((r) => setTimeout(r, 10));
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(dialog.dataset.step, "done");
+  assert.deepEqual(steps(), ["done", "done", "done", "current"]);
+  assert.deepEqual(visibleButtons(), ["סגירה"]);
+  open();
+  assert.equal(dialog.dataset.step, "file");
+  assert.equal(q("excel-import-result").textContent, "");
+});
+
+test("мастер импорта: файл с ошибками остаётся на шаге проверки и не пускает дальше", async () => {
+  const { dialog, pick, q, open } = await setup();
+  open();
+  await pick(buildJournalGrid({ footer: { totalVat: "1.00" } }));
+  assert.equal(dialog.dataset.step, "check");
+  assert.equal(q("excel-import-next").disabled, true);
+  assert.match(q("excel-import-problems").textContent, /שגיאה/);
 });

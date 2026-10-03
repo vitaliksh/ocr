@@ -321,6 +321,8 @@ body[data-view="clients"] #nav-clients {
   display: grid;
   gap: var(--s2);
   justify-items: start;
+  padding-bottom: var(--s4);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .data-root-setting h3 {
