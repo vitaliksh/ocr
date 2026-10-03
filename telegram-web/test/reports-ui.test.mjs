@@ -15,7 +15,7 @@ import { memoryDirectory } from "./memory-directory.mjs";
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "index.html"), "utf8");
 const now = "2026-10-02T10:00:00.000Z";
 
-async function setup({ declarations = ["2026-01", "2026-02"], context = true, openViewer } = {}) {
+async function setup({ declarations = ["2026-01", "2026-02"], context = true, openViewer, renderPdf } = {}) {
   const { window } = new JSDOM(html, { url: "https://vitaliksh.github.io/ocr/" });
   Object.assign(globalThis, { document: window.document, window });
   const dialog = window.document.querySelector("#reports-dialog");
@@ -38,6 +38,7 @@ async function setup({ declarations = ["2026-01", "2026-02"], context = true, op
     getContext: () => (context ? { client, dataRoot, names: {} } : null),
     onError: (message) => errors.push(message),
     ...(openViewer ? { openViewer } : {}),
+    ...(renderPdf ? { renderPdf } : {}),
   });
   const q = (id) => dialog.querySelector(`#${id}`);
   const open = async () => { window.document.querySelector("#open-reports").click(); await new Promise((r) => setTimeout(r, 80)); };
@@ -76,8 +77,8 @@ test("диалог отчётов: пустая последняя деклар�
   assert.match(q("reports-error").textContent, /אין תנועות/);
 });
 
-test("диалог отчётов: показ отчёта НДС за два месяца, настройки сохраняются, печать копирует отчёт", async () => {
-  const { q, open, click, client, printRoot, printed } = await setup();
+test("диалог отчётов: показ отчёта НДС за два месяца (без окна просмотра), настройки сохраняются", async () => {
+  const { q, open, click, client } = await setup();
   await open();
   q("reports-vat-period").value = "bimonthly";
   q("reports-vat-period").dispatchEvent(new globalThis.window.Event("change"));
@@ -87,13 +88,10 @@ test("диалог отчётов: показ отчёта НДС за два м
   assert.match(q("reports-preview").textContent, /דוח מס ערך מוסף/);
   assert.match(q("reports-preview").textContent, /20,000/);
   assert.deepEqual(await readReportSettings(client.directory), { vatPeriod: "bimonthly", advancePercent: 12 });
-  await click("reports-print");
-  assert.equal(printed(), 1);
-  assert.match(printRoot.textContent, /דוח מס ערך מוסף/);
 });
 
-test("диалог отчётов: авансы требуют процент, неверный период отклоняется, печать без отчёта", async () => {
-  const { q, open, click, printed } = await setup();
+test("диалог отчётов: авансы требуют процент, неверный период отклоняется, сохранение всех тоже", async () => {
+  const { q, open, click } = await setup();
   await open();
   q("reports-kind").value = "advances";
   await click("reports-show");
@@ -102,8 +100,7 @@ test("диалог отчётов: авансы требуют процент, �
   q("reports-to").value = "2026-01";
   await click("reports-show");
   assert.match(q("reports-error").textContent, /תקופה תקינה/);
-  await click("reports-print");
-  assert.equal(printed(), 0);
+  await click("reports-save-all");
   assert.match(q("reports-error").textContent, /תקופה תקינה/);
 });
 
@@ -120,33 +117,52 @@ test("диалог отчётов: все четыре вида отчётов �
   }
 });
 
-test("просмотр отчёта: отдельное окно с кнопками печати и закрытия", async () => {
-  await setup();
-  const { openReportViewer } = await import("../reports-ui.js");
-  const viewer = new JSDOM("<!doctype html><title>x</title>").window;
-  let printed = 0;
-  let closed = 0;
-  viewer.print = () => { printed += 1; };
-  viewer.close = () => { closed += 1; };
-  const sheet = globalThis.document.createElement("article");
-  sheet.innerHTML = "<h2>דוח בדיקה</h2><p>גוף</p>";
-  assert.equal(openReportViewer(sheet, { open: () => viewer }), true);
-  assert.equal(viewer.document.title, "דוח בדיקה");
-  assert.match(viewer.document.querySelector("#report-print").textContent, /גוף/);
-  viewer.document.querySelector("#viewer-print").click();
-  viewer.document.querySelector("#viewer-close").click();
-  assert.deepEqual([printed, closed], [1, 1]);
-  assert.equal(openReportViewer(sheet, { open: () => null }), false);
-});
+const fakePdf = async (pages) => ({ pdf: new Blob([`pages:${pages.length}`], { type: "application/pdf" }), images: pages.map(() => new Blob(["x"])) });
 
-test("диалог отчётов: показ и PDF открывают окно просмотра, диалог не меняется", async () => {
-  const shown = [];
-  const { q, open, click, printed } = await setup({ openViewer: (sheet) => { shown.push(sheet.textContent); return true; } });
+function fakeViewer() {
+  const viewer = { shown: null, failed: null, closed: 0 };
+  viewer.show = (details) => { viewer.shown = details; };
+  viewer.fail = (message) => { viewer.failed = message; };
+  viewer.close = () => { viewer.closed += 1; };
+  return viewer;
+}
+
+test("диалог отчётов: показ открывает окно просмотра, диалог не получает встроенный предпросмотр", async () => {
+  const viewer = fakeViewer();
+  const { q, open, click, client } = await setup({ openViewer: () => viewer, renderPdf: fakePdf });
   await open();
   await click("reports-show");
-  assert.equal(shown.length, 1);
   assert.equal(q("reports-preview").childElementCount, 0);
-  await click("reports-print");
-  assert.equal(shown.length, 2);
-  assert.equal(printed(), 0);
+  assert.equal(q("reports-error").textContent, "");
+  assert.equal(viewer.shown.title, "דוח מס ערך מוסף");
+  assert.equal(viewer.shown.pageUrls.length, 1);
+  assert.match(await viewer.shown.save(), /reports\/vat_02-2026_02-2026\.pdf/);
+  assert.deepEqual([...client.directory.children.get("reports").children.keys()], ["vat_02-2026_02-2026.pdf"]);
+  const win = { showSaveFilePicker: async (options) => ({ name: options.suggestedName, createWritable: async () => ({ write: async () => {}, close: async () => {} }) }) };
+  assert.match(await viewer.shown.saveAs(win), /vat_02-2026_02-2026\.pdf/);
+});
+
+test("диалог отчётов: ошибка при построении закрывает окно просмотра и показывается пользователю", async () => {
+  const viewer = fakeViewer();
+  const { q, open, click } = await setup({ openViewer: () => viewer, renderPdf: async () => { throw new Error("boom"); } });
+  await open();
+  await click("reports-show");
+  assert.equal(q("reports-error").textContent, "boom");
+  assert.equal(viewer.failed, "boom");
+});
+
+test("диалог отчётов: «שמירת כל המסמכים» сохраняет четыре отчёта, без процента — три", async () => {
+  const { q, open, click, client } = await setup({ renderPdf: fakePdf });
+  await open();
+  q("reports-advance-percent").value = "12";
+  await click("reports-save-all");
+  const names = () => [...client.directory.children.get("reports").children.keys()].sort();
+  assert.deepEqual(names(), ["advances_02-2026_02-2026.pdf", "ledger_02-2026_02-2026.pdf", "profit-loss_02-2026_02-2026.pdf", "vat_02-2026_02-2026.pdf"]);
+  assert.match(q("reports-status").textContent, /נשמרו 4/);
+  client.directory.children.get("reports").children.clear();
+  q("reports-advance-percent").value = "";
+  await click("reports-save-all");
+  assert.equal(names().length, 3);
+  assert.match(q("reports-status").textContent, /נשמרו 3/);
+  assert.match(q("reports-error").textContent, /מקדמות/);
 });

@@ -1,9 +1,14 @@
-// Reports dialog: pick a report and period, preview it, print it (browser "Save as PDF").
+// Reports dialog: pick a report and period, show it in a child window, save it (or all reports) as PDF.
 import { readChartOfAccounts } from "./chart-of-accounts.js";
 import { formatMonth, parseMonthText } from "./month-format.js";
 import { loadReportDeclarations, readReportSettings, saveReportSettings } from "./report-data.js";
 import { advancesReport, classificationLedger, inPeriod, periodContaining, profitLoss, reportEntries, vatReport } from "./reports.js";
+import { openReportWindow } from "./report-viewer.js";
+import { layoutReport, renderReportPdf } from "./reports-pdf.js";
 import { renderAdvancesReport, renderLedgerReport, renderProfitLossReport, renderVatReport } from "./reports-view.js";
+
+const REPORT_FILES = { vat: "vat", advances: "advances", profitLoss: "profit-loss", ledger: "ledger" };
+const PDF_TYPES = [{ description: "PDF", accept: { "application/pdf": [".pdf"] } }];
 
 // Default period: the reporting period of the latest declaration for VAT/advances, the year to date otherwise.
 export function defaultPeriod(kind, latestMonth, vatPeriod) {
@@ -12,36 +17,12 @@ export function defaultPeriod(kind, latestMonth, vatPeriod) {
   return { from: `${latestMonth.slice(0, 4)}-01`, to: latestMonth };
 }
 
-// Opens the report in its own tab with a toolbar (print / close), so the user is never stranded in the print preview.
-// Returns false when the browser blocks the window.
-export function openReportViewer(sheet, { open = () => window.open("", "_blank"), print = false } = {}) {
-  const viewer = open();
-  if (!viewer) return false;
-  const { document: doc } = viewer;
-  const css = new URL("reports.css", document.baseURI).href;
-  doc.open();
-  doc.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><link rel="stylesheet" href="${css}">`
-    + `<style>body{margin:0;font-family:Arial,"Noto Sans Hebrew",system-ui,sans-serif;background:#edf1f5}`
-    + `.viewer-bar{position:sticky;top:0;display:flex;gap:10px;padding:10px 16px;background:#34566c}`
-    + `.viewer-bar button{padding:7px 14px;font:inherit;font-weight:700;cursor:pointer}`
-    + `@media screen{#report-print{display:block!important;max-width:900px;margin:16px auto;padding:20px;background:#fff}}`
-    + `</style></head><body><header class="viewer-bar"><button id="viewer-print" type="button">הדפסה / שמירה כ‑PDF</button>`
-    + `<button id="viewer-close" type="button">סגירה</button></header><div id="report-print"></div></body></html>`);
-  doc.close();
-  doc.title = sheet.querySelector("h2")?.textContent ?? "דוח";
-  doc.querySelector("#report-print").append(doc.importNode(sheet, true));
-  doc.querySelector("#viewer-print").onclick = () => viewer.print();
-  doc.querySelector("#viewer-close").onclick = () => viewer.close();
-  if (print) viewer.print();
-  return true;
-}
-
 // getContext() returns { client, dataRoot, names } or null when no client is selected.
-export function setupReports({ button, dialog, printRoot, getContext, onError, openViewer = openReportViewer }) {
+export function setupReports({ button, dialog, getContext, onError, openViewer = openReportWindow, renderPdf = renderReportPdf }) {
   const part = (id) => dialog.querySelector(`#${id}`);
-  const [kind, from, to, vatPeriod, percent, errorLine, preview, show, print] = [
+  const [kind, from, to, vatPeriod, percent, errorLine, statusLine, preview, show, saveAll] = [
     "reports-kind", "reports-from", "reports-to", "reports-vat-period", "reports-advance-percent", "reports-error",
-    "reports-preview", "reports-show", "reports-print",
+    "reports-status", "reports-preview", "reports-show", "reports-save-all",
   ].map(part);
   let context = null;
   let entries = [];
@@ -78,41 +59,115 @@ export function setupReports({ button, dialog, printRoot, getContext, onError, o
   kind.addEventListener("change", applyDefaultPeriod);
   vatPeriod.addEventListener("change", applyDefaultPeriod);
 
-  // Builds the chosen report and opens it in the viewer tab; without a viewer it is shown inline in the dialog.
-  const run = async (printAfter) => {
+  // Validates the period and percent; returns null (with the message shown) when they are unusable.
+  const readParameters = () => {
     errorLine.textContent = "";
-    preview.replaceChildren();
+    statusLine.textContent = "";
     const [fromIso, toIso] = [parseMonthText(from.value), parseMonthText(to.value)];
     if (!fromIso || !toIso || fromIso > toIso) {
       errorLine.textContent = "יש להזין תקופה תקינה בפורמט MM/YYYY (תחילה לא אחרי הסוף).";
-      return;
+      return null;
     }
     const advancePercent = percent.value === "" ? null : Number(percent.value);
-    if (kind.value === "advances" && (advancePercent === null || !(advancePercent >= 0 && advancePercent <= 100))) {
+    const validPercent = advancePercent !== null && advancePercent >= 0 && advancePercent <= 100;
+    return { fromIso, toIso, advancePercent: validPercent ? advancePercent : null };
+  };
+
+  // The report data, its HTML (inline fallback) and its Rivhit-style pages for one kind and the chosen period.
+  const buildReport = (reportKind, { fromIso, toIso, advancePercent }) => {
+    const scope = inPeriod(entries, fromIso, toIso);
+    const info = { clientName: context.client.config.clientName, from: formatMonth(fromIso), to: formatMonth(toIso) };
+    const data = {
+      vat: () => vatReport(scope),
+      advances: () => advancesReport(scope, { percent: advancePercent }),
+      profitLoss: () => profitLoss(scope),
+      ledger: () => classificationLedger(scope),
+    }[reportKind]();
+    const html = {
+      vat: renderVatReport, advances: renderAdvancesReport, profitLoss: renderProfitLossReport, ledger: renderLedgerReport,
+    }[reportKind];
+    const name = `${REPORT_FILES[reportKind]}_${info.from.replace("/", "-")}_${info.to.replace("/", "-")}.pdf`;
+    return { scope, name, node: () => html(data, info), pages: () => layoutReport(reportKind, data, info) };
+  };
+
+  const saveToReports = async (name, blob) => {
+    const directory = await context.client.directory.getDirectoryHandle("reports", { create: true });
+    const writable = await (await directory.getFileHandle(name, { create: true })).createWritable();
+    try {
+      await writable.write(blob);
+    } finally {
+      await writable.close();
+    }
+    return `reports/${name}`;
+  };
+
+  const saveCopyAs = async (win, name, blob) => {
+    if (typeof win.showSaveFilePicker !== "function") {
+      const link = win.document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = name;
+      link.click();
+      return `ההעתק ${name} הורד לתיקיית ההורדות.`;
+    }
+    const handle = await win.showSaveFilePicker({ suggestedName: name, types: PDF_TYPES });
+    const writable = await handle.createWritable();
+    try {
+      await writable.write(blob);
+    } finally {
+      await writable.close();
+    }
+    return `ההעתק נשמר: ${handle.name}`;
+  };
+
+  // The window is opened before any await, while the click still counts as a user gesture.
+  show.addEventListener("click", async () => {
+    const parameters = readParameters();
+    if (!parameters) return;
+    if (kind.value === "advances" && parameters.advancePercent === null) {
       errorLine.textContent = "יש להזין אחוז מקדמות בין 0 ל-100.";
       return;
     }
+    preview.replaceChildren();
+    const viewer = openViewer();
     try {
-      await saveReportSettings(context.client.directory, { vatPeriod: vatPeriod.value, advancePercent });
-      const scope = inPeriod(entries, fromIso, toIso);
-      const info = { clientName: context.client.config.clientName, from: formatMonth(fromIso), to: formatMonth(toIso) };
-      const node = {
-        vat: () => renderVatReport(vatReport(scope), info),
-        advances: () => renderAdvancesReport(advancesReport(scope, { percent: advancePercent }), info),
-        profitLoss: () => renderProfitLossReport(profitLoss(scope), info),
-        ledger: () => renderLedgerReport(classificationLedger(scope), info),
-      }[kind.value]();
-      if (!scope.length) errorLine.textContent = "אין תנועות בתקופה שנבחרה.";
-      if (openViewer(node, { print: printAfter })) return;
-      preview.append(node);
-      if (printAfter) {
-        printRoot.replaceChildren(node.cloneNode(true));
-        window.print();
+      await saveReportSettings(context.client.directory, { vatPeriod: vatPeriod.value, advancePercent: parameters.advancePercent });
+      const report = buildReport(kind.value, parameters);
+      if (!report.scope.length) errorLine.textContent = "אין תנועות בתקופה שנבחרה.";
+      if (!viewer) {
+        preview.append(report.node());
+        return;
       }
+      const { pdf, images } = await renderPdf(report.pages());
+      viewer.show({
+        title: report.node().querySelector("h2")?.textContent ?? "דוח",
+        pageUrls: images.map((image) => URL.createObjectURL(image)),
+        save: async () => `נשמר: ${await saveToReports(report.name, pdf)}`,
+        saveAs: (win) => saveCopyAs(win, report.name, pdf),
+      });
     } catch (error) {
       errorLine.textContent = error.message;
+      viewer?.fail(error.message);
     }
-  };
-  show.addEventListener("click", () => run(false));
-  print.addEventListener("click", () => run(true));
+  });
+
+  saveAll.addEventListener("click", async () => {
+    const parameters = readParameters();
+    if (!parameters) return;
+    saveAll.disabled = true;
+    try {
+      await saveReportSettings(context.client.directory, { vatPeriod: vatPeriod.value, advancePercent: parameters.advancePercent });
+      const saved = [];
+      for (const reportKind of Object.keys(REPORT_FILES)) {
+        if (reportKind === "advances" && parameters.advancePercent === null) continue;
+        const report = buildReport(reportKind, parameters);
+        saved.push(await saveToReports(report.name, (await renderPdf(report.pages())).pdf));
+      }
+      statusLine.textContent = `נשמרו ${saved.length} דוחות בתיקייה reports.`;
+      if (parameters.advancePercent === null) errorLine.textContent = "דוח המקדמות לא נשמר: יש להזין אחוז מקדמות בין 0 ל-100.";
+    } catch (error) {
+      errorLine.textContent = "השמירה נכשלה: " + error.message;
+    } finally {
+      saveAll.disabled = false;
+    }
+  });
 }
