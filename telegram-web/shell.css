@@ -143,7 +143,13 @@ body {
 /* Workspace: the only scrolling region of the page */
 .workspace {
   overflow: auto;
-  padding: var(--s4) var(--s5) var(--s5);
+  padding: 0 var(--s5) var(--s5);
+}
+
+/* The top spacing belongs to the children: a sticky table header sticks to the padding edge of the scroller, so
+   padding on the scroller itself would leave a gap above it. */
+.workspace > * {
+  padding-top: var(--s4);
 }
 
 .card {
