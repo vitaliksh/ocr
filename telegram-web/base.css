@@ -232,3 +232,63 @@ input[type="radio"] {
     transition: none;
   }
 }
+
+/* Data tables: quiet list tables (clients, declarations); the journal table has its own rules */
+.data-table {
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+
+.data-table th {
+  position: static;
+  padding: var(--s2) var(--s3);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: start;
+}
+
+.data-table td {
+  padding: var(--s3);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+  background: var(--surface-muted);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: inherit;
+  font-weight: 600;
+  text-align: start;
+}
+
+.link-button:hover {
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.small {
+  padding: 3px 10px;
+  font-size: var(--fs-sm);
+}
+
+.muted {
+  color: var(--text-muted);
+}

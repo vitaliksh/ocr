@@ -18,13 +18,20 @@ body {
   gap: var(--s3);
   min-height: 56px;
   padding: 0 var(--s4);
+  padding-inline-end: 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 
 .wordmark {
   order: 99;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
   margin: 0;
+  padding: 0 var(--s5);
+  border-inline-start: 1px solid var(--border);
+  background: var(--surface-muted);
   font-family: var(--font-display);
   font-size: 1.3rem;
   font-weight: 700;

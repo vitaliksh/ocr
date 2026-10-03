@@ -17,6 +17,7 @@ import { readChartOfAccounts } from "./chart-of-accounts.js";
 import { confirmDialog, dialogResult } from "./confirm-dialog.js";
 import { NO_EXPORT_MARKER, declarationActions } from "./declaration-core.js";
 import { formatMonth } from "./month-format.js";
+import { createClientsHome } from "./clients-home.js";
 import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
 import { setupReports } from "./reports-ui.js";
@@ -29,6 +30,7 @@ import {
   saveForm6111Mapping,
 } from "./custom-rivhit-mapping.js";
 
+const clientsHome = createClientsHome();
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, ""),
   builtInMapping = { ...(window.RIVHIT_MAPPING || {}) };
 const inactive = document.querySelector("#inactive"),
@@ -335,6 +337,7 @@ async function activateDeclaration(selected) {
   setTableLocked(currentDeclaration.status !== "open");
   currentClient.textContent = `לקוח: ${workspace.config.clientName} · הצהרה: ${formatMonth(currentDeclaration.month)}`;
   journalTitle.textContent = currentClient.textContent;
+  clientsHome.showJournal({ clientId: workspace.config.clientId, month: currentDeclaration.month });
   applyBusinessRules();
   status.textContent = currentDeclaration.status === "open" ? "" : "ההצהרה נעולה לקריאה בלבד.";
   updateStartAvailability();
@@ -373,6 +376,7 @@ function clearActiveDeclaration(declarationId) {
 async function switchDataRoot(selected) {
   await saveCurrentDraft();
   dataRoot = selected;
+  clientsHome.showHome();
   dataRootTitle.textContent = `תיקיית נתונים: ${selected.name}`;
   workspace = null;
   committedWorkspace = null;
@@ -423,6 +427,7 @@ async function loadCustomMapping(root) {
   refreshClassificationSelectors();
 }
 const workspaceControls = setupWorkspaceControls({
+  onClientsChanged: () => clientsHome.refresh(),
   clientList: document.querySelector("#client-list"),
   showNewButton: document.querySelector("#show-new-client"),
   openExistingButton: document.querySelector("#open-existing-client"),
@@ -461,6 +466,7 @@ const workspaceControls = setupWorkspaceControls({
   onDeleted: clearActiveClient,
   onError: showError,
 });
+clientsHome.bind(workspaceControls);
 setupExcelImport({
   button: document.querySelector("#import-excel"),
   dialog: document.querySelector("#excel-import-dialog"),

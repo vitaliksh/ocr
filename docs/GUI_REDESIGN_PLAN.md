@@ -85,7 +85,25 @@ Reason: the top bar cannot be designed around a primary action that still depend
   the status line as an error; two element lookups), `workspace.css` (`#current-client` no longer hidden, dialog
   titles inherit their colour), `package.json` (`check` also syntax-checks `shell.js`).
 
-### Stage 3 — Clients home, client card, navigation model
+### Stage 3 as built (3 October)
+
+- Start screen "Clients" (table with name, activity, last declaration, open and locked counts, search, archive switch,
+  empty states for "no data root", "no clients", "no match"), client card (activity, business kind, VAT period,
+  advance percent, declarations grouped by year as cards with open/locked badge and lazily loaded row counts, new
+  declaration, edit client through the existing client dialog), and a clickable breadcrumb
+  "Clients › client › month". Opening a declaration shows the journal; top-bar actions for the open declaration
+  appear only there.
+- Deviations from the plan: client creation, archive and delete still live in the drawer / client dialog (the "+ New
+  client" button opens the drawer with the form) until stage 4 replaces the drawer; the client tax ID slot is not shown
+  (nothing to store yet); `workspace.js` was only extended, its minified rendering is rewritten in stage 4 together
+  with the characterisation tests.
+- Existing code changed: `workspace.js` (new optional `onClientsChanged` argument called at the end of
+  `renderClients`, four extra returned methods), `app.js` (three calls into `clientsHome`, plus its creation and bind),
+  `index.html` (view containers, breadcrumb, `journal-only` classes).
+
+### Stage 3 plan text
+
+— Clients home, client card, navigation model
 
 New views, switched by state (no router needed): **Clients** (start screen), **Client** (card), **Journal**.
 
