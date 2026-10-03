@@ -2,6 +2,7 @@
 import { ACCOUNT_TYPES } from "./chart-of-accounts.js";
 import { commitImport, prepareImport } from "./excel-import-flow.js";
 import { inspectImportTarget } from "./excel-import-store.js";
+import { formatMonth, parseMonthText } from "./month-format.js";
 
 const TYPE_LABELS = {
   income: "הכנסה",
@@ -77,12 +78,13 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     replaceLabel.hidden = true;
     targetLine.textContent = "";
     updateRunState();
-    if (!/^\d{4}-\d{2}$/.test(month.value)) return;
+    const iso = parseMonthText(month.value);
+    if (!iso) return;
     try {
-      const found = await inspectImportTarget(context.client.directory, month.value);
+      const found = await inspectImportTarget(context.client.directory, iso);
       if (check !== targetCheck) return;
       target = found;
-      targetLine.textContent = TARGET_TEXTS[found.state](month.value, found.count);
+      targetLine.textContent = TARGET_TEXTS[found.state](formatMonth(iso), found.count);
       targetLine.className = found.state === "rows" || found.state === "closed" ? "target-warning" : "";
       replaceText.textContent = `להחליף את ${found.count} השורות הקיימות בשורות מהקובץ (עותק של הטבלה הישנה יישמר בתיקיית ההצהרה)`;
       replaceLabel.hidden = found.state !== "rows";
@@ -116,7 +118,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       ...errors.map((item) => element("li", `שגיאה${item.row ? ` בשורה ${item.row}` : ""}: ${problemText(item)}`, "problem-error")),
       ...warnings.map((item) => element("li", `אזהרה: ${problemText(item)}`)),
     );
-    month.value = prepared.suggestedMonth;
+    month.value = formatMonth(prepared.suggestedMonth);
     unknownBox.hidden = !unknown.length;
     const used = { ...context.reserved, ...chart };
     unknownList.replaceChildren(...unknown.map((name) => {
@@ -163,17 +165,18 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
   });
 
   run.addEventListener("click", async () => {
-    if (!prepared || !/^\d{4}-\d{2}$/.test(month.value)) {
-      errorLine.textContent = "יש לבחור חודש הצהרה.";
+    const iso = parseMonthText(month.value);
+    if (!prepared || !iso) {
+      errorLine.textContent = "יש להזין חודש הצהרה בפורמט MM/YYYY.";
       return;
     }
     run.disabled = true;
     errorLine.textContent = "";
     try {
-      await onBeforeCommit?.(month.value);
+      await onBeforeCommit?.(iso);
       const result = await commitImport(prepared, {
         newAccounts: unknownInputs(),
-        month: month.value,
+        month: iso,
         closeNow: closeNow.checked,
         replace: replaceBox.checked && target?.state === "rows",
         dataRoot: context.dataRoot,
@@ -181,7 +184,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
         reserved: context.reserved,
       });
       dialog.close();
-      await onImported(result, month.value);
+      await onImported(result, iso);
     } catch (error) {
       errorLine.textContent = error.message;
       refreshTarget();

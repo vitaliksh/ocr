@@ -1,10 +1,9 @@
 // Reports dialog: pick a report and period, preview it, print it (browser "Save as PDF").
 import { readChartOfAccounts } from "./chart-of-accounts.js";
+import { formatMonth, parseMonthText } from "./month-format.js";
 import { loadReportDeclarations, readReportSettings, saveReportSettings } from "./report-data.js";
 import { advancesReport, classificationLedger, inPeriod, periodContaining, profitLoss, reportEntries, vatReport } from "./reports.js";
 import { renderAdvancesReport, renderLedgerReport, renderProfitLossReport, renderVatReport } from "./reports-view.js";
-
-const MONTH = /^\d{4}-\d{2}$/;
 
 // Default period: the reporting period of the latest declaration for VAT/advances, the year to date otherwise.
 export function defaultPeriod(kind, latestMonth, vatPeriod) {
@@ -26,8 +25,8 @@ export function setupReports({ button, dialog, printRoot, getContext, onError })
 
   const applyDefaultPeriod = () => {
     const period = defaultPeriod(kind.value, latestMonth, vatPeriod.value);
-    from.value = period.from;
-    to.value = period.to;
+    from.value = formatMonth(period.from);
+    to.value = formatMonth(period.to);
   };
 
   button.addEventListener("click", async () => {
@@ -58,8 +57,9 @@ export function setupReports({ button, dialog, printRoot, getContext, onError })
   show.addEventListener("click", async () => {
     errorLine.textContent = "";
     preview.replaceChildren();
-    if (!MONTH.test(from.value) || !MONTH.test(to.value) || from.value > to.value) {
-      errorLine.textContent = "יש לבחור תקופה תקינה.";
+    const [fromIso, toIso] = [parseMonthText(from.value), parseMonthText(to.value)];
+    if (!fromIso || !toIso || fromIso > toIso) {
+      errorLine.textContent = "יש להזין תקופה תקינה בפורמט MM/YYYY (תחילה לא אחרי הסוף).";
       return;
     }
     const advancePercent = percent.value === "" ? null : Number(percent.value);
@@ -69,8 +69,8 @@ export function setupReports({ button, dialog, printRoot, getContext, onError })
     }
     try {
       await saveReportSettings(context.client.directory, { vatPeriod: vatPeriod.value, advancePercent });
-      const scope = inPeriod(entries, from.value, to.value);
-      const info = { clientName: context.client.config.clientName, from: from.value, to: to.value };
+      const scope = inPeriod(entries, fromIso, toIso);
+      const info = { clientName: context.client.config.clientName, from: formatMonth(fromIso), to: formatMonth(toIso) };
       const node = {
         vat: () => renderVatReport(vatReport(scope), info),
         advances: () => renderAdvancesReport(advancesReport(scope, { percent: advancePercent }), info),

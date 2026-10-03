@@ -67,7 +67,7 @@ test("диалог импорта: файл разбирается, показы
   assert.equal(dialog.open, true);
   await pick(buildJournalGrid({ month: 8 }));
   assert.match(q("excel-import-summary").textContent, new RegExp(`^${SAMPLE_ROWS.length} שורות`));
-  assert.equal(q("excel-import-month").value, "2026-08");
+  assert.equal(q("excel-import-month").value, "08/2026");
   assert.equal(q("excel-import-run").disabled, false);
   q("excel-import-run").click();
   for (let i = 0; i < 100 && !calls.imported.length; i += 1) await new Promise((r) => setTimeout(r, 10));
@@ -113,10 +113,10 @@ test("диалог импорта: состояние выбранного ме�
     await settle();
     return [q("excel-import-target").textContent, q("excel-import-run").disabled, q("excel-import-replace-label").hidden];
   };
-  assert.deepEqual(await check("2026-01"), ["ההצהרה ל-2026-01 לא קיימת ותיווצר.", false, true]);
-  assert.deepEqual(await check("2026-04"), ["ההצהרה ל-2026-04 קיימת וריקה. השורות ייכנסו אליה.", false, true]);
-  assert.deepEqual(await check("2026-02"), ["ב-2026-02 כבר יש 8 שורות.", true, false]);
-  assert.deepEqual(await check("2026-03"), ["ההצהרה ל-2026-03 סגורה, אי אפשר לייבא אליה.", true, true]);
+  assert.deepEqual(await check("2026-01"), ["ההצהרה ל-01/2026 לא קיימת ותיווצר.", false, true]);
+  assert.deepEqual(await check("2026-04"), ["ההצהרה ל-04/2026 קיימת וריקה. השורות ייכנסו אליה.", false, true]);
+  assert.deepEqual(await check("2026-02"), ["ב-02/2026 כבר יש 8 שורות.", true, false]);
+  assert.deepEqual(await check("2026-03"), ["ההצהרה ל-03/2026 סגורה, אי אפשר לייבא אליה.", true, true]);
 });
 
 test("диалог импорта: замена непустой декларации требует галочки, сохраняет копию и вызывает onBeforeCommit", async () => {
@@ -125,7 +125,7 @@ test("диалог импорта: замена непустой деклара�
   open();
   await pick(buildJournalGrid({ month: 2 }));
   await settle();
-  assert.equal(q("excel-import-month").value, "2026-02");
+  assert.equal(q("excel-import-month").value, "02/2026");
   assert.equal(q("excel-import-run").disabled, true);
   q("excel-import-replace").checked = true;
   q("excel-import-replace").dispatchEvent(new window.Event("change"));
@@ -163,4 +163,26 @@ test("диалог импорта: предупреждения и ошибки 
   broken.open();
   await broken.pick(buildJournalGrid({ footer: { totalVat: "1.00" } }));
   assert.match(broken.q("excel-import-problems").textContent, /אינו תואם לשורות/);
+});
+
+test("диалог импорта: месяц вводится как MM/YYYY (и как M/YYYY), неверный формат отклоняется", async () => {
+  const { q, open, pick, window, calls, client } = await setup();
+  open();
+  await pick(buildJournalGrid({ month: 1 }));
+  assert.equal(q("excel-import-month").placeholder, "MM/YYYY");
+  q("excel-import-month").value = "3/2026";
+  q("excel-import-month").dispatchEvent(new window.Event("input"));
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(q("excel-import-target").textContent, "ההצהרה ל-03/2026 לא קיימת ותיווצר.");
+  q("excel-import-month").value = "March 2026";
+  q("excel-import-month").dispatchEvent(new window.Event("input"));
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(q("excel-import-run").disabled, true);
+  q("excel-import-month").value = "03/2026";
+  q("excel-import-month").dispatchEvent(new window.Event("input"));
+  await new Promise((r) => setTimeout(r, 80));
+  q("excel-import-run").click();
+  for (let i = 0; i < 100 && !calls.imported.length; i += 1) await new Promise((r) => setTimeout(r, 20));
+  assert.equal(calls.imported[0].month, "2026-03");
+  assert.equal((await loadDeclaration(client.directory, "2026-03")).draft.rows.length, SAMPLE_ROWS.length);
 });

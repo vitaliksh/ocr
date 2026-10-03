@@ -14,6 +14,7 @@ import {
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
 import { readChartOfAccounts } from "./chart-of-accounts.js";
 import { confirmDialog } from "./confirm-dialog.js";
+import { formatMonth } from "./month-format.js";
 import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
 import { setupReports } from "./reports-ui.js";
@@ -322,7 +323,7 @@ async function activateDeclaration(selected) {
   }
   refreshRows();
   setTableLocked(currentDeclaration.status !== "open");
-  currentClient.textContent = `לקוח: ${workspace.config.clientName} · הצהרה: ${currentDeclaration.month}`;
+  currentClient.textContent = `לקוח: ${workspace.config.clientName} · הצהרה: ${formatMonth(currentDeclaration.month)}`;
   journalTitle.textContent = currentClient.textContent;
   applyBusinessRules();
   status.textContent = currentDeclaration.status === "open" ? "" : "ההצהרה סגורה לקריאה בלבד.";

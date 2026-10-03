@@ -54,13 +54,13 @@ test("диалог отчётов: без клиента показывает о
 test("диалог отчётов: период по умолчанию — месяц последней декларации или с начала года", async () => {
   const { q, open } = await setup();
   await open();
-  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["2026-02", "2026-02"]);
+  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["02/2026", "02/2026"]);
   q("reports-vat-period").value = "bimonthly";
   q("reports-vat-period").dispatchEvent(new globalThis.window.Event("change"));
-  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["2026-01", "2026-02"]);
+  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["01/2026", "02/2026"]);
   q("reports-kind").value = "profitLoss";
   q("reports-kind").dispatchEvent(new globalThis.window.Event("change"));
-  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["2026-01", "2026-02"]);
+  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["01/2026", "02/2026"]);
 });
 
 test("диалог отчётов: пустая последняя декларация не скрывает период с данными", async () => {
@@ -68,7 +68,7 @@ test("диалог отчётов: пустая последняя деклар�
   const { createDeclaration } = await import("../declaration-store.js");
   await createDeclaration(client.directory, { clientId: "c1", month: "2026-10" });
   await open();
-  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["2026-01", "2026-01"]);
+  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["01/2026", "01/2026"]);
   q("reports-from").value = "2026-10";
   q("reports-to").value = "2026-10";
   await click("reports-show");

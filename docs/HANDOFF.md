@@ -42,7 +42,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The drawer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.02.8 · 18:26 IDT
+גרסת ממשק: 2026.10.03.1 · 07:59 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -73,6 +73,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
 
 - `telegram-web/`
   - `app.js` — UI, queues, journal, exports, Pass 2, custom-code request headers.
+  - `month-format.js` — months are stored as `YYYY-MM` and typed/shown as `MM/YYYY` (`parseMonthText` also accepts `M/YYYY`, `MM.YYYY`, `MM-YYYY`); all month inputs are text fields with that placeholder (native `type="month"` follows the browser language and cannot show MM/YYYY).
   - `confirm-dialog.js` — in-page `confirmDialog` and `dialogResult` (used by `app.js` and `workspace.js` instead of `window.confirm`/`prompt`, which some embedded browsers decline silently; results do not depend on the dialog `close` event).
   - `workspace.js` — File System Access root/client/declaration drawer.
   - `declaration-core.js`, `declaration-store.js` — lifecycle and local persistence.
@@ -228,7 +229,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the drawer and verify frontend `2026.10.02.8 · 18:26 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the drawer and verify frontend `2026.10.03.1 · 07:59 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -252,7 +253,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **149 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **153 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
