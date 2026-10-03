@@ -69,8 +69,25 @@ Deleting old snapshots or unreferenced packs is a manual, confirmed action still
   report only real failures in the status bar. After a browser restart the folder permission is "prompt" again, so the first backup
   of a session is the button.
 
+## Hand-off package (sidebar item "העברה")
+
+Use case: one of the owners checks a client's invoices on his PC (import, review), then hands the finished rows to the other PC.
+`handoff-store.js` (no DOM) and `handoff-ui.js` (`#handoff-dialog`).
+
+- **Files** in a shared folder both PCs sync (a Google Drive folder): `pkg-<stamp>-<rand>.body` (sealed: 4-byte length, JSON
+  `{ rows, images: [{ file, size }] }`, then the image bytes) and `pkg-<stamp>-<rand>.head` (sealed JSON: id, createdAt, clientName,
+  month, rows, images, bytes). The body is written first and the head last, so a half-synced package is never listed; a head whose body
+  has not arrived yet is reported as "not ready, try again". Write-once, never deleted, sealed with the **same key** as the backup
+  (so the other PC enters the same recovery code through "כבר יש לך קוד שחזור" in the backup dialog).
+- **Send:** the declaration open in the journal (the open table is saved first) goes out with all its draft rows and the images they use.
+- **Receive:** pick a package from the list, the client with the same name is preselected (else it must be chosen), and the rows are
+  **appended** to the open declaration of the package month (created if missing; a locked one is refused). Images get the next free
+  numbers of the target declaration (`003.jpg` ...) and the rows are rewritten to point at them, so existing files are never touched.
+  The dialog says what will happen before the click. What was imported is remembered in `common/handoff-state.json`; importing the same
+  package again asks for confirmation. The open table is detached before the import and the declaration reopened after it (as in the
+  Excel import). A package from another key is reported as a wrong code.
+
 ## Still to do
 
-Manual, confirmed clean-up of old snapshots and unreferenced packs; the hand-off package (export a declaration with its images, sealed
-with the same key, to a shared Drive folder; import appends rows); rollout on the real PC with a restore drill (restore into an empty
-folder, open it in the app, report totals match).
+Manual, confirmed clean-up of old snapshots and unreferenced packs and of old hand-off packages; rollout on the real PC with a restore
+drill (restore into an empty folder, open it in the app, report totals match) and the first real hand-off between the two PCs.

@@ -167,7 +167,7 @@ async function writeBytes(directory, name, bytes) {
 }
 
 // Write once, then read back and compare; the sync-client errors seen on Google Drive are retried with a growing pause.
-async function writeOnce(directory, name, bytes, delay) {
+async function writeOnce(directory, name, bytes, delay = defaultDelay) {
   if (await exists(directory, name)) throw backupError("BACKUP_EXISTS", name);
   const expected = await sha256Hex(bytes);
   let last;
@@ -193,6 +193,9 @@ async function listNames(directory) {
 }
 
 const stampOf = (iso) => iso.replace(/[-:]/g, "").replace(/\.\d+/, "");
+
+// The same sealing and write-once helpers serve the hand-off package (handoff-store.js).
+export { seal as sealBytes, unseal as unsealBytes, writeOnce as writeFileOnce, readBytes as readFileBytes, listNames as listFileNames, randomHex, stampOf };
 
 // ---- the store ----
 

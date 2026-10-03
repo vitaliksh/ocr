@@ -26,6 +26,7 @@ import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
 import { setupReports } from "./reports-ui.js";
 import { setupBackup } from "./backup-ui.js";
+import { setupHandoff } from "./handoff-ui.js";
 import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
 import {
   readCustomRivhitMapping,
@@ -534,6 +535,28 @@ setupExcelImport({
     await workspaceControls.refreshFromUserAction();
     const selected = await loadDeclaration(committedWorkspace.directory, month);
     await activateDeclaration({ workspace: committedWorkspace, ...selected });
+  },
+  onError: showError,
+});
+setupHandoff({
+  dialog: document.querySelector("#handoff-dialog"),
+  openButton: document.querySelector("#open-handoff"),
+  getDataRoot: () => dataRoot,
+  getCurrent: () =>
+    committedWorkspace && currentDeclaration && currentDeclarationDirectory
+      ? { client: committedWorkspace.config, clientDirectory: committedWorkspace.directory, declaration: currentDeclaration }
+      : null,
+  getClients: () => workspaceControls?.getClients().active ?? [],
+  saveCurrent: saveCurrentDraft,
+  // Saving the open table after the import would overwrite the imported rows, so detach it first.
+  beforeImport: async ({ clientId, month }) => {
+    if (committedWorkspace?.config.clientId !== clientId || currentDeclaration?.month !== month) return;
+    await saveCurrentDraft();
+    clearActiveDeclaration(currentDeclaration.declarationId);
+  },
+  afterImport: async ({ clientId, month }) => {
+    await workspaceControls?.refreshFromUserAction();
+    await workspaceControls?.openDeclaration(clientId, month);
   },
   onError: showError,
 });

@@ -38,6 +38,7 @@ export function setupBackup({
     "backup-code-saved", "backup-code-confirm", "backup-restore-choose", "backup-restore-details", "backup-restore-snapshot",
     "backup-restore-code", "backup-restore-run",
   ].map(part);
+  const [enterBox, enterCode, useCode] = ["backup-enter-box", "backup-enter-code", "backup-use-code"].map(part);
   const handles = { cloud: null, usb: null };
   let state = null;
   let key = null;
@@ -73,6 +74,7 @@ export function setupBackup({
     images.disabled = !root;
     keyState.textContent = key ? "קוד שחזור נשמר במחשב זה." : "טרם נוצר קוד שחזור. הוא נדרש לפני הגיבוי הראשון.";
     createKey.hidden = Boolean(key) || Boolean(pendingCode);
+    enterBox.hidden = Boolean(key) || Boolean(pendingCode);
     codeBox.hidden = !pendingCode;
     codeOutput.textContent = pendingCode ?? "";
     codeConfirm.disabled = !codeSaved.checked;
@@ -202,6 +204,14 @@ export function setupBackup({
     key = created;
     pendingCode = null;
     setMessage("success", "קוד השחזור נשמר במחשב זה. ודא שההעתק הכתוב שמור במקום בטוח.");
+  }));
+
+  useCode.addEventListener("click", guarded(async () => {
+    const created = await keyFromRecoveryCode(enterCode.value);
+    await store.writeSetting(BACKUP_KEY_NAME, created);
+    key = created;
+    enterCode.value = "";
+    setMessage("success", "קוד השחזור נשמר במחשב זה.");
   }));
 
   restoreChoose.addEventListener("click", guarded(async () => {

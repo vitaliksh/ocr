@@ -35,9 +35,10 @@
         </section>
       </div>
       <footer class="sidebar-footer">
+        <button id="open-handoff" type="button" class="nav-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg><span class="label">העברה</span></button>
         <button id="open-backup" type="button" class="nav-item" data-level="warning"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span class="label">גיבוי</span></button>
         <button id="open-settings" type="button" class="nav-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg><span class="label">הגדרות</span></button>
-        <div class="sidebar-versions"><p class="app-version drawer-version" aria-label="גרסת ממשק">גרסת ממשק: 2026.10.03.24 · 18:05 IDT</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p></div>
+        <div class="sidebar-versions"><p class="app-version drawer-version" aria-label="גרסת ממשק">גרסת ממשק: 2026.10.03.25 · 19:10 IDT</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p></div>
       </footer>
       <div id="sidebar-resizer" class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="שינוי רוחב החלונית" tabindex="0"></div>
     </aside>
@@ -122,6 +123,10 @@
           <button id="backup-code-confirm" type="button" disabled>שמירת הקוד במחשב</button>
         </div>
         <button id="backup-create-key" type="button" class="secondary">יצירת קוד שחזור</button>
+        <div id="backup-enter-box">
+          <label>כבר יש לך קוד שחזור (למשל מהמחשב השני)? <input id="backup-enter-code" dir="ltr" autocomplete="off"></label>
+          <button id="backup-use-code" type="button" class="secondary">שימוש בקוד</button>
+        </div>
       </section>
       <section aria-label="שחזור">
         <h3>שחזור מגיבוי</h3>
@@ -135,6 +140,32 @@
       </section>
     </div>
     <p id="backup-error" role="alert"></p>
+    <div class="dialog-actions"><span></span><button value="cancel" formnovalidate class="secondary">סגור</button></div></form></dialog>
+  <dialog id="handoff-dialog" class="workspace-dialog" aria-labelledby="handoff-title"><form method="dialog">
+    <header><h2 id="handoff-title">העברה בין מחשבים</h2><button value="cancel" formnovalidate aria-label="סגור" class="dialog-close">×</button></header>
+    <div class="handoff-body">
+      <p id="handoff-summary" class="plate" role="status"></p>
+      <section aria-label="תיקיית העברה">
+        <h3>תיקיית העברה משותפת</h3>
+        <p class="muted">תיקייה בתוך Google Drive ששני המחשבים מסנכרנים. החבילות מוצפנות באותו קוד שחזור כמו הגיבוי.</p>
+        <p id="handoff-folder"></p>
+        <button id="handoff-choose" type="button" class="secondary">בחירת תיקייה</button>
+      </section>
+      <section aria-label="שליחה">
+        <h3>שליחה</h3>
+        <p id="handoff-current"></p>
+        <button id="handoff-send" type="button">שליחה לתיקיית ההעברה</button>
+      </section>
+      <section aria-label="קבלה">
+        <h3>קבלה</h3>
+        <button id="handoff-refresh" type="button" class="secondary">רענון רשימת החבילות</button>
+        <label>חבילה <select id="handoff-packages"></select></label>
+        <label>ייבוא ללקוח <select id="handoff-client"></select></label>
+        <p id="handoff-target"></p>
+        <button id="handoff-import" type="button">ייבוא</button>
+      </section>
+    </div>
+    <p id="handoff-error" role="alert"></p>
     <div class="dialog-actions"><span></span><button value="cancel" formnovalidate class="secondary">סגור</button></div></form></dialog>
   <dialog id="client-menu" class="workspace-dialog" aria-labelledby="client-menu-name"><form method="dialog"><header><h2 id="client-menu-name"></h2><button value="cancel" formnovalidate aria-label="סגור" class="dialog-close">×</button></header><label>סוג פעילות העסק <input id="business-activity" maxlength="500" required></label><label>סוג העסק <select id="business-kind"><option value="home">עסק בבית פרטי</option><option value="office">עסק במשרד</option></select></label><button id="save-client-settings" type="button" class="secondary">שמירת פרטי לקוח</button><div class="client-menu-actions"><button id="archive-client" type="button" class="secondary">ארכוב לקוח</button><button id="restore-client" type="button" class="secondary" hidden>שחזור לקוח</button><button id="delete-client" type="button" class="delete">מחיקה לצמיתות</button></div></form></dialog>
   <dialog id="custom-classification-dialog" class="workspace-dialog" aria-labelledby="custom-classification-title"><form method="dialog"><header><h2 id="custom-classification-title">הוספת קוד מיון חדש</h2><button value="cancel" formnovalidate aria-label="סגור" class="dialog-close">×</button></header><p>יש למלא את שני השדות כדי לשמור את הקוד.</p><label>קוד מיון <input id="custom-classification-code" inputmode="numeric" pattern="[0-9]{3}" maxlength="3" required></label><label>שם הקוד <input id="custom-classification-name" maxlength="120" required></label><p id="custom-classification-error" role="alert"></p><div class="dialog-actions"><button id="save-custom-classification" type="button">שמירה</button><span></span><button value="cancel" formnovalidate class="secondary">ביטול</button></div></form></dialog>

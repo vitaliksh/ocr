@@ -25,23 +25,27 @@
   display: none;
 }
 
-.backup-body {
+.backup-body,
+.handoff-body {
   display: grid;
   gap: var(--s3);
 }
 
 /* The result plate stays visible while the long dialog is scrolled */
-#backup-summary {
+#backup-summary,
+#handoff-summary {
   position: sticky;
   inset-block-start: 0;
   z-index: 1;
 }
 
-.backup-body h3 {
+.backup-body h3,
+.handoff-body h3 {
   margin: 0 0 var(--s1);
 }
 
-.backup-body p {
+.backup-body p,
+.handoff-body p {
   margin: 0;
 }
 

@@ -244,3 +244,16 @@ test("restore: a wrong or malformed code and a folder without a backup are repor
   await click(q("#backup-restore-run"));
   assert.match(error(), /אינו תקין/);
 });
+
+test("a recovery code from the other PC can be entered instead of creating a new one; a malformed code is refused", async () => {
+  const { q, click, stored, error } = await setup();
+  q("#backup-enter-code").value = "garbage";
+  await click(q("#backup-use-code"));
+  assert.match(error(), /אינו תקין/);
+  assert.equal(stored.has(BACKUP_KEY_NAME), false);
+  q("#backup-enter-code").value = newRecoveryCode();
+  await click(q("#backup-use-code"));
+  assert.equal(stored.get(BACKUP_KEY_NAME).extractable, false);
+  assert.equal(q("#backup-enter-box").hidden, true);
+  assert.equal(q("#backup-create-key").hidden, true);
+});
