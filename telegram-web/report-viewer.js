@@ -7,7 +7,7 @@ const STYLE = `body{margin:0;font-family:Arial,"Noto Sans Hebrew",system-ui,sans
 .bar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:#34566c;color:#fff}
 .bar button{padding:7px 16px;border:1px solid #1d5f86;border-radius:3px;background:#2877a7;color:#fff;font:inherit;font-weight:700;cursor:pointer}
 .bar button.secondary{background:#f4f7fa;color:#17384d}.bar button:disabled{opacity:.55;cursor:not-allowed}
-.bar .title{flex:1;font-weight:700}.status{padding:6px 16px;min-height:1.4em;background:#fff;color:#17623c}.status.error{color:#a61b1b}
+.bar .title{flex:1;font-weight:700}.status{flex-basis:100%;padding:8px 12px;border-radius:3px;background:#e4f5ea;color:#0f5a32;font-weight:700}.status:empty{display:none}.status.error{background:#fde8e8;color:#a61b1b}
 main{padding:16px}main img{display:block;width:100%;max-width:900px;margin:0 auto 16px;background:#fff;box-shadow:0 1px 6px #0004}
 .message{text-align:center;padding:40px;color:#34566c}`;
 
@@ -20,8 +20,8 @@ export function openReportWindow({ open = () => window.open("", WINDOW_NAME, WIN
     + `<body><header class="bar"><span class="title" id="title">טוען דוח…</span>`
     + `<button id="save" type="button" disabled>שמירה</button>`
     + `<button id="save-as" type="button" class="secondary" disabled>שמירת העתק בשם…</button>`
-    + `<button id="close" type="button" class="secondary">סגירה</button></header>`
-    + `<div class="status" id="status" role="status"></div><main id="pages"><p class="message">מכין את הדוח…</p></main></body></html>`);
+    + `<button id="close" type="button" class="secondary">סגירה</button>`
+    + `<div class="status" id="status" role="status"></div></header><main id="pages"><p class="message">מכין את הדוח…</p></main></body></html>`);
   doc.close();
   const part = (id) => doc.querySelector(`#${id}`);
   const status = part("status");
@@ -32,11 +32,11 @@ export function openReportWindow({ open = () => window.open("", WINDOW_NAME, WIN
   part("close").onclick = () => win.close();
   // Runs a save action and reports its result; the user cancelling the Save As dialog is not an error.
   const guarded = (action) => async () => {
-    setStatus("");
+    setStatus("שומר…");
     try {
       setStatus(await action());
     } catch (error) {
-      if (error?.name !== "AbortError") setStatus("השמירה נכשלה: " + error.message, true);
+      setStatus(error?.name === "AbortError" ? "" : "השמירה נכשלה: " + error.message, error?.name !== "AbortError");
     }
   };
   return {

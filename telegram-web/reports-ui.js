@@ -98,7 +98,7 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
     } finally {
       await writable.close();
     }
-    return `reports/${name}`;
+    return `${context.client.directory.name}/reports/${name}`;
   };
 
   const saveCopyAs = async (win, name, blob) => {
@@ -141,7 +141,7 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
       viewer.show({
         title: report.node().querySelector("h2")?.textContent ?? "דוח",
         pageUrls: images.map((image) => URL.createObjectURL(image)),
-        save: async () => `נשמר: ${await saveToReports(report.name, pdf)}`,
+        save: async () => `הקובץ נשמר: ${await saveToReports(report.name, pdf)}`,
         saveAs: (win) => saveCopyAs(win, report.name, pdf),
       });
     } catch (error) {
@@ -154,6 +154,7 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
     const parameters = readParameters();
     if (!parameters) return;
     saveAll.disabled = true;
+    statusLine.textContent = "שומר את הדוחות…";
     try {
       await saveReportSettings(context.client.directory, { vatPeriod: vatPeriod.value, advancePercent: parameters.advancePercent });
       const saved = [];
@@ -162,7 +163,7 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
         const report = buildReport(reportKind, parameters);
         saved.push(await saveToReports(report.name, (await renderPdf(report.pages())).pdf));
       }
-      statusLine.textContent = `נשמרו ${saved.length} דוחות בתיקייה reports.`;
+      statusLine.textContent = `נשמרו ${saved.length} דוחות בתיקייה ${context.client.directory.name}/reports: ${saved.map((path) => path.split("/").pop()).join(", ")}`;
       if (parameters.advancePercent === null) errorLine.textContent = "דוח המקדמות לא נשמר: יש להזין אחוז מקדמות בין 0 ל-100.";
     } catch (error) {
       errorLine.textContent = "השמירה נכשלה: " + error.message;

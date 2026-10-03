@@ -1,7 +1,7 @@
 .reports-dialog{width:min(900px,calc(100vw - 32px))}
 .reports-controls{display:flex;flex-wrap:wrap;gap:10px 16px;margin:10px 0}
 .reports-controls label{display:flex;flex-direction:column;gap:3px;font-weight:700}
-#reports-error{min-height:1.3em;color:#a61b1b}
+#reports-error{color:#a61b1b;font-weight:700}#reports-error:empty,#reports-status:empty{display:none}
 #reports-preview{max-height:50vh;overflow:auto;border:1px solid #bdc8d0;padding:12px;background:#fff}
 #reports-preview:empty{display:none}
 .report-sheet{font-size:.92rem;line-height:1.5}
@@ -29,4 +29,4 @@
   .report-sheet .report-table tr{break-inside:avoid}
 }
 
-#reports-status{min-height:1.3em;color:#17623c}
+#reports-status{padding:8px 12px;border-radius:3px;background:#e4f5ea;color:#0f5a32;font-weight:700}
