@@ -113,6 +113,7 @@ test("backup needs a key; then it writes the copy, remembers the time and keeps 
   await choose("cloud", drive);
   await click(slotButton("cloud", "run"));
   assert.match(error(), /קוד שחזור/);
+  assert.match(plate(), /קוד שחזור/, "the error is also on the top plate");
   await giveKey();
   await click(slotButton("cloud", "run"));
   assert.equal(error(), "");

@@ -47,7 +47,10 @@ export function setupBackup({
   let restoreSource = null;
 
   const setMessage = (kind, text) => { message = text ? { kind, text } : null; render(); };
-  const fail = (error) => { errorLine.textContent = error.message; };
+  const fail = (error) => {
+    errorLine.textContent = error.message;
+    setMessage("error", error.message);
+  };
 
   function render() {
     const root = getDataRoot();
