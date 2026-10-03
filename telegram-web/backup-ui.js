@@ -207,7 +207,7 @@ export function setupBackup({
   restoreChoose.addEventListener("click", guarded(async () => {
     const source = await pickDirectory();
     const found = await listSnapshots(source);
-    if (!found.length) throw new Error("לא נמצא גיבוי בתיקייה שנבחרה.");
+    if (!found.length) throw new Error("לא נמצא גיבוי בתיקייה שנבחרה. יש לבחור את התיקייה שמכילה את annateria-backup, או את annateria-backup עצמה.");
     restoreSource = source;
     restoreSnapshotSelect.replaceChildren(
       ...found.reverse().map(({ name, at }) => Object.assign(dialog.ownerDocument.createElement("option"), { value: name, textContent: formatTime(at) })),

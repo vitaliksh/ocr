@@ -161,6 +161,20 @@ test("a file that cannot be read is reported, not silently dropped", async () =>
   assert.equal(result.files, 5);
 });
 
+test("the store folder itself can be picked as well as the folder that holds it", async () => {
+  const source = await sampleRoot();
+  const destination = binaryDirectory("usb");
+  const key = await newKey();
+  const { name } = await createBackup({ source, destination, key, now: at(0) });
+  const store = await destination.getDirectoryHandle(STORE_DIR);
+  assert.equal((await listSnapshots(store)).length, 1);
+  const target = binaryDirectory("restored");
+  await restoreSnapshot({ destination: store, key, name, target });
+  assert.equal((await listPaths(target)).length, 6);
+  assert.deepEqual(await listSnapshots(binaryDirectory("elsewhere")), []);
+  await assert.rejects(restoreSnapshot({ destination: binaryDirectory("elsewhere"), key, name, target: binaryDirectory("t") }), { code: "BACKUP_NO_STORE" });
+});
+
 test("restore refuses a folder that is not empty and an unknown snapshot", async () => {
   const source = await sampleRoot();
   const destination = binaryDirectory("usb");

@@ -18,7 +18,7 @@ const HEAVY_DIRECTORY = /^clients\/[^/]+\/declarations\/[^/]+\/(images|exports)\
 const SNAPSHOT_NAME = /^snap-(\d{8})T(\d{6})Z-[0-9a-f]+\.bin$/;
 
 const MESSAGES = {
-  BACKUP_NO_STORE: "לא נמצא גיבוי בתיקייה שנבחרה.",
+  BACKUP_NO_STORE: "לא נמצא גיבוי בתיקייה שנבחרה. יש לבחור את התיקייה שמכילה את annateria-backup, או את annateria-backup עצמה.",
   BACKUP_WRONG_KEY: "קוד השחזור אינו מתאים לגיבוי הזה.",
   BACKUP_BAD_CODE: "קוד השחזור אינו תקין. בדוק את התווים.",
   BACKUP_CORRUPT: "הגיבוי פגום או חסר",
@@ -196,10 +196,21 @@ const stampOf = (iso) => iso.replace(/[-:]/g, "").replace(/\.\d+/, "");
 
 // ---- the store ----
 
+// The picked folder normally holds `annateria-backup`; the store folder itself is accepted too (it has store.json).
+async function findStoreDirectory(destination, create) {
+  try {
+    return await destination.getDirectoryHandle(STORE_DIR, { create });
+  } catch (error) {
+    if (error.name !== "NotFoundError") throw error;
+    if (!create && (await exists(destination, "store.json"))) return destination;
+    throw error;
+  }
+}
+
 async function openStore(destination, key, { create = false } = {}) {
   let dir;
   try {
-    dir = await destination.getDirectoryHandle(STORE_DIR, { create });
+    dir = await findStoreDirectory(destination, create);
   } catch (error) {
     if (error.name === "NotFoundError") throw backupError("BACKUP_NO_STORE");
     throw error;
@@ -329,7 +340,7 @@ export async function createBackup({ source, destination, key, images = false, e
 export async function listSnapshots(destination) {
   let snapshots;
   try {
-    snapshots = await (await destination.getDirectoryHandle(STORE_DIR)).getDirectoryHandle("snapshots");
+    snapshots = await (await findStoreDirectory(destination, false)).getDirectoryHandle("snapshots");
   } catch (error) {
     if (error.name === "NotFoundError") return [];
     throw error;
