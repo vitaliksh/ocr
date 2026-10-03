@@ -6,7 +6,7 @@
   <title>ANNATERIA</title>
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="base.css">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="photo.css">
   <link rel="stylesheet" href="dialogs.css">
   <link rel="stylesheet" href="journal.css">
   <link rel="stylesheet" href="reports.css">
@@ -19,6 +19,7 @@
   <script type="module" src="app.js"></script>
   <script type="module" src="shell.js"></script>
   <script type="module" src="sidebar.js"></script>
+  <script type="module" src="ui-polish.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -34,7 +35,7 @@
       </div>
       <footer class="sidebar-footer">
         <button id="open-settings" type="button" class="nav-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg><span class="label">הגדרות</span></button>
-        <div class="sidebar-versions"><p class="app-version drawer-version" aria-label="גרסת ממשק">גרסת ממשק: 2026.10.03.19 · 13:23 IDT</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p></div>
+        <div class="sidebar-versions"><p class="app-version drawer-version" aria-label="גרסת ממשק">גרסת ממשק: 2026.10.03.20 · 13:34 IDT</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p></div>
       </footer>
       <div id="sidebar-resizer" class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="שינוי רוחב החלונית" tabindex="0"></div>
     </aside>
@@ -66,7 +67,7 @@
       </section>
       <section class="journal card" aria-labelledby="journal-title">
         <div class="journal-heading"><h2 id="journal-title" class="sr-only">לקוח והצהרה לא נבחרו</h2><p id="count">שורות ביומן: 0</p><span class="topbar-spacer"></span><details class="menu" id="filter-menu"><summary class="button secondary">סינון</summary><div class="menu-panel filter-panel" role="menu"></div></details><details class="menu" id="columns-menu"><summary class="button secondary">עמודות</summary><div class="menu-panel columns-panel"></div></details></div>
-        <div class="table-wrap"><table id="journal-table"><thead><tr><th data-col="index">#</th><th data-col="code">קוד מיון</th><th data-col="date">תאריך</th><th data-col="details">פרטים</th><th data-col="supplier">ספק</th><th data-col="supplierId">ע.מ./ת.ז</th><th data-col="reference">אסמכתא</th><th data-col="allocation">מספר הקצאה</th><th data-col="gross">כולל מע״מ</th><th data-col="net">ללא מע״מ</th><th data-col="vat">מע״מ</th><th data-col="vatPercent">% מוכר מע״מ</th><th data-col="expensePercent">% מוכר כהוצאה</th><th data-col="image">תמונה</th><th data-col="agent">החלטת הסוכן</th><th data-col="confidence">ביטחון</th><th data-col="status">סטטוס</th><th data-col="export">לייצוא</th><th data-col="delete">מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="19" class="empty">עדיין לא התקבלו מסמכים.</td></tr></tbody></table></div><div id="journal-summary" class="summary-bar" role="status" hidden></div>
+        <div class="table-wrap"><table id="journal-table"><thead><tr><th data-col="index">#</th><th data-col="code">קוד מיון</th><th data-col="date">תאריך</th><th data-col="details">פרטים</th><th data-col="supplier">ספק</th><th data-col="supplierId">ע.מ./ת.ז</th><th data-col="reference">אסמכתא</th><th data-col="allocation">מספר הקצאה</th><th data-col="gross">כולל מע״מ</th><th data-col="net">ללא מע״מ</th><th data-col="vat">מע״מ</th><th data-col="vatPercent">% מוכר מע״מ</th><th data-col="expensePercent">% מוכר כהוצאה</th><th data-col="image">תמונה</th><th data-col="agent">החלטת הסוכן</th><th data-col="confidence">ביטחון</th><th data-col="status">סטטוס</th><th data-col="export">לייצוא</th><th data-col="delete">מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="19" class="empty">עדיין לא התקבלו מסמכים. <button type="button" class="secondary small" data-open-menu="add-documents-menu">הוספת מסמכים</button></td></tr></tbody></table></div><div id="journal-summary" class="summary-bar" role="status" hidden></div>
       </section>
       </div>
     </main>

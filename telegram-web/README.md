@@ -8,7 +8,7 @@ The browser currently contains an exploratory local-workspace and PDF-package
 foundation. It can select a local folder, validate a shared Rivhit template,
 create a marked PDF package and reopen that package. It does **not** yet create
 the Rivhit TXT, retain durable client history, run the second AI pass, or
-implement the agreed right-side workspace drawer. Do not treat the exploratory
+implement the agreed workspace layout (a docked sidebar replaced the drawer in October 2026). Do not treat the exploratory
 package format as the final workspace contract; see
 [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 

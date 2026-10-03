@@ -164,7 +164,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.19 · 13:23 IDT`. Tests: **215** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.20 · 13:34 IDT`. Tests: **222** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct):** real disk folder, import of the sample files, the new-declaration
@@ -178,17 +178,18 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
   not supported for imported rows; Rivhit is abandoned); closing a regular declaration is unchanged and still needs the
   TXT template; month names in the ledger are Hebrew, amounts in the ledger keep agorot while other reports use whole
   shekels.
-- GUI redesign is under way: see `GUI_REDESIGN_PLAN.md` (stages 2 shell/tokens, 3 clients home/card and 4 sidebar and 5 journal table, 6 dialogs / Excel wizard and 7 reports page are in; stage 8 clean-up is next). Earlier note: **step 6, GUI redesign**, in a fresh session. Ask Vitalik for references or a list of annoyances first; do not
-  guess a style. Screens to restyle: main page and journal table, side panel (drawer: clients, declarations, settings),
-  import dialog, reports dialog and the report viewer window (`report-viewer.js` has its own inline CSS), the dialogs in
-  `index.html` (`workspace.css`), the PDF look is deliberately Rivhit-like and is not part of the redesign.
-- UX preferences Vitalik has voiced so far (apply them to the redesign): no placeholder text on the front page; a dialog
-  must not change size or turn into something else when a button is pressed; results of an action must be visible next to
-  the button (status lines are green/red boxes); new things open in a separate child window, not a browser tab; he
-  never wants to be stranded in a print preview.
-- Constraints for the redesign: UI text stays Hebrew and RTL; do not rename existing element ids (tests and `app.js`
-  query them; `test/app-harness.mjs` loads the real `index.html`); styles are spread over `styles.css`, `workspace.css`,
-  `table-layout.css`, `reports.css` (some are single-line minified); a bump of the frontend marker is needed per push.
+- **GUI redesign (step 6) is done** (3 Oct, stages 1-8, see `GUI_REDESIGN_PLAN.md`): ANNATERIA shell with tokens and
+  fonts, clients home and client card, docked sidebar, journal table with a column chooser, dialog template and the Excel
+  wizard, reports as a page, plus lock/reopen of declarations. The PDF look of the reports is deliberately Rivhit-like and
+  was not touched. Open points: none required; the AI assistant dock is a reserved empty row of the shell grid.
+- UX preferences Vitalik has voiced (keep applying them): no placeholder text on the front page; a dialog must not change
+  size or turn into something else when a button is pressed; results of an action must be visible next to the button
+  (status lines are green/red plates); new things open in a separate child window, not a browser tab; he never wants to be
+  stranded in a print preview; features nobody can use (e.g. the table search) are removed, not kept.
+- Constraints that still hold: UI text stays Hebrew and RTL; do not rename existing element ids (tests and `app.js` query
+  them; `test/app-harness.mjs` loads the real `index.html`); `app.js` addresses journal cells by index; colours only in
+  `tokens.css` (a test enforces it); a bump of the frontend marker is needed per push. The jsdom harness does not enforce
+  module-scope ordering (temporal dead zone), so changes to `app.js` need one run in a real browser.
 - Later, when he decides: backups (biggest risk, local folder is the only copy) and closed-declaration recovery.
 - Not done on purpose: client tax ID (עוסק מורשה) is not stored, so the report PDFs show only the client name; the
   ledger PDF lacks line number / value date / counter account / reference 2 columns (no such data in the app).

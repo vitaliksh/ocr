@@ -13,6 +13,7 @@ for (const menu of menus) {
 }
 
 document.addEventListener("click", (event) => {
+  if (event.target.closest?.("[data-open-menu]")) return;
   const inside = event.target.closest?.("details.menu");
   if (!inside) return closeMenus();
   if (event.target.closest(".menu-panel button")) inside.open = false;

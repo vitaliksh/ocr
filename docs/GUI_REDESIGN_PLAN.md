@@ -1,6 +1,6 @@
 # GUI redesign plan — ANNATERIA
 
-**Written:** 3 October 2026. **Status:** agreed with Vitalik. Stage 1 and the lock/reopen task are done (3 Oct); stage 2 is done and awaiting his check (see "Stage 2 as built"). Supersedes the "step 6" notes in
+**Written:** 3 October 2026. **Status:** all eight stages are done (3 Oct 2026); each "as built" section below records what was actually delivered and where it deviates. Supersedes the "step 6" notes in
 `MIGRATION_HANDOFF.md`.
 
 ## Decisions (from the discussion)
@@ -321,3 +321,15 @@ next stage. Stage 5 is the largest and starts with the column-collapse spike.
 - Removing the Rivhit export code (only hidden from the UI here).
 - Any change to the PDF look of the reports.
 - Checking that the name ANNATERIA is free.
+
+## Stage 8 as built (3 October)
+
+- Dead CSS removed: `styles.css` (leftovers of the first design) became `photo.css` with the merged photo-window rules;
+  `.model-label`, `.business-label` and the photo resize handle were unused. Every remaining class and id in the sheets
+  is used by the HTML or the scripts (checked with a script); `.plate-*` stay as the shared status components.
+- `ui-polish.js`: Enter in a dialog field presses the dialog's primary action (before, Enter submitted the form through
+  the close icon and closed it silently), the first field or the primary button is focused when a dialog opens, icon
+  buttons and navigation items get tooltips (the collapsed sidebar shows only icons), and the empty journal has a
+  "add documents" button that opens the menu. A global focus ring covers links, summaries and checkboxes.
+- The report viewer window uses the same palette, the Heebo font (linked through `tokens.css`) and closes with Escape.
+- Not done on purpose: loading skeletons (lists load in a moment), a dark theme, phone layouts, the AI dock content.

@@ -3,20 +3,30 @@
 const WINDOW_NAME = "reportViewer";
 const WINDOW_FEATURES = "popup=yes,width=980,height=900";
 
-const STYLE = `body{margin:0;font-family:Arial,"Noto Sans Hebrew",system-ui,sans-serif;background:#d9e0e6}
-.bar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:#34566c;color:#fff}
-.bar button{padding:7px 16px;border:1px solid #1d5f86;border-radius:3px;background:#2877a7;color:#fff;font:inherit;font-weight:700;cursor:pointer}
-.bar button.secondary{background:#f4f7fa;color:#17384d}.bar button:disabled{opacity:.55;cursor:not-allowed}
-.bar .title{flex:1;font-weight:700}.status{flex-basis:100%;padding:8px 12px;border-radius:3px;background:#e4f5ea;color:#0f5a32;font-weight:700}.status:empty{display:none}.status.error{background:#fde8e8;color:#a61b1b}
-main{padding:16px}main img{display:block;width:100%;max-width:900px;margin:0 auto 16px;background:#fff;box-shadow:0 1px 6px #0004}
-.message{text-align:center;padding:40px;color:#34566c}`;
+const STYLE = `body{margin:0;font-family:"Heebo Variable",Heebo,"Segoe UI",system-ui,Arial,sans-serif;background:#ece9de;color:#3d3929}
+.bar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:#fff;border-bottom:1px solid #e0ddd0}
+.bar button{padding:7px 16px;border:1px solid #b5542f;border-radius:6px;background:#b5542f;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+.bar button:hover{background:#9c4627;border-color:#9c4627}.bar button:focus-visible{outline:none;box-shadow:0 0 0 3px #b5542f47}
+.bar button.secondary{background:#fff;border-color:#c9c5b4;color:#3d3929}.bar button.secondary:hover{background:#f5f4ee}.bar button:disabled{opacity:.5;cursor:not-allowed}
+.bar .title{flex:1;font-weight:650;color:#141413}.status{flex-basis:100%;padding:8px 12px;border:1px solid #b9d9c6;border-radius:6px;background:#e7f3ec;color:#2f6b4a;font-weight:600}.status:empty{display:none}.status.error{border-color:#efb8b4;background:#fcebea;color:#b3261e}
+main{padding:16px}main img{display:block;width:100%;max-width:900px;margin:0 auto 16px;background:#fff;box-shadow:0 1px 6px #14141340}
+.message{text-align:center;padding:40px;color:#6b6759}`;
+
+// The new window does not share the page's fonts; link the token sheet by its absolute address when it is known.
+function fontLink() {
+  try {
+    return `<link rel="stylesheet" href="${new URL("tokens.css", globalThis.document.baseURI).href}">`;
+  } catch {
+    return "";
+  }
+}
 
 export function openReportWindow({ open = () => window.open("", WINDOW_NAME, WINDOW_FEATURES) } = {}) {
   const win = open();
   if (!win) return null;
   const doc = win.document;
   doc.open();
-  doc.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>דוח</title><style>${STYLE}</style></head>`
+  doc.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>דוח</title>${fontLink()}<style>${STYLE}</style></head>`
     + `<body><header class="bar"><span class="title" id="title">טוען דוח…</span>`
     + `<button id="save" type="button" disabled>שמירה</button>`
     + `<button id="save-as" type="button" class="secondary" disabled>שמירת העתק בשם…</button>`
@@ -30,6 +40,7 @@ export function openReportWindow({ open = () => window.open("", WINDOW_NAME, WIN
     status.classList.toggle("error", isError);
   };
   part("close").onclick = () => win.close();
+  doc.addEventListener("keydown", (event) => { if (event.key === "Escape") win.close(); });
   // Runs a save action and reports its result; the user cancelling the Save As dialog is not an error.
   const guarded = (action) => async () => {
     setStatus("שומר…");
