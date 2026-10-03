@@ -49,6 +49,7 @@ const inactive = document.querySelector("#inactive"),
   start = document.querySelector("#start"),
   finish = document.querySelector("#finish"),
   importPdf = document.querySelector("#import-pdf"),
+  importPdfMenu = document.querySelector("#import-pdf-menu"),
   stop = document.querySelector("#stop-processing"),
   status = document.querySelector("#status"),
   connection = document.querySelector("#connection"),
@@ -292,6 +293,7 @@ function updateStartAvailability() {
   const open = currentDeclaration?.status === "open";
   const actions = declarationActions({ dataRoot, declaration: currentDeclaration, workspaceCommitted: committedWorkspace });
   start.disabled = !actions.canStart;
+  importPdfMenu.disabled = !actions.canStart;
   closeDeclarationButton.disabled = !actions.canClose;
   createPdf.disabled = !actions.canClose;
   declarationBadge.hidden = !currentDeclaration;
@@ -1191,6 +1193,12 @@ async function importPdfFile(file) {
   }
 }
 importPdf.addEventListener("click", choosePdfFile);
+// A PDF is processed through a connected Telegram session: with no session the menu item starts one and asks for the code.
+importPdfMenu.addEventListener("click", () => {
+  if (session && telegramConnected) return choosePdfFile();
+  if (!session) start.click();
+  status.textContent = "סרוק את קוד ה‑QR ב‑Telegram כדי להפעיל ייבוא PDF.";
+});
 function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, insertAfter = null, imageBlob = null) {
   emptyRow?.remove();
   recordCount += 1;

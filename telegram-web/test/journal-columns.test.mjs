@@ -148,7 +148,7 @@ test("setHidden without persist applies silently (used when a data root is loade
 
 test("hidden cells are emptied so zero-width columns cannot make rows tall", () => {
   const css = hiddenCss(["supplierId"], "#t");
-  assert.match(css, /#t th:nth-child\(6\), #t td:nth-child\(6\) \{ padding: 0; border: 0; overflow: hidden; font-size: 0; line-height: 0; \}/);
+  assert.match(css, /#t th:nth-child\(6\), #t td:nth-child\(6\) \{ padding: 0; border: 0; overflow: hidden; font-size: 0; line-height: 0; box-shadow: none; \}/);
   assert.match(css, /#t td:nth-child\(6\) > \* \{ display: none; \}/);
   assert.equal(hiddenCss([], "#t"), "");
   const { document } = journal();

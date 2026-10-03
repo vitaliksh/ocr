@@ -271,6 +271,14 @@ Look and behaviour:
   `onImported` is still called first), `index.html` (wizard markup), test for the finished import (dialog stays open
   on the done step).
 
+### After stage 6 (3 October)
+
+- "+ Add documents" is grouped: from Telegram (QR), from the computer (PDF file, Excel import). Future sources (single
+  or several image files) are new items in the "from the computer" group. The PDF item starts a Telegram session when
+  there is none (a PDF is processed through a connected session) and asks to scan the code.
+- Header separators of the journal are inset shadows instead of collapsed borders, which vanished next to a hidden
+  column.
+
 ### Stage 7 — Reports dialog and viewer
 
 - Reports dialog: two columns (parameters, preview), larger preview, status next to the buttons.

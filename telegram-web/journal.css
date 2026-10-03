@@ -42,9 +42,9 @@
   top: 0;
   z-index: 2;
   border: 0;
-  border-inline-start: 1px solid color-mix(in srgb, var(--white) 14%, transparent);
   background: var(--ink);
-  box-shadow: 0 2px 0 var(--accent);
+  /* separators are shadows, not borders: collapsed borders vanish next to a hidden column */
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--white) 16%, transparent), 0 2px 0 var(--accent);
   color: var(--white);
   font-weight: 700;
 }

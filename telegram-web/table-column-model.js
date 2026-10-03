@@ -82,7 +82,7 @@ export function hiddenCss(hidden, tableSelector) {
     .map((key) => {
       const n = columnIndex(key) + 1;
       return [
-        `${tableSelector} th:nth-child(${n}), ${tableSelector} td:nth-child(${n}) { padding: 0; border: 0; overflow: hidden; font-size: 0; line-height: 0; }`,
+        `${tableSelector} th:nth-child(${n}), ${tableSelector} td:nth-child(${n}) { padding: 0; border: 0; overflow: hidden; font-size: 0; line-height: 0; box-shadow: none; }`,
         `${tableSelector} th:nth-child(${n}) > *, ${tableSelector} td:nth-child(${n}) > * { display: none; }`,
       ].join("\n");
     })
