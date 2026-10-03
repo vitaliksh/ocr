@@ -104,7 +104,7 @@ test("диалог отчётов: авансы требуют процент, �
   assert.match(q("reports-error").textContent, /תקופה תקינה/);
   await click("reports-print");
   assert.equal(printed(), 0);
-  assert.match(q("reports-error").textContent, /להציג דוח/);
+  assert.match(q("reports-error").textContent, /תקופה תקינה/);
 });
 
 test("диалог отчётов: все четыре вида отчётов строятся", async () => {
@@ -139,12 +139,14 @@ test("просмотр отчёта: отдельное окно с кнопка
   assert.equal(openReportViewer(sheet, { open: () => null }), false);
 });
 
-test("диалог отчётов: кнопка PDF открывает окно просмотра, а не печать в текущей странице", async () => {
+test("диалог отчётов: показ и PDF открывают окно просмотра, диалог не меняется", async () => {
   const shown = [];
-  const { open, click, printed } = await setup({ openViewer: (sheet) => { shown.push(sheet.textContent); return true; } });
+  const { q, open, click, printed } = await setup({ openViewer: (sheet) => { shown.push(sheet.textContent); return true; } });
   await open();
   await click("reports-show");
-  await click("reports-print");
   assert.equal(shown.length, 1);
+  assert.equal(q("reports-preview").childElementCount, 0);
+  await click("reports-print");
+  assert.equal(shown.length, 2);
   assert.equal(printed(), 0);
 });

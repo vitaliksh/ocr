@@ -14,7 +14,7 @@ export function defaultPeriod(kind, latestMonth, vatPeriod) {
 
 // Opens the report in its own tab with a toolbar (print / close), so the user is never stranded in the print preview.
 // Returns false when the browser blocks the window.
-export function openReportViewer(sheet, { open = () => window.open("", "_blank") } = {}) {
+export function openReportViewer(sheet, { open = () => window.open("", "_blank"), print = false } = {}) {
   const viewer = open();
   if (!viewer) return false;
   const { document: doc } = viewer;
@@ -32,6 +32,7 @@ export function openReportViewer(sheet, { open = () => window.open("", "_blank")
   doc.querySelector("#report-print").append(doc.importNode(sheet, true));
   doc.querySelector("#viewer-print").onclick = () => viewer.print();
   doc.querySelector("#viewer-close").onclick = () => viewer.close();
+  if (print) viewer.print();
   return true;
 }
 
@@ -77,7 +78,8 @@ export function setupReports({ button, dialog, printRoot, getContext, onError, o
   kind.addEventListener("change", applyDefaultPeriod);
   vatPeriod.addEventListener("change", applyDefaultPeriod);
 
-  show.addEventListener("click", async () => {
+  // Builds the chosen report and opens it in the viewer tab; without a viewer it is shown inline in the dialog.
+  const run = async (printAfter) => {
     errorLine.textContent = "";
     preview.replaceChildren();
     const [fromIso, toIso] = [parseMonthText(from.value), parseMonthText(to.value)];
@@ -100,20 +102,17 @@ export function setupReports({ button, dialog, printRoot, getContext, onError, o
         profitLoss: () => renderProfitLossReport(profitLoss(scope), info),
         ledger: () => renderLedgerReport(classificationLedger(scope), info),
       }[kind.value]();
-      preview.append(node);
       if (!scope.length) errorLine.textContent = "אין תנועות בתקופה שנבחרה.";
+      if (openViewer(node, { print: printAfter })) return;
+      preview.append(node);
+      if (printAfter) {
+        printRoot.replaceChildren(node.cloneNode(true));
+        window.print();
+      }
     } catch (error) {
       errorLine.textContent = error.message;
     }
-  });
-
-  print.addEventListener("click", () => {
-    if (!preview.firstElementChild) {
-      errorLine.textContent = "יש להציג דוח לפני ההדפסה.";
-      return;
-    }
-    if (openViewer(preview.firstElementChild)) return;
-    printRoot.replaceChildren(preview.firstElementChild.cloneNode(true));
-    window.print();
-  });
+  };
+  show.addEventListener("click", () => run(false));
+  print.addEventListener("click", () => run(true));
 }
