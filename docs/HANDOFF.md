@@ -26,6 +26,8 @@ This is a local-first browser application that keeps a bookkeeper's clients and 
 
 Never add cloud persistence for client workspaces, declarations, draft tables, source images, PDFs, TXT files, exports, or history. Those remain in the selected local folder. R2 only holds temporary Telegram images until the browser saves and ACKs them.
 
+One approved exception (owner decision, 3 October 2026): **backups and hand-off packages**. The app may write files encrypted on the PC (AES-GCM) into local folders the user picks, for example a folder carried off the PC by the user's own Google Drive for desktop sync client, or a USB drive. The app makes no network call for this and never uploads client data itself. The key is random; its printed recovery code is kept by the owners and never enters the repository, the Worker or logs. Backup scope is text data and report PDFs; source images and legacy exports only if the user switches them on.
+
 Use a local, non-synchronised active root. Do **not** use OneDrive as the active root: File System Access handles can become invalid when OneDrive changes a file, causing the Windows cached-interface-state error. A PDF may be selected from any local path; the failure is normally while the app writes its source PDF and rendered pages into the active root.
 
 The intended test root is `D:\ocr_test` (not `D:\ocr\_test`). `D:\ocr_test` contains `test4` and `test5`. The latter path is an empty folder accidentally created during diagnosis and contains no project data.
@@ -101,6 +103,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `report-viewer.js` — child window with Close / Save a copy as / Save buttons.
   - `reports-ui.js` — the reports page (`#reports-view`, since 3 Oct a page of the app, not a dialog; `setupReports` returns `open({ client, kind })` and calls `onOpen` to reveal the view): report kind, period (default: the client's VAT period or year to date), advance percent, "הצגה" (child window), "שמירת כל המסמכים" (PDFs into `<client>/reports/`).
   - `history-ranker.js` — local, text-only Pass 2 history selection.
+  - `backup-store.js` — encrypted, write-once, hash-addressed backup into a user-picked folder (no UI yet); format and decisions in [`BACKUP_SPEC.md`](BACKUP_SPEC.md).
 - `cloudflare-worker/`
   - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
   - `src/rivhit-mapping.js` — approved Form 6111 map.
@@ -293,7 +296,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **222 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **239 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

@@ -122,4 +122,7 @@ test.
 
 Do not restore the obsolete Python application, exploratory package workflow or
 the old Telegram-based pass-2 authorization path. Do not introduce cloud
-persistence for local client data.
+persistence for local client data. The one exception is the encrypted backup
+and hand-off package the app writes into a local folder chosen by the user (no
+network call by the app); its conditions are in `docs/HANDOFF.md`, "Product and
+hard boundaries".
