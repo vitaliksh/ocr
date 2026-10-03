@@ -184,3 +184,13 @@ test("the next free classification code starts above the built-in range", async 
   const taken = Object.keys(window.RIVHIT_MAPPING).map(Number);
   assert.equal(Number(app.nextFreeClassificationCode()), Math.max(799, ...taken) + 1);
 });
+
+test("cancel buttons of dialogs with required fields skip form validation", async () => {
+  const { document } = await loadApp();
+  for (const dialog of document.querySelectorAll("dialog")) {
+    if (!dialog.querySelector("[required]")) continue;
+    for (const cancel of dialog.querySelectorAll('button[value="cancel"]')) {
+      assert.equal(cancel.hasAttribute("formnovalidate"), true, `${dialog.id}: ${cancel.textContent || cancel.ariaLabel}`);
+    }
+  }
+});

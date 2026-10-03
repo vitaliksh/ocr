@@ -282,6 +282,7 @@ function updateStartAvailability() {
   const actions = declarationActions({ dataRoot, declaration: currentDeclaration, workspaceCommitted: committedWorkspace });
   start.disabled = !actions.canStart;
   closeDeclarationButton.disabled = !actions.canClose;
+  createPdf.disabled = !actions.canClose;
   uploadRequirements.textContent = !dataRoot
     ? "יש לבחור תחילה תיקיית נתונים בסביבות העבודה."
     : !currentDeclaration

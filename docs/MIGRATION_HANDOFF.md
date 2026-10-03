@@ -164,7 +164,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.6 · 10:44 IDT`. Tests: **164** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.7 · 10:59 IDT`. Tests: **165** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct):** real disk folder, import of the sample files, the new-declaration
