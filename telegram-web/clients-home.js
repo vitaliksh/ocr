@@ -8,6 +8,7 @@ import { formatMonth } from "./month-format.js";
 export function createClientsHome(doc = document) {
   let report = () => {};
   let openReports = () => {};
+  let exportMonth = () => {};
   const homeRoot = doc.querySelector("#clients-view"), cardRoot = doc.querySelector("#client-view"), journalRoot = doc.querySelector("#journal-view"), crumb = doc.querySelector("#breadcrumb"), reportsRoot = doc.querySelector("#reports-view"), navReports = doc.querySelector("#nav-reports");
   let controls = null, view = "clients", clientId = null, journalMonth = null, query = "", showingArchived = false, showingArchivedDeclarations = false, settings = null, settingsToken = 0;
 
@@ -68,6 +69,7 @@ export function createClientsHome(doc = document) {
         onToggleArchived: () => { showingArchivedDeclarations = !showingArchivedDeclarations; render(); },
         onOpenReport: (kind) => openReports(clientId, kind),
         onArchive: (month, archive) => Promise.resolve(controls.setDeclarationArchived(clientId, month, archive)).catch((error) => report("לא ניתן לעדכן הצהרה: " + error.message)),
+        onExport: (month) => exportMonth(clientId, month),
         onDelete: (month) => Promise.resolve(controls.deleteDeclaration(clientId, month)).catch((error) => report("לא ניתן למחוק הצהרה: " + error.message)),
         countRows: async (month) => (await loadDeclaration(client.directory, month)).draft.rows.length,
       });
@@ -113,10 +115,11 @@ export function createClientsHome(doc = document) {
   }
 
   return {
-    bind(workspaceControls, { onError, onOpenReports } = {}) {
+    bind(workspaceControls, { onError, onOpenReports, onExportMonth } = {}) {
       controls = workspaceControls;
       if (onError) report = onError;
       if (onOpenReports) openReports = onOpenReports;
+      if (onExportMonth) exportMonth = onExportMonth;
       navReports?.addEventListener("click", () => openReports(clientId));
       doc.querySelector("#nav-clients")?.addEventListener("click", () => {
         showHome();

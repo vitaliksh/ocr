@@ -69,25 +69,34 @@ Deleting old snapshots or unreferenced packs is a manual, confirmed action still
   report only real failures in the status bar. After a browser restart the folder permission is "prompt" again, so the first backup
   of a session is the button.
 
-## Hand-off package (sidebar item "העברה")
+## Transfer file (sidebar item "העברה לקובץ")
 
-Use case: one of the owners checks a client's invoices on his PC (import, review), then hands the finished rows to the other PC.
-`handoff-store.js` (no DOM) and `handoff-ui.js` (`#handoff-dialog`).
+Use case: one owner checks a client's invoices on his PC and hands the result to the other PC, or a whole client moves between the
+PCs. One file, `<client>_<MM-YYYY|all>.annateria`, goes by USB drive, e-mail or any folder (a shared Drive folder was tried first and
+dropped as impractical). `transfer-store.js` (no DOM) and `transfer-ui.js` (`#transfer-dialog`).
 
-- **Files** in a shared folder both PCs sync (a Google Drive folder): `pkg-<stamp>-<rand>.body` (sealed: 4-byte length, JSON
-  `{ rows, images: [{ file, size }] }`, then the image bytes) and `pkg-<stamp>-<rand>.head` (sealed JSON: id, createdAt, clientName,
-  month, rows, images, bytes). The body is written first and the head last, so a half-synced package is never listed; a head whose body
-  has not arrived yet is reported as "not ready, try again". Write-once, never deleted, sealed with the **same key** as the backup
-  (so the other PC enters the same recovery code through "כבר יש לך קוד שחזור" in the backup dialog).
-- **Send:** the declaration open in the journal (the open table is saved first) goes out with all its draft rows and the images they use.
-- **Receive:** pick a package from the list, the client with the same name is preselected (else it must be chosen), and the rows are
-  **appended** to the open declaration of the package month (created if missing; a locked one is refused). Images get the next free
-  numbers of the target declaration (`003.jpg` ...) and the rows are rewritten to point at them, so existing files are never touched.
-  The dialog says what will happen before the click. What was imported is remembered in `common/handoff-state.json`; importing the same
-  package again asks for confirmation. The open table is detached before the import and the declaration reopened after it (as in the
-  Excel import). A package from another key is reported as a wrong code.
+- **Format:** `ANNATERIA-TRANSFER-1
+` + sealed (the same AES-GCM sealing and **key** as the backup, so both PCs need the same recovery
+  code: "כבר יש לך קוד שחזור" in the backup dialog) of `[4-byte length][JSON meta][image bytes in meta order]`. Meta: kind (`month` or
+  `client`), client name/activity/kind, and per month the `declaration.json`, the draft rows, the history lines of a locked month and
+  the image list. Without the key nothing is readable; a wrong key, a foreign file and a damaged file give different messages.
+- **Export:** choose client and month (or "all months") in the dialog; the entry points preselect them: the "⋯" of a client in the
+  sidebar ("ייצוא לקוח לקובץ…"), the "ייצוא" button of a month on the client card, and "ייצוא הצהרה לקובץ…" in the journal's "⋯". Images
+  are a checkbox (on for one month, off for all months) with the size shown first; above ~20 MB it warns that e-mail will not take
+  it (Gmail sends up to 25 MB, larger files go as a Drive link). The save dialog opens first (it needs the click), then the open
+  table is saved if it belongs to the export, then the file is built.
+- **Import:** "בחירת קובץ…" reads and decrypts it and shows client, months (open/locked) and counts. The client with the same name is
+  preselected; with no match the default is to create the client (after a confirmation). Import only **adds**:
+  - a month this PC lacks: an open one is created, a locked one is copied exactly as it was (same declaration id, rows, images and
+    its history lines; the history of a declaration is never written twice);
+  - an open month here: only rows whose `documentId` is not there yet are appended, their images get the next free numbers
+    (`003.jpg` ...), nothing existing is touched; rows whose image was not in the file lose the image reference;
+  - a locked month here is never changed (reported as skipped).
+  Importing the same file again therefore adds nothing. This is an add-only merge, not a sync: an edit of an existing row does not
+  travel. The result lists every month (`created`, `appended`, `copied-locked`, `skipped-locked`). The open table is detached before
+  the import and the result opened afterwards (a month, or the client card for a whole client).
 
 ## Still to do
 
-Manual, confirmed clean-up of old snapshots and unreferenced packs and of old hand-off packages; rollout on the real PC with a restore
-drill (restore into an empty folder, open it in the app, report totals match) and the first real hand-off between the two PCs.
+Manual, confirmed clean-up of old snapshots and unreferenced packs; rollout on the real PC with a restore drill (restore into an
+empty folder, open it in the app, report totals match) and the first real transfer between the two PCs.

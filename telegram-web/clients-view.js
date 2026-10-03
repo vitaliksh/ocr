@@ -191,7 +191,7 @@ export function renderClientCard(root, { client, settings, showingArchived }, ha
       );
       item.append(card);
       const actions = el(root, "div", "declaration-actions");
-      actions.append(button(root, showingArchived ? "שחזור" : "ארכוב", "quiet small", () => handlers.onArchive?.(declaration.month, !showingArchived)), button(root, "מחיקה", "quiet small danger", () => handlers.onDelete?.(declaration.month)));
+      actions.append(button(root, "ייצוא", "quiet small", () => handlers.onExport?.(declaration.month)), button(root, showingArchived ? "שחזור" : "ארכוב", "quiet small", () => handlers.onArchive?.(declaration.month, !showingArchived)), button(root, "מחיקה", "quiet small danger", () => handlers.onDelete?.(declaration.month)));
       item.append(actions);
       list.append(item);
     }

@@ -26,7 +26,7 @@ import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
 import { setupReports } from "./reports-ui.js";
 import { setupBackup } from "./backup-ui.js";
-import { setupHandoff } from "./handoff-ui.js";
+import { setupTransfer } from "./transfer-ui.js";
 import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
 import {
   readCustomRivhitMapping,
@@ -466,6 +466,8 @@ const workspaceControls = setupWorkspaceControls({
   archiveButton: document.querySelector("#archive-client"),
   restoreButton: document.querySelector("#restore-client"),
   saveClientButton: document.querySelector("#save-client-settings"),
+  exportClientButton: document.querySelector("#export-client"),
+  onExportClient: (clientId) => transfer.openExport({ clientId }),
   clientMenu: document.querySelector("#client-menu"),
   clientMenuName: document.querySelector("#client-menu-name"),
   clientNameInput: document.querySelector("#new-client-name"),
@@ -498,6 +500,7 @@ clientsHome.bind(workspaceControls, {
     const client = [...state.active, ...state.archived].find((item) => item.id === clientId);
     if (client) reports.open({ client, kind });
   },
+  onExportMonth: (clientId, month) => transfer.openExport({ clientId, month }),
 });
 const folderPathInput = document.querySelector("#data-root-path");
 folderPathInput.addEventListener("change", () => {
@@ -538,27 +541,27 @@ setupExcelImport({
   },
   onError: showError,
 });
-setupHandoff({
-  dialog: document.querySelector("#handoff-dialog"),
-  openButton: document.querySelector("#open-handoff"),
+const transfer = setupTransfer({
+  dialog: document.querySelector("#transfer-dialog"),
+  openButton: document.querySelector("#open-transfer"),
   getDataRoot: () => dataRoot,
-  getCurrent: () =>
-    committedWorkspace && currentDeclaration && currentDeclarationDirectory
-      ? { client: committedWorkspace.config, clientDirectory: committedWorkspace.directory, declaration: currentDeclaration }
-      : null,
+  getCurrent: () => (committedWorkspace && currentDeclaration ? { client: committedWorkspace.config, declaration: currentDeclaration } : null),
   getClients: () => workspaceControls?.getClients().active ?? [],
   saveCurrent: saveCurrentDraft,
   // Saving the open table after the import would overwrite the imported rows, so detach it first.
-  beforeImport: async ({ clientId, month }) => {
-    if (committedWorkspace?.config.clientId !== clientId || currentDeclaration?.month !== month) return;
+  beforeImport: async ({ clientId, months }) => {
+    if (committedWorkspace?.config.clientId !== clientId || !months.includes(currentDeclaration?.month)) return;
     await saveCurrentDraft();
     clearActiveDeclaration(currentDeclaration.declarationId);
   },
-  afterImport: async ({ clientId, month }) => {
+  afterImport: async ({ clientId, months }) => {
     await workspaceControls?.refreshFromUserAction();
-    await workspaceControls?.openDeclaration(clientId, month);
+    if (months.length === 1) await workspaceControls?.openDeclaration(clientId, months[0]);
+    else clientsHome.openClient(clientId);
   },
-  onError: showError,
+});
+document.querySelector("#export-declaration").addEventListener("click", () => {
+  if (committedWorkspace && currentDeclaration) transfer.openExport({ clientId: committedWorkspace.config.clientId, month: currentDeclaration.month });
 });
 const reports = setupReports({
   button: document.querySelector("#open-reports"),

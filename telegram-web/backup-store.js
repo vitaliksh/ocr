@@ -194,7 +194,7 @@ async function listNames(directory) {
 
 const stampOf = (iso) => iso.replace(/[-:]/g, "").replace(/\.\d+/, "");
 
-// The same sealing and write-once helpers serve the hand-off package (handoff-store.js).
+// The same sealing and write-once helpers serve the transfer file (transfer-store.js).
 export { seal as sealBytes, unseal as unsealBytes, writeOnce as writeFileOnce, readBytes as readFileBytes, listNames as listFileNames, randomHex, stampOf };
 
 // ---- the store ----

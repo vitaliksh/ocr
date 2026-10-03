@@ -26,26 +26,26 @@
 }
 
 .backup-body,
-.handoff-body {
+.transfer-body {
   display: grid;
   gap: var(--s3);
 }
 
 /* The result plate stays visible while the long dialog is scrolled */
 #backup-summary,
-#handoff-summary {
+#transfer-summary {
   position: sticky;
   inset-block-start: 0;
   z-index: 1;
 }
 
 .backup-body h3,
-.handoff-body h3 {
+.transfer-body h3 {
   margin: 0 0 var(--s1);
 }
 
 .backup-body p,
-.handoff-body p {
+.transfer-body p {
   margin: 0;
 }
 
@@ -78,4 +78,14 @@
   letter-spacing: 0.04em;
   word-break: break-all;
   user-select: all;
+}
+
+#transfer-summary,
+#transfer-info {
+  white-space: pre-line;
+}
+
+#transfer-size[data-state="large"] {
+  color: var(--warning);
+  font-weight: 600;
 }

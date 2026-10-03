@@ -81,3 +81,15 @@ test("an archived client cannot get a new declaration or open one", () => {
   assert.equal(buttonByText(container, "+ הצהרה חדשה").disabled, true);
   assert.match(container.textContent, /בארכיון/);
 });
+
+test("each declaration card has an export button for that month", () => {
+  const container = root();
+  const exported = [];
+  renderClientCard(container, { client: client("A", [declaration("2026-02"), declaration("2026-01", "closed")]), settings: null, showingArchived: false }, {
+    onOpenDeclaration() {}, onNewDeclaration() {}, onEdit() {}, onToggleArchived() {}, onExport: (month) => exported.push(month),
+  });
+  const buttons = [...container.querySelectorAll("button")].filter((node) => node.textContent === "ייצוא");
+  assert.equal(buttons.length, 2);
+  buttons.forEach((node) => node.click());
+  assert.deepEqual(exported, ["2026-02", "2026-01"]);
+});

@@ -7,7 +7,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.25 · 19:10 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.26 · 20:40 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -26,7 +26,7 @@ This is a local-first browser application that keeps a bookkeeper's clients and 
 
 Never add cloud persistence for client workspaces, declarations, draft tables, source images, PDFs, TXT files, exports, or history. Those remain in the selected local folder. R2 only holds temporary Telegram images until the browser saves and ACKs them.
 
-One approved exception (owner decision, 3 October 2026): **backups and hand-off packages**. The app may write files encrypted on the PC (AES-GCM) into local folders the user picks, for example a folder carried off the PC by the user's own Google Drive for desktop sync client, or a USB drive. The app makes no network call for this and never uploads client data itself. The key is random; its printed recovery code is kept by the owners and never enters the repository, the Worker or logs. Backup scope is text data and report PDFs; source images and legacy exports only if the user switches them on.
+One approved exception (owner decision, 3 October 2026): **backups and transfer files**. The app may write files encrypted on the PC (AES-GCM) into local folders the user picks, for example a folder carried off the PC by the user's own Google Drive for desktop sync client, or a USB drive. The app makes no network call for this and never uploads client data itself. The key is random; its printed recovery code is kept by the owners and never enters the repository, the Worker or logs. Backup scope is text data and report PDFs; source images and legacy exports only if the user switches them on.
 
 Use a local, non-synchronised active root. Do **not** use OneDrive as the active root: File System Access handles can become invalid when OneDrive changes a file, causing the Windows cached-interface-state error. A PDF may be selected from any local path; the failure is normally while the app writes its source PDF and rendered pages into the active root.
 
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.03.25 · 19:10 IDT
+גרסת ממשק: 2026.10.03.26 · 20:40 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -103,7 +103,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `report-viewer.js` — child window with Close / Save a copy as / Save buttons.
   - `reports-ui.js` — the reports page (`#reports-view`, since 3 Oct a page of the app, not a dialog; `setupReports` returns `open({ client, kind })` and calls `onOpen` to reveal the view): report kind, period (default: the client's VAT period or year to date), advance percent, "הצגה" (child window), "שמירת כל המסמכים" (PDFs into `<client>/reports/`).
   - `history-ranker.js` — local, text-only Pass 2 history selection.
-  - Backup (`BACKUP_SPEC.md`): `backup-store.js` (encrypted, write-once, hash-addressed copy into a user-picked folder: create, list, verify, restore, retention list; pure of DOM), `backup-state.js` (`common/backup-state.json`: last success per slot `cloud`/`usb`, `includeImages`; `backupLevel` decides the plate: cloud older than 2 days or flash older than 35 days = red), `backup-handles.js` (IndexedDB keys `backup-folder-cloud`, `backup-folder-usb`, `backup-key`), `handoff-store.js` / `handoff-ui.js` (hand-off package, below), `backup-ui.js` (`#backup-dialog`, the "גיבוי" sidebar item with a status dot, recovery code, copy now, verify, restore; `runAuto("start" | "lock")` is called by `app.js` after a data root is opened and after a declaration is locked), `backup.css`.
+  - Backup (`BACKUP_SPEC.md`): `backup-store.js` (encrypted, write-once, hash-addressed copy into a user-picked folder: create, list, verify, restore, retention list; pure of DOM), `backup-state.js` (`common/backup-state.json`: last success per slot `cloud`/`usb`, `includeImages`; `backupLevel` decides the plate: cloud older than 2 days or flash older than 35 days = red), `backup-handles.js` (IndexedDB keys `backup-folder-cloud`, `backup-folder-usb`, `backup-key`), `transfer-store.js` / `transfer-ui.js` (the `.annateria` transfer file, see `BACKUP_SPEC.md`), `backup-ui.js` (`#backup-dialog`, the "גיבוי" sidebar item with a status dot, recovery code, copy now, verify, restore; `runAuto("start" | "lock")` is called by `app.js` after a data root is opened and after a declaration is locked), `backup.css`.
 - `cloudflare-worker/`
   - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
   - `src/rivhit-mapping.js` — approved Form 6111 map.
@@ -146,8 +146,7 @@ Browser-side per-viewer storage (never the source of truth): `annateria-sidebar-
 │  ├─ custom-rivhit-mapping.json
 │  ├─ chart-of-accounts.json     (created by the Excel import, see MIGRATION_HANDOFF.md)
 │  ├─ ui-settings.json           (hidden journal columns, typed folder path)
-│  ├─ backup-state.json          (when each backup slot last succeeded)
-│  └─ handoff-state.json         (hand-off packages imported on this PC)
+│  └─ backup-state.json          (when each backup slot last succeeded)
 └─ clients/<client>/
    ├─ workspace.json
    ├─ history.jsonl              (rows of locked declarations; removed on reopen, written again on lock)
@@ -270,7 +269,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.03.25 · 19:10 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.03.26 · 20:40 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -280,7 +279,7 @@ Recommended short production check:
 
 Next phase (Excel migration, reports, GUI): see [`MIGRATION_HANDOFF.md`](MIGRATION_HANDOFF.md).
 
-1. **Backups** — core and dialog are built (3 Oct, see `BACKUP_SPEC.md`); left: manual clean-up of old snapshots, the hand-off package, rollout and a restore drill on the real PC. Until the first real copies exist the local folder is the only copy of the client data.
+1. **Backups** — core and dialog are built (3 Oct, see `BACKUP_SPEC.md`); left: manual clean-up of old snapshots, rollout and a restore drill on the real PC. Until the first real copies exist the local folder is the only copy of the client data.
 2. Store the client tax ID (עוסק מורשה) so the report PDFs can show it (data-model change; the client card has room for it).
 3. The AI assistant dock (reserved empty row in the shell grid; the journal rows can be selected for it later).
 4. Remove the Rivhit export code (`rivhit-export.js`, the template handling, `invoices.pdf` path) once the client confirms it is not needed.
@@ -298,7 +297,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **275 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **278 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
