@@ -66,10 +66,6 @@ const inactive = document.querySelector("#inactive"),
   addToExisting = document.querySelector("#add-to-existing"),
   startNewTable = document.querySelector("#start-new-table"),
   uploadRequirements = document.querySelector("#upload-requirements"),
-  workspacesDrawer = document.querySelector("#workspaces-drawer"),
-  workspacesBackdrop = document.querySelector("#workspaces-backdrop"),
-  openWorkspacesDrawer = document.querySelector("#open-workspaces-drawer"),
-  closeWorkspacesDrawer = document.querySelector("#close-workspaces-drawer"),
   registerPasskey = document.querySelector("#register-passkey"),
   passkeySummary = document.querySelector("#passkey-summary"),
   passkeyEnrollmentDialog = document.querySelector("#passkey-enrollment-dialog"),
@@ -144,8 +140,6 @@ async function loadBackendVersion() {
 function showError(message) {
   status.dataset.nextKind = "error";
   status.textContent = message;
-  // The open drawer covers #status, so mirror the message where the user is looking.
-  if (!workspacesDrawer.hidden) workspaceSummary.textContent = message;
 }
 function showExportValidation(issues) {
   exportValidationList.replaceChildren(
@@ -341,7 +335,6 @@ async function activateDeclaration(selected) {
   applyBusinessRules();
   status.textContent = currentDeclaration.status === "open" ? "" : "ההצהרה נעולה לקריאה בלבד.";
   updateStartAvailability();
-  if (!selected.keepDrawer) setWorkspacesDrawer(false);
   return true;
 }
 function updateWorkspace(selected) {
@@ -428,6 +421,9 @@ async function loadCustomMapping(root) {
 }
 const workspaceControls = setupWorkspaceControls({
   onClientsChanged: () => clientsHome.refresh(),
+  onClientOpen: (clientId) => clientsHome.openClient(clientId),
+  newClientDialog: document.querySelector("#new-client-dialog"),
+  newClientError: document.querySelector("#new-client-error"),
   clientList: document.querySelector("#client-list"),
   showNewButton: document.querySelector("#show-new-client"),
   openExistingButton: document.querySelector("#open-existing-client"),
@@ -466,7 +462,7 @@ const workspaceControls = setupWorkspaceControls({
   onDeleted: clearActiveClient,
   onError: showError,
 });
-clientsHome.bind(workspaceControls);
+clientsHome.bind(workspaceControls, { onError: showError });
 setupExcelImport({
   button: document.querySelector("#import-excel"),
   dialog: document.querySelector("#excel-import-dialog"),
@@ -526,62 +522,6 @@ registerPasskey.addEventListener("click", async () => {
   } catch (error) {
     showError(error.message);
     registerPasskey.disabled = false;
-  }
-});
-function setWorkspacesDrawer(open) {
-  if (!open) {
-    workspace = committedWorkspace;
-    workspaceControls?.clearPending();
-    if (workspace) {
-      businessActivity.value = workspace.config.businessActivity;
-      businessKind.value = workspace.config.businessKind;
-    }
-  }
-  if (open) {
-    workspacesDrawer.hidden = false;
-    workspacesBackdrop.hidden = false;
-    requestAnimationFrame(() => {
-      workspacesDrawer.classList.add("is-open");
-      workspacesBackdrop.classList.add("is-open");
-    });
-  } else {
-    workspacesDrawer.classList.remove("is-open");
-    workspacesBackdrop.classList.remove("is-open");
-  }
-  workspacesDrawer.setAttribute("aria-hidden", String(!open));
-  openWorkspacesDrawer.setAttribute("aria-expanded", String(open));
-  document.body.classList.toggle("drawer-open", open);
-  if (open) closeWorkspacesDrawer.focus();
-  else {
-    window.setTimeout(() => {
-      if (!workspacesDrawer.classList.contains("is-open")) {
-        workspacesDrawer.hidden = true;
-        workspacesBackdrop.hidden = true;
-      }
-    }, 200);
-    openWorkspacesDrawer.focus();
-  }
-}
-openWorkspacesDrawer.addEventListener("click", async () => {
-  workspace = committedWorkspace;
-  workspaceControls?.showActiveClients();
-  if (workspace) {
-    businessActivity.value = workspace.config.businessActivity;
-    businessKind.value = workspace.config.businessKind;
-  }
-  setWorkspacesDrawer(true);
-  try {
-    await workspaceControls?.refreshFromUserAction();
-  } catch (error) {
-    showError("לא ניתן לרענן את רשימת הלקוחות: " + error.message);
-  }
-});
-closeWorkspacesDrawer.addEventListener("click", () => setWorkspacesDrawer(false));
-workspacesBackdrop.addEventListener("click", () => setWorkspacesDrawer(false));
-window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && workspacesDrawer.classList.contains("is-open")) {
-    event.preventDefault();
-    setWorkspacesDrawer(false);
   }
 });
 function reset() {

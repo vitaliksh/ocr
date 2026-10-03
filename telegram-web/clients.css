@@ -168,3 +168,13 @@ body:not([data-view="journal"]) .journal-only,
 body:not([data-view="journal"]) #declaration-badge {
   display: none;
 }
+
+.declaration-item {
+  display: grid;
+  gap: 2px;
+}
+
+.declaration-actions {
+  display: flex;
+  gap: var(--s1);
+}

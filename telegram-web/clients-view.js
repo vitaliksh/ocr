@@ -63,8 +63,8 @@ function badge(root, declaration) {
   return node;
 }
 
-// handlers: { onOpen(id), onNew(), onSearch(query), onToggleArchived(), onChooseRoot() }
-export function renderClientsHome(root, { clients, archivedCount, showingArchived, query, hasRoot }, handlers) {
+// handlers: { onOpen(id), onNew(), onSearch(query), onToggleArchived(), onChooseRoot(), onGrant() }
+export function renderClientsHome(root, { clients, archivedCount, showingArchived, query, hasRoot, needsPermission = false }, handlers) {
   root.replaceChildren();
   const head = el(root, "div", "view-head");
   head.append(el(root, "h2", "", showingArchived ? "לקוחות בארכיון" : "לקוחות"));
@@ -86,6 +86,13 @@ export function renderClientsHome(root, { clients, archivedCount, showingArchive
     const empty = el(root, "div", "card empty-state");
     empty.append(el(root, "h3", "", "לא נבחרה תיקיית נתונים"), el(root, "p", "", "התיקייה המקומית מכילה את הלקוחות, ההצהרות והדוחות."), button(root, "בחירת תיקיית נתונים", "", handlers.onChooseRoot));
     root.append(empty);
+    return;
+  }
+
+  if (needsPermission) {
+    const notice = el(root, "div", "card empty-state");
+    notice.append(el(root, "h3", "", "נדרש אישור גישה לתיקיית הנתונים"), el(root, "p", "", "הדפדפן ביקש לאשר מחדש את הגישה לתיקייה אחרי הטעינה."), button(root, "אישור גישה", "", handlers.onGrant));
+    root.append(notice);
     return;
   }
 
@@ -118,7 +125,7 @@ export function renderClientsHome(root, { clients, archivedCount, showingArchive
   root.append(card);
 }
 
-// handlers: { onOpenDeclaration(month), onNewDeclaration(), onEdit(), onToggleArchived(), countRows(month) -> Promise<number> }
+// handlers: { onOpenDeclaration(month), onNewDeclaration(), onEdit(), onToggleArchived(), onArchive(month, archive), onDelete(month), countRows(month) -> Promise<number> }
 export function renderClientCard(root, { client, settings, showingArchived }, handlers) {
   root.replaceChildren();
   const archivedCount = archivedDeclarationCount(client);
@@ -156,6 +163,7 @@ export function renderClientCard(root, { client, settings, showingArchived }, ha
     section.append(el(root, "h4", "year-heading", year));
     const list = el(root, "div", "declaration-cards");
     for (const declaration of declarations) {
+      const item = el(root, "div", "declaration-item");
       const card = el(root, "button", "declaration-card");
       card.type = "button";
       card.disabled = archivedClient;
@@ -168,7 +176,11 @@ export function renderClientCard(root, { client, settings, showingArchived }, ha
         (count) => { rows.textContent = Number.isFinite(count) ? `${count} שורות` : ""; },
         () => { rows.textContent = "—"; },
       );
-      list.append(card);
+      item.append(card);
+      const actions = el(root, "div", "declaration-actions");
+      actions.append(button(root, showingArchived ? "שחזור" : "ארכוב", "quiet small", () => handlers.onArchive?.(declaration.month, !showingArchived)), button(root, "מחיקה", "quiet small danger", () => handlers.onDelete?.(declaration.month)));
+      item.append(actions);
+      list.append(item);
     }
     section.append(list);
   }

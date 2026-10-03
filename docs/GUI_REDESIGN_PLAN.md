@@ -120,7 +120,29 @@ New views, switched by state (no router needed): **Clients** (start screen), **C
   rendering is rewritten here. Before the rewrite, add characterisation tests in the harness (select client, select
   declaration, archive, delete, new declaration with `keepDrawer`).
 
-### Stage 4 — Sidebar (replaces the drawer)
+### Stage 4 as built (3 October)
+
+- The drawer is gone. `#workspaces-drawer` is now a docked sidebar (the id is kept): header with the data folder
+  name, "All clients" navigation item, searchless client list (avatar, name, "⋯" opens the existing client dialog),
+  the expanded client's declarations (newest first, open/locked dot, "+ new declaration"), footer with folder
+  switcher, "Settings" and the version lines. It collapses to an icon rail with the ☰ button and is resized by dragging
+  its inner edge or with the arrow keys (220–420 px); both are remembered in `localStorage`.
+- Settings (model, template, classification codes, AI connection) moved into `#settings-dialog`; new clients are
+  created in `#new-client-dialog` (errors appear inside it). Ids are unchanged.
+- Clicking a client in the sidebar opens its card; clicking a declaration opens the journal. Archive / restore /
+  delete of a declaration moved to the cards of the client card (workspace API `setDeclarationArchived`,
+  `deleteDeclaration`). A restored data root that needs the browser's permission shows a grant button on the clients
+  list (workspace flag `needsPermission`), "All clients" refreshes the list from disk.
+- Deviations: the client list has no search yet (the clients view has one), the client row menu is still the old
+  client dialog, and the "Reports / Import" items stay in the top bar (they act on the open declaration's client).
+- Existing code changed: `workspace.js` (`renderClients` replaced by `sidebar-clients.js`, new optional arguments
+  `onClientOpen`, `newClientDialog`, `newClientError`, `needsPermission` flag, extra API methods, removed
+  `toggleClient`), `app.js` (drawer functions, listeners and the error mirroring removed; three new arguments),
+  `workspace.css` (about 95 obsolete drawer and tree rules deleted), `index.html`.
+
+### Stage 4 plan text
+
+— Sidebar (replaces the drawer)
 
 - Persistent, collapsible, resizable, state in `localStorage` (a pure per-viewer convenience).
 - Content: client switcher with search; the active client's declarations (year groups, badges); navigation

@@ -293,3 +293,20 @@ input[type="radio"] {
 .muted {
   color: var(--text-muted);
 }
+
+.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.quiet:hover {
+  background: var(--surface-muted);
+  border-color: transparent;
+  color: var(--text-strong);
+}
+
+.quiet.danger:hover {
+  background: var(--error-soft);
+  color: var(--error);
+}

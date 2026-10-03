@@ -6,6 +6,7 @@ import { loadDeclaration } from "./declaration-store.js";
 import { formatMonth } from "./month-format.js";
 
 export function createClientsHome(doc = document) {
+  let report = () => {};
   const homeRoot = doc.querySelector("#clients-view"), cardRoot = doc.querySelector("#client-view"), journalRoot = doc.querySelector("#journal-view"), crumb = doc.querySelector("#breadcrumb");
   let controls = null, view = "clients", clientId = null, journalMonth = null, query = "", showingArchived = false, showingArchivedDeclarations = false, settings = null, settingsToken = 0;
 
@@ -41,12 +42,13 @@ export function createClientsHome(doc = document) {
     if (!controls) return renderCrumb();
     const state = controls.getClients();
     if (view === "clients") {
-      renderClientsHome(homeRoot, { clients: showingArchived ? state.archived : state.active, archivedCount: state.archived.length, showingArchived, query, hasRoot: state.hasRoot }, {
+      renderClientsHome(homeRoot, { clients: showingArchived ? state.archived : state.active, archivedCount: state.archived.length, showingArchived, query, hasRoot: state.hasRoot, needsPermission: state.needsPermission }, {
         onOpen: openClient,
         onNew: openNewClientForm,
         onSearch: (value) => { query = value; render(); doc.querySelector("#clients-search")?.focus(); },
         onToggleArchived: () => { showingArchived = !showingArchived; query = ""; render(); },
         onChooseRoot: () => doc.querySelector("#select-data-root").click(),
+        onGrant: () => Promise.resolve(controls.refresh()).catch((error) => report("לא ניתן לרענן את רשימת הלקוחות: " + error.message)),
       });
       const search = doc.querySelector("#clients-search");
       if (search && query) search.setSelectionRange(query.length, query.length);
@@ -59,6 +61,8 @@ export function createClientsHome(doc = document) {
         onNewDeclaration: () => controls.newDeclaration(clientId),
         onEdit: () => controls.editClient(clientId),
         onToggleArchived: () => { showingArchivedDeclarations = !showingArchivedDeclarations; render(); },
+        onArchive: (month, archive) => Promise.resolve(controls.setDeclarationArchived(clientId, month, archive)).catch((error) => report("לא ניתן לעדכן הצהרה: " + error.message)),
+        onDelete: (month) => Promise.resolve(controls.deleteDeclaration(clientId, month)).catch((error) => report("לא ניתן למחוק הצהרה: " + error.message)),
         countRows: async (month) => (await loadDeclaration(client.directory, month)).draft.rows.length,
       });
     }
@@ -66,8 +70,7 @@ export function createClientsHome(doc = document) {
   }
 
   function openNewClientForm() {
-    if (doc.querySelector("#workspaces-drawer").hidden) doc.querySelector("#open-workspaces-drawer").click();
-    if (doc.querySelector("#new-client-form").hidden) doc.querySelector("#show-new-client").click();
+    doc.querySelector("#show-new-client").click();
   }
 
   function showHome() {
@@ -98,7 +101,15 @@ export function createClientsHome(doc = document) {
   }
 
   return {
-    bind(workspaceControls) { controls = workspaceControls; render(); },
+    bind(workspaceControls, { onError } = {}) {
+      controls = workspaceControls;
+      if (onError) report = onError;
+      doc.querySelector("#nav-clients")?.addEventListener("click", () => {
+        showHome();
+        Promise.resolve(controls.refresh()).catch((error) => report("לא ניתן לרענן את רשימת הלקוחות: " + error.message));
+      });
+      render();
+    },
     refresh: () => render(),
     showHome,
     openClient,

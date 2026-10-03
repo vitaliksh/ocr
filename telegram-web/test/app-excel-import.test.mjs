@@ -48,14 +48,11 @@ test("корень без плана счетов не меняет список
   assert.equal(app.nextFreeClassificationCode(), "889");
 });
 
-test("ошибка при открытой панели дублируется в сводку панели, при закрытой — нет", async () => {
+test("errors go to the status bar and no longer touch the sidebar summary", async () => {
   const { app, document } = await loadApp();
   const summary = document.querySelector("#workspace-summary");
   const before = summary.textContent;
-  app.showError("closed drawer");
-  assert.equal(document.querySelector("#status").textContent, "closed drawer");
+  app.showError("something failed");
+  assert.equal(document.querySelector("#status").textContent, "something failed");
   assert.equal(summary.textContent, before);
-  document.querySelector("#workspaces-drawer").hidden = false;
-  app.showError("open drawer");
-  assert.equal(summary.textContent, "open drawer");
 });

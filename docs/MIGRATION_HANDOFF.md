@@ -133,8 +133,8 @@ Usability work done after Vitalik's first manual tests (all in `main`):
   overwrote the imported rows.
 - New client form has a month field; "+ הצהרה חדשה…" asks for the month in a dialog.
 - All months are typed and shown as `MM/YYYY` (`month-format.js`); storage and folder names stay `YYYY-MM`.
-- In-page dialogs (`confirm-dialog.js`) replace `window.confirm`/`prompt`; errors raised while the drawer is open are
-  mirrored into the drawer (`showError`).
+- In-page dialogs (`confirm-dialog.js`) replace `window.confirm`/`prompt`; errors are shown in the status bar (`showError`; since stage 4 there is no
+  overlay drawer to mirror them into).
 - Reports default to the latest month that has data.
 - After Vitalik's second manual pass (2026.10.03.2): new-declaration dialog uses month and year selects (a hidden
   `MM/YYYY` input still carries the value); creating a month keeps the drawer open (`keepDrawer`); the empty
@@ -164,7 +164,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.12 · 11:41 IDT`. Tests: **184** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.13 · 11:48 IDT`. Tests: **193** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct):** real disk folder, import of the sample files, the new-declaration
@@ -178,7 +178,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
   not supported for imported rows; Rivhit is abandoned); closing a regular declaration is unchanged and still needs the
   TXT template; month names in the ledger are Hebrew, amounts in the ledger keep agorot while other reports use whole
   shekels.
-- GUI redesign is under way: see `GUI_REDESIGN_PLAN.md` (stages 2 shell/tokens and 3 clients home/card are in; stage 4 sidebar is next). Earlier note: **step 6, GUI redesign**, in a fresh session. Ask Vitalik for references or a list of annoyances first; do not
+- GUI redesign is under way: see `GUI_REDESIGN_PLAN.md` (stages 2 shell/tokens, 3 clients home/card and 4 sidebar are in; stage 5 journal table is next). Earlier note: **step 6, GUI redesign**, in a fresh session. Ask Vitalik for references or a list of annoyances first; do not
   guess a style. Screens to restyle: main page and journal table, side panel (drawer: clients, declarations, settings),
   import dialog, reports dialog and the report viewer window (`report-viewer.js` has its own inline CSS), the dialogs in
   `index.html` (`workspace.css`), the PDF look is deliberately Rivhit-like and is not part of the redesign.

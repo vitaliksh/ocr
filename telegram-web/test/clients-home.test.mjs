@@ -4,7 +4,7 @@ import { JSDOM } from "jsdom";
 import { createClientsHome } from "../clients-home.js";
 
 const page = () => new JSDOM(`<body><nav id="breadcrumb"></nav><section id="clients-view"></section><section id="client-view" hidden></section><div id="journal-view" hidden></div>
-<aside id="workspaces-drawer" hidden></aside><button id="open-workspaces-drawer"></button><div id="new-client-form" hidden></div><button id="show-new-client"></button><button id="select-data-root"></button></body>`).window.document;
+<button id="nav-clients"></button><button id="show-new-client"></button><button id="select-data-root"></button></body>`).window.document;
 const declaration = (month) => ({ declaration: { declarationId: `d-${month}`, month, status: "open", archived: false } });
 const clientA = { id: "a", clientName: "Alpha", config: { businessActivity: "x", businessKind: "home" }, directory: {}, declarations: [declaration("2026-03")] };
 const controls = (calls) => ({
@@ -57,12 +57,39 @@ test("a client that disappeared sends the card back to the list", () => {
   assert.deepEqual(visible(doc), ["clients-view"]);
 });
 
-test("the new-client button opens the drawer with the creation form", () => {
+test("the new-client button of the list triggers the sidebar new-client button", () => {
   const doc = page(), home = createClientsHome(doc);
-  doc.querySelector("#open-workspaces-drawer").addEventListener("click", () => { doc.querySelector("#workspaces-drawer").hidden = false; });
-  doc.querySelector("#show-new-client").addEventListener("click", () => { doc.querySelector("#new-client-form").hidden = false; });
+  let opened = 0;
+  doc.querySelector("#show-new-client").addEventListener("click", () => { opened += 1; });
   home.bind(controls([]));
   [...doc.querySelectorAll("#clients-view button")].find((node) => node.textContent === "+ לקוח חדש").click();
-  assert.equal(doc.querySelector("#workspaces-drawer").hidden, false);
-  assert.equal(doc.querySelector("#new-client-form").hidden, false);
+  assert.equal(opened, 1);
+});
+
+test("the sidebar all-clients item returns to the list and refreshes it from disk", () => {
+  const doc = page(), calls = [], home = createClientsHome(doc);
+  home.bind({ ...controls(calls), refresh: async () => calls.push(["refresh"]) });
+  home.showJournal({ clientId: "a", month: "2026-03" });
+  doc.querySelector("#nav-clients").click();
+  assert.deepEqual(visible(doc), ["clients-view"]);
+  assert.deepEqual(calls, [["refresh"]]);
+});
+
+test("a data root that needs permission shows a grant button that refreshes the list", () => {
+  const doc = page(), calls = [], home = createClientsHome(doc);
+  home.bind({ ...controls(calls), getClients: () => ({ active: [], archived: [], hasRoot: true, needsPermission: true }), refresh: async () => calls.push(["refresh"]) });
+  assert.match(doc.querySelector("#clients-view").textContent, /נדרש אישור גישה/);
+  [...doc.querySelectorAll("#clients-view button")].find((node) => node.textContent === "אישור גישה").click();
+  assert.deepEqual(calls, [["refresh"]]);
+});
+
+test("declaration actions of the card go to the workspace controls and errors are reported", async () => {
+  const doc = page(), calls = [], errors = [], home = createClientsHome(doc);
+  home.bind({ ...controls(calls), setDeclarationArchived: async (...args) => calls.push(["archive", ...args]), deleteDeclaration: async () => { throw new Error("denied"); } }, { onError: (message) => errors.push(message) });
+  doc.querySelector("#clients-view tbody button").click();
+  [...doc.querySelectorAll("#client-view button")].find((node) => node.textContent === "ארכוב").click();
+  [...doc.querySelectorAll("#client-view button")].find((node) => node.textContent === "מחיקה").click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(calls, [["archive", "a", "2026-03", true]]);
+  assert.match(errors[0], /denied/);
 });

@@ -25,7 +25,7 @@ or the selected local workspace.
 
 The product has client workspaces, not a cloud CRM. Chrome or Edge is required
 because the bookkeeper selects the local data root using the File System Access
-API. The workspace drawer creates, selects, archives, restores, edits and
+API. The sidebar and the clients views create, select, archive, restore, edit and
 permanently deletes clients.
 
 ```text
@@ -98,7 +98,7 @@ unit tests.
 ## Repository map
 
 - `telegram-web/` — static browser application. `app.js` owns upload, table,
-  declaration and passkey flows; `workspace.js` owns the workspace drawer;
+  declaration and passkey flows; `workspace.js` owns the workspace logic behind the sidebar;
   `declaration-core.js` and `declaration-store.js` own lifecycle and local
   persistence; `history-ranker.js` selects safe pass-2 history; `rivhit-export.js`
   produces the CP1255 186-column TXT; `pdf-report.js` produces the PDF.

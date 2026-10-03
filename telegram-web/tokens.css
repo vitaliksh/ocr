@@ -95,6 +95,10 @@
   --info-soft: #e9eff4;
   --info-border: #c3d2de;
 
+  /* Layout */
+  --sidebar-w: 280px;
+  --sidebar-w-collapsed: 60px;
+
   /* Elevation */
   --scrim: rgba(20, 20, 19, .42);
   --shadow-color-sm: rgba(20, 20, 19, .07);
