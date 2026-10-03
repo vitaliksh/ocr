@@ -482,7 +482,14 @@ const workspaceControls = setupWorkspaceControls({
   onDeleted: clearActiveClient,
   onError: showError,
 });
-clientsHome.bind(workspaceControls, { onError: showError });
+clientsHome.bind(workspaceControls, {
+  onError: showError,
+  onOpenReports: (clientId, kind) => {
+    const state = workspaceControls.getClients();
+    const client = [...state.active, ...state.archived].find((item) => item.id === clientId);
+    if (client) reports.open({ client, kind });
+  },
+});
 const folderPathInput = document.querySelector("#data-root-path");
 folderPathInput.addEventListener("change", () => {
   if (dataRoot) saveUiSettings(dataRoot, { folderPath: folderPathInput.value }).catch((error) => showError(`לא ניתן לשמור את הנתיב: ${error.message}`));
@@ -522,12 +529,15 @@ setupExcelImport({
   },
   onError: showError,
 });
-setupReports({
+const reports = setupReports({
   button: document.querySelector("#open-reports"),
-  dialog: document.querySelector("#reports-dialog"),
+  dialog: document.querySelector("#reports-view"),
   printRoot: document.querySelector("#report-print"),
-  getContext: () =>
-    dataRoot && committedWorkspace ? { client: committedWorkspace, dataRoot, names: rivhitMapping } : null,
+  getContext: (client) => {
+    const target = client ?? committedWorkspace;
+    return dataRoot && target ? { client: target, dataRoot, names: rivhitMapping } : null;
+  },
+  onOpen: (context) => clientsHome.showReports({ clientId: context.client.config.clientId ?? context.client.id }),
   onError: showError,
 });
 updateStartAvailability();

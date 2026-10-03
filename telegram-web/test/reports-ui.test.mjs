@@ -18,8 +18,8 @@ const now = "2026-10-02T10:00:00.000Z";
 async function setup({ declarations = ["2026-01", "2026-02"], context = true, openViewer, renderPdf } = {}) {
   const { window } = new JSDOM(html, { url: "https://vitaliksh.github.io/ocr/" });
   Object.assign(globalThis, { document: window.document, window });
-  const dialog = window.document.querySelector("#reports-dialog");
-  dialog.showModal = () => { dialog.open = true; };
+  const dialog = window.document.querySelector("#reports-view");
+  let opened = 0;
   const dataRoot = memoryDirectory("root");
   const client = { directory: memoryDirectory("client"), config: { clientId: "c1", clientName: "Test Client" } };
   const accounts = normaliseChart({ accounts: SEED_CHART_OF_ACCOUNTS });
@@ -31,11 +31,12 @@ async function setup({ declarations = ["2026-01", "2026-02"], context = true, op
   let printed = 0;
   window.print = () => { printed += 1; };
   const { setupReports } = await import("../reports-ui.js");
-  setupReports({
+  const reports = setupReports({
     button: window.document.querySelector("#open-reports"),
     dialog,
     printRoot: window.document.querySelector("#report-print"),
-    getContext: () => (context ? { client, dataRoot, names: {} } : null),
+    getContext: (explicit) => (context ? { client: explicit ?? client, dataRoot, names: {} } : null),
+    onOpen: () => { opened += 1; },
     onError: (message) => errors.push(message),
     ...(openViewer ? { openViewer } : {}),
     ...(renderPdf ? { renderPdf } : {}),
@@ -43,13 +44,13 @@ async function setup({ declarations = ["2026-01", "2026-02"], context = true, op
   const q = (id) => dialog.querySelector(`#${id}`);
   const open = async () => { window.document.querySelector("#open-reports").click(); await new Promise((r) => setTimeout(r, 80)); };
   const click = async (id) => { q(id).click(); await new Promise((r) => setTimeout(r, 80)); };
-  return { window, dialog, client, errors, q, open, click, printed: () => printed, printRoot: window.document.querySelector("#report-print") };
+  return { window, dialog, client, errors, q, open, click, reports, dataRoot, opened: () => opened, printed: () => printed, printRoot: window.document.querySelector("#report-print") };
 }
 
 test("диалог отчётов: без клиента показывает ошибку", async () => {
-  const { dialog, errors, open } = await setup({ context: false });
+  const { opened, errors, open } = await setup({ context: false });
   await open();
-  assert.notEqual(dialog.open, true);
+  assert.equal(opened(), 0);
   assert.match(errors[0], /לקוח/);
 });
 
@@ -127,12 +128,12 @@ function fakeViewer() {
   return viewer;
 }
 
-test("диалог отчётов: показ открывает окно просмотра, диалог не получает встроенный предпросмотр", async () => {
+test("страница отчётов: показ открывает окно просмотра, а встроенный предпросмотр остаётся на странице", async () => {
   const viewer = fakeViewer();
   const { q, open, click, client } = await setup({ openViewer: () => viewer, renderPdf: fakePdf });
   await open();
   await click("reports-show");
-  assert.equal(q("reports-preview").childElementCount, 0);
+  assert.ok(q("reports-preview").querySelector(".report-sheet"));
   assert.equal(q("reports-error").textContent, "");
   assert.equal(viewer.shown.title, "דוח מס ערך מוסף");
   assert.equal(viewer.shown.pageUrls.length, 1);
@@ -165,4 +166,29 @@ test("диалог отчётов: «שמירת כל המסמכים» сохра
   assert.equal(names().length, 3);
   assert.match(q("reports-status").textContent, /נשמרו 3/);
   assert.match(q("reports-error").textContent, /מקדמות/);
+});
+
+test("страница отчётов: открывается для явно заданного клиента с выбранным видом и сразу показывает отчёт", async () => {
+  const { q, reports, client, opened, dialog } = await setup();
+  await reports.open({ client, kind: "profitLoss" });
+  assert.equal(opened(), 1);
+  assert.equal(q("reports-kind").value, "profitLoss");
+  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["01/2026", "02/2026"]);
+  assert.ok(q("reports-preview").querySelector(".report-sheet"), "the preview is drawn without pressing a button");
+  q("reports-kind").value = "ledger";
+  q("reports-kind").dispatchEvent(new globalThis.window.Event("change"));
+  assert.ok(q("reports-preview").querySelector(".report-sheet"));
+  q("reports-from").value = "99/9999";
+  q("reports-from").dispatchEvent(new globalThis.window.Event("input"));
+  assert.equal(q("reports-preview").childElementCount, 0);
+  assert.ok(dialog);
+});
+
+test("страница отчётов: авансы без процента не показывают отчёт, с процентом — показывают", async () => {
+  const { q, reports, client } = await setup();
+  await reports.open({ client, kind: "advances" });
+  assert.equal(q("reports-preview").childElementCount, 0);
+  q("reports-advance-percent").value = "12";
+  q("reports-advance-percent").dispatchEvent(new globalThis.window.Event("input"));
+  assert.ok(q("reports-preview").querySelector(".report-sheet"));
 });

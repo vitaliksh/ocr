@@ -7,7 +7,8 @@ import { formatMonth } from "./month-format.js";
 
 export function createClientsHome(doc = document) {
   let report = () => {};
-  const homeRoot = doc.querySelector("#clients-view"), cardRoot = doc.querySelector("#client-view"), journalRoot = doc.querySelector("#journal-view"), crumb = doc.querySelector("#breadcrumb");
+  let openReports = () => {};
+  const homeRoot = doc.querySelector("#clients-view"), cardRoot = doc.querySelector("#client-view"), journalRoot = doc.querySelector("#journal-view"), crumb = doc.querySelector("#breadcrumb"), reportsRoot = doc.querySelector("#reports-view"), navReports = doc.querySelector("#nav-reports");
   let controls = null, view = "clients", clientId = null, journalMonth = null, query = "", showingArchived = false, showingArchivedDeclarations = false, settings = null, settingsToken = 0;
 
   const findClient = (id) => {
@@ -20,6 +21,8 @@ export function createClientsHome(doc = document) {
     const items = [{ label: "לקוחות", go: view === "clients" ? null : showHome }];
     if (view !== "clients" && client) items.push({ label: client.clientName, go: view === "journal" ? () => openClient(clientId) : null });
     if (view === "journal" && journalMonth) items.push({ label: formatMonth(journalMonth), go: null });
+    if (view === "reports" && client) items[1].go = () => openClient(clientId);
+    if (view === "reports") items.push({ label: "דוחות", go: null });
     crumb.replaceChildren();
     items.forEach((item, index) => {
       if (index) crumb.append(Object.assign(doc.createElement("span"), { className: "crumb-sep", textContent: "›", ariaHidden: "true" }));
@@ -39,6 +42,8 @@ export function createClientsHome(doc = document) {
     homeRoot.hidden = view !== "clients";
     cardRoot.hidden = view !== "client";
     journalRoot.hidden = view !== "journal";
+    if (reportsRoot) reportsRoot.hidden = view !== "reports";
+    if (navReports) navReports.disabled = !clientId || (controls ? !findClient(clientId) : true);
     if (!controls) return renderCrumb();
     const state = controls.getClients();
     if (view === "clients") {
@@ -61,6 +66,7 @@ export function createClientsHome(doc = document) {
         onNewDeclaration: () => controls.newDeclaration(clientId),
         onEdit: () => controls.editClient(clientId),
         onToggleArchived: () => { showingArchivedDeclarations = !showingArchivedDeclarations; render(); },
+        onOpenReport: (kind) => openReports(clientId, kind),
         onArchive: (month, archive) => Promise.resolve(controls.setDeclarationArchived(clientId, month, archive)).catch((error) => report("לא ניתן לעדכן הצהרה: " + error.message)),
         onDelete: (month) => Promise.resolve(controls.deleteDeclaration(clientId, month)).catch((error) => report("לא ניתן למחוק הצהרה: " + error.message)),
         countRows: async (month) => (await loadDeclaration(client.directory, month)).draft.rows.length,
@@ -93,6 +99,12 @@ export function createClientsHome(doc = document) {
     } catch { /* the card simply shows no reporting settings */ }
   }
 
+  function showReports({ clientId: id }) {
+    clientId = id;
+    view = "reports";
+    render();
+  }
+
   function showJournal({ clientId: id, month }) {
     clientId = id;
     journalMonth = month;
@@ -101,9 +113,11 @@ export function createClientsHome(doc = document) {
   }
 
   return {
-    bind(workspaceControls, { onError } = {}) {
+    bind(workspaceControls, { onError, onOpenReports } = {}) {
       controls = workspaceControls;
       if (onError) report = onError;
+      if (onOpenReports) openReports = onOpenReports;
+      navReports?.addEventListener("click", () => openReports(clientId));
       doc.querySelector("#nav-clients")?.addEventListener("click", () => {
         showHome();
         Promise.resolve(controls.refresh()).catch((error) => report("לא ניתן לרענן את רשימת הלקוחות: " + error.message));
@@ -114,5 +128,6 @@ export function createClientsHome(doc = document) {
     showHome,
     openClient,
     showJournal,
+    showReports,
   };
 }

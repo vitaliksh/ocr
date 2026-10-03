@@ -3,6 +3,12 @@
 import { formatMonth } from "./month-format.js";
 
 export const BUSINESS_KIND_LABELS = { home: "עסק בבית פרטי", office: "עסק במשרד" };
+export const REPORT_KINDS = [
+  { key: "vat", label: "דוח מס ערך מוסף" },
+  { key: "advances", label: "דוח מקדמות" },
+  { key: "profitLoss", label: "דוח רווח והפסד" },
+  { key: "ledger", label: "כרטסת קודי מיון" },
+];
 export const VAT_PERIOD_LABELS = { monthly: "חד‑חודשי", bimonthly: "דו‑חודשי" };
 
 const text = (value) => String(value ?? "").trim();
@@ -125,7 +131,7 @@ export function renderClientsHome(root, { clients, archivedCount, showingArchive
   root.append(card);
 }
 
-// handlers: { onOpenDeclaration(month), onNewDeclaration(), onEdit(), onToggleArchived(), onArchive(month, archive), onDelete(month), countRows(month) -> Promise<number> }
+// handlers: { onOpenDeclaration(month), onNewDeclaration(), onEdit(), onToggleArchived(), onArchive(month, archive), onDelete(month), onOpenReport(kind), countRows(month) -> Promise<number> }
 export function renderClientCard(root, { client, settings, showingArchived }, handlers) {
   root.replaceChildren();
   const archivedCount = archivedDeclarationCount(client);
@@ -151,6 +157,13 @@ export function renderClientCard(root, { client, settings, showingArchived }, ha
   addFact("דיווח מע״מ", VAT_PERIOD_LABELS[settings?.vatPeriod] || "");
   addFact("אחוז מקדמות", settings?.advancePercent === null || settings?.advancePercent === undefined ? "" : `${settings.advancePercent}%`);
   root.append(facts);
+
+  const reports = el(root, "div", "card");
+  reports.append(el(root, "h3", "", "דוחות"));
+  const tiles = el(root, "div", "report-tiles");
+  for (const { key, label } of REPORT_KINDS) tiles.append(button(root, label, "report-tile secondary", () => handlers.onOpenReport?.(key)));
+  reports.append(tiles);
+  root.append(reports);
 
   const section = el(root, "div", "card");
   const sectionHead = el(root, "div", "section-head");

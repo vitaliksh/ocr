@@ -337,3 +337,13 @@ body[data-view="clients"] #nav-clients {
 .data-root-setting .workspace-ready {
   color: var(--success);
 }
+
+body[data-view="reports"] #nav-reports {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.nav-item:disabled {
+  opacity: .45;
+}

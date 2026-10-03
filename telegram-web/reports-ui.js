@@ -1,4 +1,4 @@
-// Reports dialog: pick a report and period, show it in a child window, save it (or all reports) as PDF.
+// Reports page: pick a report and period, see it at once, show it in a child window, save it (or all reports) as PDF.
 import { readChartOfAccounts } from "./chart-of-accounts.js";
 import { formatMonth, parseMonthText } from "./month-format.js";
 import { loadReportDeclarations, readReportSettings, saveReportSettings } from "./report-data.js";
@@ -17,8 +17,11 @@ export function defaultPeriod(kind, latestMonth, vatPeriod) {
   return { from: `${latestMonth.slice(0, 4)}-01`, to: latestMonth };
 }
 
-// getContext() returns { client, dataRoot, names } or null when no client is selected.
-export function setupReports({ button, dialog, getContext, onError, openViewer = openReportWindow, renderPdf = renderReportPdf }) {
+// getContext(client?) returns { client, dataRoot, names } or null when there is no client; without an argument it is the
+// client of the open declaration. `dialog` is the container with the controls (the reports view). onOpen() reveals it;
+// without onOpen a <dialog> container is shown modally. The returned open({ client, kind }) is used by the other
+// entry points (sidebar, client card).
+export function setupReports({ button, dialog, getContext, onError, onOpen, openViewer = openReportWindow, renderPdf = renderReportPdf }) {
   const part = (id) => dialog.querySelector(`#${id}`);
   const [kind, from, to, vatPeriod, percent, errorLine, statusLine, preview, show, saveAll] = [
     "reports-kind", "reports-from", "reports-to", "reports-vat-period", "reports-advance-percent", "reports-error",
@@ -34,8 +37,8 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
     to.value = formatMonth(period.to);
   };
 
-  button.addEventListener("click", async () => {
-    context = getContext();
+  async function open({ client, kind: wantedKind } = {}) {
+    context = getContext(client);
     if (!context) return onError("יש לבחור תחילה לקוח לפני הפקת דוחות.");
     try {
       const [declarations, chart, settings] = await Promise.all([
@@ -48,16 +51,24 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
       latestMonth = (declarations.findLast((item) => item.rows.some((row) => row.active)) ?? declarations.at(-1))?.month ?? "";
       vatPeriod.value = settings.vatPeriod;
       percent.value = settings.advancePercent ?? "";
-      preview.replaceChildren();
+      statusLine.textContent = "";
       errorLine.textContent = declarations.length ? "" : "ללקוח אין הצהרות.";
+      if (wantedKind) kind.value = wantedKind;
       applyDefaultPeriod();
-      dialog.showModal();
+      renderPreview();
+      if (onOpen) onOpen(context);
+      else dialog.showModal();
     } catch (error) {
       onError("לא ניתן לטעון נתונים לדוחות: " + error.message);
     }
-  });
-  kind.addEventListener("change", applyDefaultPeriod);
-  vatPeriod.addEventListener("change", applyDefaultPeriod);
+  }
+  button?.addEventListener("click", () => open());
+  kind.addEventListener("change", () => { applyDefaultPeriod(); renderPreview(); });
+  vatPeriod.addEventListener("change", () => { applyDefaultPeriod(); renderPreview(); });
+  for (const field of [from, to, percent]) {
+    field.addEventListener("input", () => renderPreview());
+    field.addEventListener("change", () => renderPreview());
+  }
 
   // Validates the period and percent; returns null (with the message shown) when they are unusable.
   const readParameters = () => {
@@ -89,6 +100,23 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
     const name = `${REPORT_FILES[reportKind]}_${info.from.replace("/", "-")}_${info.to.replace("/", "-")}.pdf`;
     return { scope, name, node: () => html(data, info), pages: () => layoutReport(reportKind, data, info) };
   };
+
+  // The page shows the chosen report at once; unusable parameters just leave the preview empty (show/save explain why).
+  function renderPreview() {
+    preview.replaceChildren();
+    if (!context) return;
+    const [fromIso, toIso] = [parseMonthText(from.value), parseMonthText(to.value)];
+    if (!fromIso || !toIso || fromIso > toIso) return;
+    const advancePercent = percent.value === "" ? null : Number(percent.value);
+    const validPercent = advancePercent !== null && advancePercent >= 0 && advancePercent <= 100;
+    if (kind.value === "advances" && !validPercent) return;
+    try {
+      const report = buildReport(kind.value, { fromIso, toIso, advancePercent: validPercent ? advancePercent : null });
+      if (report.scope.length) preview.append(report.node());
+    } catch {
+      /* a failing preview must not block the buttons */
+    }
+  }
 
   const saveToReports = async (name, blob) => {
     const directory = await context.client.directory.getDirectoryHandle("reports", { create: true });
@@ -127,14 +155,13 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
       errorLine.textContent = "יש להזין אחוז מקדמות בין 0 ל-100.";
       return;
     }
-    preview.replaceChildren();
     const viewer = openViewer();
     try {
       await saveReportSettings(context.client.directory, { vatPeriod: vatPeriod.value, advancePercent: parameters.advancePercent });
       const report = buildReport(kind.value, parameters);
       if (!report.scope.length) errorLine.textContent = "אין תנועות בתקופה שנבחרה.";
       if (!viewer) {
-        preview.append(report.node());
+        renderPreview();
         return;
       }
       const { pdf, images } = await renderPdf(report.pages());
@@ -171,4 +198,5 @@ export function setupReports({ button, dialog, getContext, onError, openViewer =
       saveAll.disabled = false;
     }
   });
+  return { open };
 }

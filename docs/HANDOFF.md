@@ -5,7 +5,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.18 · 13:14 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.19 · 13:23 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -43,7 +43,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.03.18 · 13:14 IDT
+גרסת ממשק: 2026.10.03.19 · 13:23 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -74,7 +74,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
 
 - `telegram-web/`
   - Journal table (GUI redesign stage 5): `table-column-model.js` (the 19 columns in cell order with keys, groups, locked core columns, default weights, presets `minimum`/`full`, pure width arithmetic and the stub CSS), `journal-columns.js` (the browser side: `<colgroup>`, hide buttons in the headers, the "עמודות" chooser, drag resizing, widths per viewer in `localStorage` key `annateria-column-widths-v2` in the unit of the default weights), `ui-settings.js` (`common/ui-settings.json`, schema 1: `hiddenColumns`, default = minimum preset, and `folderPath`, the full path of the data folder typed by the user in the settings dialog because the browser reveals only the folder name; saving merges fields), `journal-toolbar.js` (filter menu and the summary bar, driven by a `MutationObserver`; the table search was removed on 3 Oct because nobody found a use for it), `journal-summary.js` (labelled declaration summary computed with `reportEntries`/`vatReport`, so it matches the VAT report), `journal.css`. Hiding a column never removes cells: `app.js` still addresses cells by index (`row.cells[N]`), so the cell order is fixed and the header cells carry `data-col`. The `table-columns.js` script and `table-layout.css` are gone.
-  - Views (GUI redesign stage 3): `clients-view.js` (pure view models `clientSummary`, `filterClients`, `declarationGroups` and DOM rendering of the clients home and the client card; uses `root.ownerDocument` only), `clients-home.js` (`createClientsHome`: shows exactly one of `#clients-view`, `#client-view`, `#journal-view`, sets `body[data-view]`, draws the breadcrumb `#breadcrumb`; `app.js` calls `showJournal` from `activateDeclaration` and `showHome` from `switchDataRoot`), `clients.css`. `workspace.js` exposes `getClients`, `openDeclaration`, `newDeclaration`, `editClient` and an `onClientsChanged` callback. Top-bar actions that work on the open declaration have the class `journal-only` and exist only in the journal view (reports and Excel import use the last opened declaration's client).
+  - Views (GUI redesign stage 3): `clients-view.js` (pure view models `clientSummary`, `filterClients`, `declarationGroups` and DOM rendering of the clients home and the client card; uses `root.ownerDocument` only), `clients-home.js` (`createClientsHome`: shows exactly one of `#clients-view`, `#client-view`, `#reports-view`, `#journal-view`, sets `body[data-view]`, draws the breadcrumb `#breadcrumb`; `app.js` calls `showJournal` from `activateDeclaration` and `showHome` from `switchDataRoot`), `clients.css`. `workspace.js` exposes `getClients`, `openDeclaration`, `newDeclaration`, `editClient` and an `onClientsChanged` callback. Top-bar actions that work on the open declaration have the class `journal-only` and exist only in the journal view (reports and Excel import use the last opened declaration's client).
   - Dialogs (GUI redesign stage 6): `dialogs.css` is the single template for every `dialog.workspace-dialog` (quiet header with a close icon, labels above fields, footer with the primary action first, a reserved line for `[role="alert"]` results so a dialog keeps its size, `.plate-*` status plates). The Excel import dialog is a four-step wizard (file, check, declaration, done) with a fixed size: `dialog[data-step]` decides which `[data-panel]` and which `.dialog-actions [data-for]` buttons are shown; `excel-import-ui.js` drives it (`setStep`), the import itself (`excel-import-flow.js`) is unchanged. After the import the dialog stays open on the "done" step with the result next to the close button.
   - Look and shell (GUI redesign, `GUI_REDESIGN_PLAN.md`): `tokens.css` (all colours, fonts, spacing, shadows; the only file with hex colours, enforced by `test/styles.test.mjs`), `base.css` (buttons, fields, badges, status plates, `[hidden]`), `shell.css` (top bar, scrolling `main.workspace`, status bar, `details.menu` menus), `shell.js` (menu behaviour and the info/error kind of `#status`; not loaded by the test harness), `fonts/` (self-hosted Heebo and Frank Ruhl Libre woff2 with their OFL licences). `styles.css`, `dialogs.css`, `journal.css`, `reports.css` (the old `workspace.css`/`table-layout.css` are gone) are now pretty-printed and use the tokens; they are restyled screen by screen in later stages.
   - `app.js` — UI, queues, journal, exports, Pass 2, custom-code request headers.
@@ -97,7 +97,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `reports-view.js`, `reports.css` — RTL HTML rendering of the four reports (inline fallback when the popup is blocked).
   - `reports-pdf.js` — Rivhit-style A4 pages: pure `layoutReport` (draw operations) and a canvas renderer wrapped into a PDF by `jpegPagesToPdf`.
   - `report-viewer.js` — child window with Close / Save a copy as / Save buttons.
-  - `reports-ui.js` — the "דוחות" dialog (`#reports-dialog`): report kind, period (default: the client's VAT period or year to date), advance percent, "הצגה" (child window), "שמירת כל המסמכים" (PDFs into `<client>/reports/`).
+  - `reports-ui.js` — the reports page (`#reports-view`, since 3 Oct a page of the app, not a dialog; `setupReports` returns `open({ client, kind })` and calls `onOpen` to reveal the view): report kind, period (default: the client's VAT period or year to date), advance percent, "הצגה" (child window), "שמירת כל המסמכים" (PDFs into `<client>/reports/`).
   - `history-ranker.js` — local, text-only Pass 2 history selection.
 - `cloudflare-worker/`
   - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
@@ -236,7 +236,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.03.18 · 13:14 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.03.19 · 13:23 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -260,7 +260,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **212 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **215 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

@@ -178,3 +178,27 @@ body:not([data-view="journal"]) #declaration-badge {
   display: flex;
   gap: var(--s1);
 }
+
+/* Report tiles on the client card */
+.report-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.report-tile {
+  justify-content: flex-start;
+  padding: var(--s3) var(--s4);
+  font-weight: 600;
+}
+
+.report-tile:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+#reports-view .reports-card {
+  margin-bottom: var(--s4);
+}

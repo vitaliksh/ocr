@@ -93,3 +93,26 @@ test("declaration actions of the card go to the workspace controls and errors ar
   assert.deepEqual(calls, [["archive", "a", "2026-03", true]]);
   assert.match(errors[0], /denied/);
 });
+
+const reportsPage = () => new JSDOM(`<body><nav id="breadcrumb"></nav><section id="clients-view"></section><section id="client-view" hidden></section><section id="reports-view" hidden></section><div id="journal-view" hidden></div>
+<button id="nav-clients"></button><button id="nav-reports" disabled></button><button id="show-new-client"></button><button id="select-data-root"></button></body>`).window.document;
+
+test("the reports view: breadcrumb, sidebar item and the tiles of the client card", () => {
+  const doc = reportsPage(), calls = [], home = createClientsHome(doc);
+  home.bind(controls([]), { onOpenReports: (...args) => calls.push(args) });
+  assert.equal(doc.querySelector("#nav-reports").disabled, true);
+  doc.querySelector("#clients-view tbody button").click();
+  assert.equal(doc.querySelector("#nav-reports").disabled, false);
+  const tiles = [...doc.querySelectorAll("#client-view .report-tile")];
+  assert.deepEqual(tiles.map((tile) => tile.textContent), ["דוח מס ערך מוסף", "דוח מקדמות", "דוח רווח והפסד", "כרטסת קודי מיון"]);
+  tiles[2].click();
+  doc.querySelector("#nav-reports").click();
+  assert.deepEqual(calls, [["a", "profitLoss"], ["a"]]);
+  home.showReports({ clientId: "a" });
+  assert.equal(doc.body.dataset.view, "reports");
+  assert.equal(doc.querySelector("#reports-view").hidden, false);
+  assert.equal(doc.querySelector("#client-view").hidden, true);
+  assert.deepEqual([...doc.querySelector("#breadcrumb").children].map((node) => node.textContent), ["לקוחות", "›", "Alpha", "›", "דוחות"]);
+  doc.querySelectorAll("#breadcrumb .crumb-link")[1].click();
+  assert.equal(doc.body.dataset.view, "client");
+});

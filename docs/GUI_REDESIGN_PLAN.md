@@ -279,7 +279,25 @@ Look and behaviour:
 - Header separators of the journal are inset shadows instead of collapsed borders, which vanished next to a hidden
   column.
 
-### Stage 7 — Reports dialog and viewer
+### Stage 7 as built (3 October)
+
+Reports are a page of the app instead of a dialog (decided with Vitalik: no figures on the tiles, no list of saved PDFs).
+
+- Entry points: the "דוחות" item in the sidebar (enabled when a client is selected), four tiles (names only) in the
+  client card, and the existing "דוחות" button in the journal. All three open the same page for an explicit client
+  (`reports.open({ client, kind })`), so a report no longer depends on the last opened declaration. Breadcrumb:
+  Clients › client › Reports.
+- The page has the controls (report, period, VAT period, advance percent) and "show and print" / "save all"; the
+  chosen report is drawn below at once and redrawn when a control changes. The child window (print, save a copy, save)
+  and the PDF look are unchanged. The default period is still the VAT period of the latest declaration with data.
+- Existing code changed: `reports-ui.js` (`getContext(client?)`, `onOpen`, `open()`, live preview), `app.js`,
+  `index.html` (dialog replaced by `#reports-view`), `reports.css`, `clients-home.js`, `clients-view.js`; five
+  reports tests were adapted and three added.
+- `report-viewer.js` keeps its own inline CSS (a separate document); only its look is left for stage 8.
+
+### Stage 7 plan text
+
+— Reports dialog and viewer
 
 - Reports dialog: two columns (parameters, preview), larger preview, status next to the buttons.
 - `report-viewer.js` styles from the shared tokens (buttons, bar, fonts). The generated PDF stays Rivhit-like and is not
