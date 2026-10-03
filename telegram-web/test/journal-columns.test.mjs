@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
-import { COLUMNS, PRESET_HIDDEN, columnIndex, columnPercents, normaliseHidden, stubCss, toggleHidden, weightsFromWidths } from "../table-column-model.js";
+import { COLUMNS, PRESET_HIDDEN, columnIndex, columnPercents, hiddenCss, normaliseHidden, toggleHidden, weightsFromWidths } from "../table-column-model.js";
 import { DEFAULT_UI_SETTINGS, normaliseUiSettings, readUiSettings, saveUiSettings } from "../ui-settings.js";
 import { setupJournalColumns } from "../journal-columns.js";
 import { memoryDirectory } from "./memory-directory.mjs";
@@ -32,23 +32,32 @@ test("normaliseHidden drops unknown and locked keys and keeps column order; togg
   assert.deepEqual(toggleHidden(["agent"], "code"), ["agent"]);
 });
 
-test("column percents sum to 100, stubs keep their share and a saved weight wins", () => {
+test("column percents sum to 100, hidden columns get 0 and a saved weight wins", () => {
   const hidden = PRESET_HIDDEN.minimum;
-  const percents = columnPercents(hidden, { stubPercent: 1.5 });
+  const percents = columnPercents(hidden);
   assert.ok(Math.abs(percents.reduce((sum, value) => sum + value, 0) - 100) < 1e-9);
-  for (const key of hidden) assert.equal(percents[columnIndex(key)], 1.5);
-  const wider = columnPercents(hidden, { stubPercent: 1.5, weights: { details: 40 } });
+  for (const key of hidden) assert.equal(percents[columnIndex(key)], 0);
+  const wider = columnPercents(hidden, { weights: { details: 40 } });
   assert.ok(wider[columnIndex("details")] > percents[columnIndex("details")]);
   assert.ok(Math.abs(wider.reduce((sum, value) => sum + value, 0) - 100) < 1e-9);
-  assert.deepEqual(weightsFromWidths(["agent"], COLUMNS.map((_, index) => (index === 14 ? 50 : 10))).agent, undefined);
-  assert.equal(weightsFromWidths([], COLUMNS.map(() => 10)).code, 10);
 });
 
-test("stub css targets the right cells", () => {
-  const css = stubCss(["supplierId"], "#t");
-  assert.match(css, /#t th:nth-child\(6\), #t td:nth-child\(6\)/);
-  assert.match(css, /content: "\+"/);
-  assert.equal(stubCss([], "#t"), "");
+test("no visible column is squeezed below the minimum share even with an extreme saved weight", () => {
+  const percents = columnPercents([], { weights: { details: 5000 } });
+  const visible = percents.filter((value) => value > 0);
+  assert.ok(Math.min(...visible) > 1.5);
+});
+
+test("dragged widths are stored in the unit of the default weights, so mixing with defaults stays balanced", () => {
+  const pixels = COLUMNS.map((column) => column.weight * 40);
+  const saved = weightsFromWidths([], pixels);
+  for (const column of COLUMNS) assert.ok(Math.abs(saved[column.key] - column.weight) < 0.05, column.key);
+  const mixed = weightsFromWidths(["agent"], pixels.map((value, index) => (index === 14 ? 0 : value)), saved);
+  assert.equal(mixed.agent, saved.agent);
+  const before = columnPercents(["agent"], { weights: {} });
+  const after = columnPercents(["agent"], { weights: mixed });
+  before.forEach((value, index) => assert.ok(Math.abs(value - after[index]) < 0.2));
+  assert.deepEqual(weightsFromWidths([], [], { code: 12 }), { code: 12 });
 });
 
 test("ui settings: defaults, normalisation and a round trip through the data root", async () => {
@@ -74,23 +83,27 @@ function journal() {
   return { dom, document, table, columns, changes, store };
 }
 
-test("the journal starts with the minimum preset: stubs for hidden columns and a colgroup that adds up", () => {
-  const { table, document } = journal();
+test("the journal starts with the minimum preset: hidden columns are collapsed and the colgroup adds up", () => {
+  const { table } = journal();
   const cols = [...table.querySelectorAll("colgroup col")];
   assert.equal(cols.length, 19);
   assert.ok(Math.abs(cols.reduce((sum, col) => sum + parseFloat(col.style.width), 0) - 100) < 0.01);
-  assert.equal(table.tHead.rows[0].cells[columnIndex("agent")].classList.contains("col-stub"), true);
-  assert.equal(table.tHead.rows[0].cells[columnIndex("details")].classList.contains("col-stub"), false);
-  assert.match(document.querySelector("#journal-columns-style").textContent, /nth-child\(15\)/);
+  assert.equal(cols[columnIndex("agent")].style.visibility, "collapse");
+  assert.equal(cols[columnIndex("details")].style.visibility, "");
+  assert.equal(cols[columnIndex("agent")].style.width, "0%");
 });
 
-test("clicking a stub restores the column, the hide button hides it again, and each change is reported", () => {
-  const { table, columns, changes } = journal();
+test("the hide button hides a column, the chooser restores it and every change is reported", () => {
+  const { table, columns, changes, document } = journal();
   const header = (key) => table.tHead.rows[0].cells[columnIndex(key)];
-  header("agent").click();
-  assert.equal(columns.getHidden().includes("agent"), false);
-  header("agent").querySelector(".col-hide").click();
-  assert.equal(columns.getHidden().includes("agent"), true);
+  header("reference").querySelector(".col-hide").click();
+  assert.equal(columns.getHidden().includes("reference"), true);
+  assert.equal(table.querySelectorAll("colgroup col")[columnIndex("reference")].style.visibility, "collapse");
+  const box = [...document.querySelectorAll("#columns-menu .columns-option")].find((label) => label.textContent === "אסמכתא").querySelector("input");
+  assert.equal(box.checked, false);
+  box.checked = true;
+  box.dispatchEvent(new document.defaultView.Event("change"));
+  assert.equal(columns.getHidden().includes("reference"), false);
   assert.equal(changes.length, 2);
   assert.equal(header("code").querySelector(".col-hide"), null);
 });
@@ -118,4 +131,13 @@ test("setHidden without persist applies silently (used when a data root is loade
   columns.setHidden([], { persist: false });
   assert.deepEqual(columns.getHidden(), []);
   assert.equal(changes.length, 0);
+});
+
+test("hidden cells are emptied so zero-width columns cannot make rows tall", () => {
+  const css = hiddenCss(["supplierId"], "#t");
+  assert.match(css, /#t th:nth-child\(6\), #t td:nth-child\(6\) \{ padding: 0; border: 0; overflow: hidden; font-size: 0; line-height: 0; \}/);
+  assert.match(css, /#t td:nth-child\(6\) > \* \{ display: none; \}/);
+  assert.equal(hiddenCss([], "#t"), "");
+  const { document } = journal();
+  assert.match(document.querySelector("#journal-columns-style").textContent, /nth-child\(15\)/);
 });

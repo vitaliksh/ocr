@@ -1,14 +1,15 @@
 // Journal table columns in the browser: hide and restore columns (stubs stay in place), the column chooser, drag
 // resizing, and the generated stylesheet. Cells are never removed or reordered, so app.js can keep using row.cells[N].
-import { COLUMNS, GROUP_LABELS, PRESET_HIDDEN, STUB_PX, columnPercents, isLocked, normaliseHidden, stubCss, toggleHidden, weightsFromWidths } from "./table-column-model.js";
+import { COLUMNS, GROUP_LABELS, PRESET_HIDDEN, columnPercents, hiddenCss, isLocked, normaliseHidden, toggleHidden, weightsFromWidths } from "./table-column-model.js";
 
-export const WIDTHS_KEY = "annateria-column-widths-v1";
+export const WIDTHS_KEY = "annateria-column-widths-v2";
 const MIN_WIDTH_PX = 38;
 
 function readWeights(storage) {
   try {
     const saved = JSON.parse(storage?.getItem(WIDTHS_KEY));
-    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+    return Object.fromEntries(Object.entries(saved).filter(([, value]) => Number.isFinite(value) && value > 0.5 && value < 200));
   } catch {
     return {};
   }
@@ -27,20 +28,18 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
   const colgroup = doc.createElement("colgroup");
   const cols = headers.map(() => colgroup.appendChild(doc.createElement("col")));
   table.prepend(colgroup);
+
   const style = doc.createElement("style");
   style.id = "journal-columns-style";
   doc.head.append(style);
 
-  const tablePx = () => table.getBoundingClientRect().width;
+  // A hidden column keeps its cells (app.js addresses them by index) and is collapsed through its <col>.
   const apply = () => {
-    const width = tablePx();
-    const percents = columnPercents(hidden, { stubPercent: width > 0 ? (STUB_PX / width) * 100 : 2, weights });
-    percents.forEach((percent, index) => { cols[index].style.width = `${percent}%`; });
-    style.textContent = stubCss(hidden, `#${table.id}`);
-    headers.forEach((header, index) => {
-      const isStub = hidden.includes(COLUMNS[index].key);
-      header.classList.toggle("col-stub", isStub);
-      header.title = isStub ? `הצגת העמודה: ${labels[index]}` : "";
+    style.textContent = hiddenCss(hidden, `#${table.id}`);
+    columnPercents(hidden, { weights }).forEach((percent, index) => {
+      const isHidden = hidden.includes(COLUMNS[index].key);
+      cols[index].style.width = `${percent}%`;
+      cols[index].style.visibility = isHidden ? "collapse" : "";
     });
     syncChooser();
   };
@@ -58,9 +57,6 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
       hide.addEventListener("click", (event) => { event.stopPropagation(); setHidden(toggleHidden(hidden, column.key)); });
       header.append(hide);
     }
-    header.addEventListener("click", () => {
-      if (hidden.includes(column.key)) setHidden(toggleHidden(hidden, column.key));
-    });
   });
   headers.slice(0, -1).forEach((header, index) => {
     const handle = doc.createElement("span");
@@ -84,7 +80,7 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
         const widths = [...initial];
         widths[index] += change;
         widths[next] -= change;
-        weights = weightsFromWidths(hidden, widths);
+        weights = weightsFromWidths(hidden, widths, weights);
         apply();
       };
       const stop = () => {

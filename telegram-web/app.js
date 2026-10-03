@@ -20,6 +20,7 @@ import { formatMonth } from "./month-format.js";
 import { createClientsHome } from "./clients-home.js";
 import { setupJournalColumns } from "./journal-columns.js";
 import { setupJournalToolbar } from "./journal-toolbar.js";
+import { summarise } from "./journal-summary.js";
 import { readUiSettings, saveUiSettings } from "./ui-settings.js";
 import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
@@ -40,12 +41,6 @@ const journalColumns = setupJournalColumns({
   onChange: (hiddenColumns) => {
     if (dataRoot) saveUiSettings(dataRoot, { hiddenColumns }).catch((error) => showError(`לא ניתן לשמור את בחירת העמודות: ${error.message}`));
   },
-});
-setupJournalToolbar({
-  records: document.querySelector("#records"),
-  chips: document.querySelector("#journal-filters"),
-  search: document.querySelector("#journal-search"),
-  footer: document.querySelector("#journal-totals"),
 });
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, ""),
   builtInMapping = { ...(window.RIVHIT_MAPPING || {}) };
@@ -480,6 +475,25 @@ const workspaceControls = setupWorkspaceControls({
   onError: showError,
 });
 clientsHome.bind(workspaceControls, { onError: showError });
+setupJournalToolbar({
+  records: document.querySelector("#records"),
+  menu: document.querySelector("#filter-menu"),
+  search: {
+    toggle: document.querySelector("#journal-search-toggle"),
+    box: document.querySelector("#journal-search-box"),
+    input: document.querySelector("#journal-search"),
+    count: document.querySelector("#journal-search-count"),
+    clear: document.querySelector("#journal-search-clear"),
+  },
+  summary: {
+    element: document.querySelector("#journal-summary"),
+    compute: () =>
+      summarise(
+        [...document.querySelectorAll("#records tr[data-document-id]")].map((row) => rowSnapshot(row)),
+        { chart: chartAccounts, names: rivhitMapping },
+      ),
+  },
+});
 setupExcelImport({
   button: document.querySelector("#import-excel"),
   dialog: document.querySelector("#excel-import-dialog"),

@@ -180,6 +180,23 @@ New views, switched by state (no router needed): **Clients** (start screen), **C
   `styles.css` (table rules moved to `journal.css`), `shell.css` (spacing moved to the children so the totals row sticks
   flush), `package.json`. Removed: `table-columns.js`, `table-layout.css`.
 
+### Stage 5 after Vitalik's review (3 October)
+
+- Stubs with "+" were dropped (confusing): a hidden column is collapsed completely through its `<col>` and its cells are
+  emptied by generated CSS (otherwise zero-width cells wrap letter by letter and make every row tall). The chooser and
+  the `×` in the header remain the ways to hide and show columns.
+- Width bug fixed: dragged widths were saved in pixels and mixed with the unit-less default weights, which produced
+  absurd widths after hiding and showing columns. Weights are now stored in the unit of the defaults, minimum shares
+  are enforced, and the storage key changed to `annateria-column-widths-v2`.
+- The aligned totals row was replaced by a labelled summary bar (turnover, expenses, output VAT, input VAT, equipment
+  VAT when present, payable or refund, counts of rows to review and outside the reports) computed like the VAT report.
+- Filter chips became one "סינון" menu with counts; search is a magnifier that opens a field with a "found N of M"
+  counter, a clear button and Escape. Rows without a source image (imported from Excel) are not "needs review".
+- The data folder (name and change button) moved from the sidebar into the settings dialog.
+- Caught in the browser, not by the tests: the toolbar was created before the module state it reads was declared
+  (temporal dead zone). The setup now runs after the declarations, and a failing summary no longer breaks filtering.
+  The jsdom harness bundles to an IIFE and does not enforce this, so such ordering errors need a real browser run.
+
 ### Stage 5 plan text
 
 — Journal table (largest effect, highest risk)

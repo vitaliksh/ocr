@@ -37,26 +37,6 @@
   stroke-linejoin: round;
 }
 
-.sidebar-top {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  min-height: 56px;
-  padding: 0 var(--s4);
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-}
-
-.sidebar-top h2 {
-  margin: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: var(--fs-md);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .sidebar-body {
   flex: 1;
   min-height: 0;
@@ -268,27 +248,6 @@ body[data-view="clients"] #nav-clients {
   border-top: 1px solid var(--border);
 }
 
-.data-root-setting {
-  display: grid;
-  gap: var(--s1);
-  padding: var(--s2) var(--s3) var(--s3);
-}
-
-.data-root-setting button {
-  justify-content: flex-start;
-  padding: 4px 10px;
-  font-size: var(--fs-sm);
-}
-
-.data-root-setting p {
-  margin: 0;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .sidebar-versions {
   padding: 0 var(--s3);
 }
@@ -323,15 +282,9 @@ body[data-view="clients"] #nav-clients {
 /* Collapsed: icon rail */
 .app-shell[data-sidebar="collapsed"] .sidebar .label,
 .app-shell[data-sidebar="collapsed"] .sidebar .clients-section,
-.app-shell[data-sidebar="collapsed"] .sidebar .data-root-setting,
 .app-shell[data-sidebar="collapsed"] .sidebar .sidebar-versions,
 .app-shell[data-sidebar="collapsed"] .sidebar-resizer {
   display: none;
-}
-
-.app-shell[data-sidebar="collapsed"] .sidebar-top {
-  justify-content: center;
-  padding: 0;
 }
 
 .app-shell[data-sidebar="collapsed"] .nav-item {
@@ -360,5 +313,25 @@ body[data-view="clients"] #nav-clients {
 }
 
 .workspace-ready {
+  color: var(--success);
+}
+
+/* Data folder block inside the settings dialog */
+.data-root-setting {
+  display: grid;
+  gap: var(--s2);
+  justify-items: start;
+}
+
+.data-root-setting h3 {
+  margin: 0;
+}
+
+.data-root-setting p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.data-root-setting .workspace-ready {
   color: var(--success);
 }

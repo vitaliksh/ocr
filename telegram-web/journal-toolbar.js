@@ -1,6 +1,8 @@
-// Journal toolbar: filter chips, search and the totals row. Works on the rendered rows only (app.js stays untouched):
-// a row counts as "needs review" when its status cell has the review class, "duplicate" when app.js marked it, and
-// "excluded" when it is unchecked (such rows are left out of the reports).
+// Journal toolbar: filter menu, search and the summary bar. Works on the rendered rows only. A row "needs review" when
+// its status cell has the review class and it is not left out of the reports and either has a source image or was
+// flagged as a possible duplicate (rows imported from Excel have no image and nothing to review). "Excluded" rows are
+// unchecked ones; the reports leave them out.
+import { summaryItems } from "./journal-summary.js";
 
 export const FILTERS = [
   { key: "all", label: "הכול" },
@@ -9,20 +11,16 @@ export const FILTERS = [
   { key: "excluded", label: "מחוץ לדוחות" },
 ];
 
-const rowCells = (row) => row.cells || [];
-
 export function rowKinds(row) {
-  const status = rowCells(row)[16];
-  return {
-    review: Boolean(status?.classList.contains("review")),
-    duplicate: row.dataset?.duplicate === "true",
-    excluded: row.classList.contains("not-for-export"),
-  };
+  const status = row.cells?.[16];
+  const excluded = row.classList.contains("not-for-export");
+  const duplicate = row.dataset?.duplicate === "true";
+  const flagged = Boolean(status?.classList.contains("review")) && (Boolean(row.dataset?.imageFile) || duplicate);
+  return { review: !excluded && flagged, duplicate, excluded };
 }
 
 export function matchesFilter(row, filter) {
-  if (filter === "all") return true;
-  return rowKinds(row)[filter] === true;
+  return filter === "all" || rowKinds(row)[filter] === true;
 }
 
 // Text a user can see or edit in the row, inputs and selects included.
@@ -36,55 +34,79 @@ export function matchesSearch(row, query) {
   return !needle || rowText(row).includes(needle);
 }
 
-function amountOf(cell) {
-  const field = cell?.querySelector("input");
-  const value = Number(String(field ? field.value : cell?.textContent ?? "").replace(/,/g, "").trim());
-  return Number.isFinite(value) ? value : 0;
-}
-
-// Sums over the included (checked) rows, rounded to agorot.
-export function totals(rows) {
-  const included = rows.filter((row) => !rowKinds(row).excluded);
-  const sum = (index) => Math.round(included.reduce((total, row) => total + amountOf(rowCells(row)[index]), 0) * 100) / 100;
-  return { rows: rows.length, included: included.length, gross: sum(8), net: sum(9), vat: sum(10) };
-}
-
-export const formatAmount = (value) => value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-export function setupJournalToolbar({ records, chips, search, footer }) {
+// menu: <details class="menu"> with a <summary> and a .menu-panel; search: { toggle, box, input, count, clear };
+// summary: { element, compute() -> figures from journal-summary.js }
+export function setupJournalToolbar({ records, menu, search, summary }) {
   const doc = records.ownerDocument;
   let filter = "all";
   let query = "";
   const dataRows = () => [...records.querySelectorAll("tr[data-document-id]")];
 
-  const buttons = FILTERS.map(({ key, label }) => {
+  const panel = menu?.querySelector(".menu-panel");
+  const items = FILTERS.map(({ key, label }) => {
     const button = doc.createElement("button");
     button.type = "button";
-    button.className = "chip";
     button.dataset.filter = key;
+    button.setAttribute("role", "menuitemradio");
     button.addEventListener("click", () => { filter = key; refresh(); });
-    chips.append(button);
+    panel?.append(button);
     return { key, label, button };
   });
 
+  function closeSearch() {
+    query = "";
+    if (search) { search.input.value = ""; search.box.hidden = true; }
+    refresh();
+  }
+  if (search) {
+    search.toggle.addEventListener("click", () => {
+      search.box.hidden = false;
+      search.input.focus();
+    });
+    search.input.addEventListener("input", () => { query = search.input.value; refresh(); });
+    search.input.addEventListener("keydown", (event) => { if (event.key === "Escape") closeSearch(); });
+    search.clear.addEventListener("click", closeSearch);
+  }
+
   function refresh() {
     const rows = dataRows();
-    for (const { key, label, button } of buttons) {
-      const number = key === "all" ? rows.length : rows.filter((row) => matchesFilter(row, key)).length;
-      button.textContent = key === "all" ? label : `${label} · ${number}`;
-      button.setAttribute("aria-pressed", String(key === filter));
-      button.hidden = key !== "all" && key !== filter && number === 0;
+    const counts = Object.fromEntries(FILTERS.map(({ key }) => [key, rows.filter((row) => matchesFilter(row, key)).length]));
+    if (filter !== "all" && !counts[filter]) filter = "all";
+    for (const { key, label, button } of items) {
+      button.textContent = key === "all" ? `${label} · ${rows.length}` : `${label} · ${counts[key]}`;
+      button.setAttribute("aria-checked", String(key === filter));
+      button.disabled = key !== "all" && counts[key] === 0;
     }
-    if (filter !== "all" && !rows.some((row) => matchesFilter(row, filter))) filter = "all";
-    for (const row of rows) row.hidden = !(matchesFilter(row, filter) && matchesSearch(row, query));
-    if (footer) {
-      const sums = totals(rows.filter((row) => !row.hidden));
-      footer.hidden = rows.length === 0;
-      const cells = footer.rows[0].cells;
-      cells[3].textContent = `סה״כ · ${sums.included} שורות`;
-      cells[8].textContent = formatAmount(sums.gross);
-      cells[9].textContent = formatAmount(sums.net);
-      cells[10].textContent = formatAmount(sums.vat);
+    const summaryLabel = menu?.querySelector("summary");
+    if (summaryLabel) {
+      summaryLabel.dataset.active = filter === "all" ? "" : FILTERS.find((item) => item.key === filter).label;
+    }
+    let shown = 0;
+    for (const row of rows) {
+      const visible = matchesFilter(row, filter) && matchesSearch(row, query);
+      row.hidden = !visible;
+      if (visible) shown += 1;
+    }
+    if (search) search.count.textContent = query.trim() ? `נמצאו ${shown} מתוך ${rows.length}` : "";
+    if (summary?.element) {
+      let parts = [];
+      try {
+        parts = summaryItems(summary.compute(), { review: counts.review, excluded: counts.excluded });
+      } catch {
+        // A failing summary must not break filtering and search.
+      }
+      summary.element.hidden = parts.length === 0;
+      summary.element.replaceChildren(...parts.map((part) => {
+        const item = doc.createElement("span");
+        item.className = `summary-item${part.tone ? ` ${part.tone}` : ""}`;
+        const label = doc.createElement("span");
+        label.className = "summary-label";
+        label.textContent = part.label;
+        const value = doc.createElement("strong");
+        value.textContent = part.value;
+        item.append(label, value);
+        return item;
+      }));
     }
   }
 
@@ -94,7 +116,6 @@ export function setupJournalToolbar({ records, chips, search, footer }) {
     scheduled = true;
     (globalThis.requestAnimationFrame || ((callback) => setTimeout(callback, 0)))(() => { scheduled = false; refresh(); });
   };
-  search?.addEventListener("input", () => { query = search.value; refresh(); });
   records.addEventListener("input", schedule);
   records.addEventListener("change", schedule);
   const Observer = doc.defaultView?.MutationObserver;

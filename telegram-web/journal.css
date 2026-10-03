@@ -53,18 +53,6 @@
   border-start-start-radius: var(--radius-sm);
 }
 
-#journal-table th.col-stub {
-  background: var(--border-strong);
-  box-shadow: 0 2px 0 var(--border-strong);
-  color: var(--text-strong);
-  text-align: center;
-}
-
-#journal-table th.col-stub:hover {
-  background: var(--accent);
-  color: var(--white);
-}
-
 .col-hide {
   position: absolute;
   top: 3px;
@@ -204,6 +192,17 @@ td .photo-button {
   margin-top: var(--s1);
 }
 
+/* Re-running recognition needs the source image; rows imported from Excel have none */
+tr[data-image-file=""] .retry:not(.history-refine) {
+  display: none;
+}
+
+#journal-table td .retry {
+  display: block;
+  width: 100%;
+  white-space: normal;
+}
+
 .agent-opinion {
   line-height: 1.4;
 }
@@ -309,58 +308,83 @@ td .photo-button {
   text-align: center;
 }
 
-/* Toolbar: filter chips and search */
+/* Toolbar: search, filter menu */
 .journal-heading {
   flex-wrap: wrap;
   align-items: center;
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s1);
+.search-box {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
 }
 
-.chip {
-  padding: 3px 12px;
-  border-color: var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: 500;
+#journal-search {
+  width: 220px;
 }
 
-.chip:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-muted);
-  color: var(--text-strong);
-}
-
-.chip[aria-pressed="true"] {
-  border-color: var(--accent-border);
+.filter-panel button[aria-checked="true"] {
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 650;
 }
 
-#journal-search {
-  width: 200px;
+.filter-panel button[aria-checked="true"]::before {
+  content: "✓";
 }
 
-/* Totals row: always visible at the bottom of the scrolling area */
-#journal-table tfoot td {
+.menu > summary[data-active]:not([data-active=""])::after {
+  content: attr(data-active);
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+
+/* Summary bar: labelled figures of the declaration, always visible at the bottom of the scrolling area */
+.summary-bar {
   position: sticky;
   bottom: 0;
-  z-index: 2;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s5);
+  margin: var(--s3) calc(-1 * var(--s4)) calc(-1 * var(--s4));
+  padding: var(--s3) var(--s4);
   border-top: 2px solid var(--border-strong);
-  border-bottom: 0;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   background: var(--surface-hover);
-  color: var(--text-strong);
-  font-weight: 700;
-  text-align: end;
 }
 
-#journal-table tfoot td:nth-child(4) {
-  text-align: start;
+.summary-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.summary-label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.summary-item strong {
+  color: var(--text-strong);
+  font-size: var(--fs-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-item.total strong {
+  font-size: var(--fs-lg);
+}
+
+.summary-item.warning strong,
+.summary-item.warning .summary-label {
+  color: var(--warning);
+}
+
+.summary-item.muted strong {
+  color: var(--text-muted);
 }
