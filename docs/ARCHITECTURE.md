@@ -54,8 +54,9 @@ declaration closes. Browser storage may remember permission handles but is not
 the source of truth.
 
 An open monthly declaration accepts uploads, edits and repeated exports. Closing
-it validates active rows, creates the final export, appends history once using
-`declarationId`, and makes the visible table read-only. Rows marked
+it appends history once using `declarationId` and makes the visible table
+read-only (since 3 October no final export is created; the Rivhit TXT export is
+deprecated). Rows marked
 **לא מיועד לייצוא** are excluded from validation and export.
 
 ## AI boundary

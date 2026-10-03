@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { closeDeclaration, createDraftTable, createOpenDeclaration, declarationMonth, normalizeDeclaration, normalizeDraftTable, setDeclarationArchived } from "../declaration-core.js";
+import { NO_EXPORT_MARKER, closeDeclaration, declarationActions, createDraftTable, createOpenDeclaration, declarationMonth, normalizeDeclaration, normalizeDraftTable, setDeclarationArchived } from "../declaration-core.js";
 
 const now = "2026-09-11T10:20:30.000Z";
 
@@ -39,4 +39,20 @@ test("архивирует декларацию без изменения её �
   const archived = setDeclarationArchived(open, true, now);
   assert.equal(archived.archived, true); assert.equal(archived.status, "open");
   assert.equal(setDeclarationArchived(archived, false, now).archived, false);
+});
+
+test("closing without an export uses the no-export marker", () => {
+  const open = createOpenDeclaration({ clientId: "client-1", month: "2026-09", declarationId: "declaration-1", now });
+  const closed = closeDeclaration(open, { finalExport: NO_EXPORT_MARKER, now });
+  assert.equal(closed.status, "closed");
+  assert.equal(closed.finalExport, "no-export");
+});
+
+test("upload and close need an open declaration, not a Rivhit template", () => {
+  const open = { status: "open" }, closed = { status: "closed" };
+  assert.deepEqual(declarationActions({ dataRoot: {}, declaration: open, workspaceCommitted: {} }), { canStart: true, canClose: true, open: true });
+  assert.equal(declarationActions({ dataRoot: {}, declaration: open, workspaceCommitted: null }).canClose, false);
+  assert.equal(declarationActions({ dataRoot: null, declaration: open, workspaceCommitted: {} }).canStart, false);
+  assert.deepEqual(declarationActions({ dataRoot: {}, declaration: closed, workspaceCommitted: {} }), { canStart: false, canClose: false, open: false });
+  assert.equal(declarationActions({ dataRoot: {}, declaration: null, workspaceCommitted: {} }).canStart, false);
 });

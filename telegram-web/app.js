@@ -14,6 +14,7 @@ import {
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
 import { readChartOfAccounts } from "./chart-of-accounts.js";
 import { confirmDialog } from "./confirm-dialog.js";
+import { NO_EXPORT_MARKER, declarationActions } from "./declaration-core.js";
 import { formatMonth } from "./month-format.js";
 import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
@@ -278,17 +279,16 @@ function hasCanonicalTemplate() {
 }
 function updateStartAvailability() {
   const open = currentDeclaration?.status === "open";
-  start.disabled = !dataRoot || !open || !hasCanonicalTemplate();
-  closeDeclarationButton.disabled = !open || !committedWorkspace || !hasCanonicalTemplate();
+  const actions = declarationActions({ dataRoot, declaration: currentDeclaration, workspaceCommitted: committedWorkspace });
+  start.disabled = !actions.canStart;
+  closeDeclarationButton.disabled = !actions.canClose;
   uploadRequirements.textContent = !dataRoot
     ? "יש לבחור תחילה תיקיית נתונים בסביבות העבודה."
     : !currentDeclaration
       ? "יש לבחור הצהרה לפני העלאת תמונות."
       : !open
         ? "ההצהרה סגורה ואי אפשר להוסיף אליה תמונות."
-        : !hasCanonicalTemplate()
-          ? "יש לבחור בסביבות העבודה תבנית Rivhit כללית לפני העלאת תמונות."
-          : "";
+        : "";
 }
 async function activateDeclaration(selected) {
   if (
@@ -1755,58 +1755,22 @@ closeDeclarationButton.addEventListener("click", async () => {
       .map((row, index) => ({ ...snapshots[index], imageBlob: row.documentImage }))
       .filter((row) => row.active);
   if (!reportRows.length) return showError("יש לסמן לפחות שורה פעילה לפני סגירת ההצהרה.");
-  const closeMessage = "לסגור את ההצהרה? הפעולה תיצור ייצוא סופי, תעדכן את ההיסטוריה ותנעל את הטבלה.";
+  const closeMessage = "לסגור את ההצהרה? הפעולה תעדכן את ההיסטוריה ותנעל את הטבלה.";
   if (!(await confirmDialog(closeMessage, { title: "סגירת הצהרה", confirmLabel: "סגירה" }))) return;
   closeDeclarationButton.disabled = true;
   status.textContent = "סוגר הצהרה…";
   try {
-    const templateText = await validateExport(snapshots);
-    if (!templateText) return;
     await saveCurrentDraft();
-    const createdAt = new Date(),
-      importText = buildRivhitImport({
-        templateText,
-        rows: snapshots,
-        mapping: rivhitMapping,
-        declarationMonth: currentDeclaration.month,
-      }),
-      pdf = await buildPdfReport({ clientName: committedWorkspace.config.clientName, createdAt, rows: reportRows }),
-      classificationsPdf = await buildClassificationCodesReport({
-        clientName: committedWorkspace.config.clientName,
-        createdAt,
-        rows: snapshots,
-        mapping: rivhitMapping,
-        newCodes: newCustomCodes,
-      }),
-      { directory, name } = await createDraftExportDirectory(currentDeclarationDirectory, createdAt),
-      manifest = draftExportManifest({
-        declaration: currentDeclaration,
-        client: committedWorkspace.config,
-        createdAt,
-        rows: snapshots,
-        kind: "final-export",
-      });
-    await Promise.all([
-      writeFile(directory, "invoices.pdf", pdf),
-      writeFile(directory, "classification-codes.pdf", classificationsPdf),
-      writeFile(directory, "import.txt", importText),
-      writeFile(directory, "manifest.json", JSON.stringify(manifest, null, 2)),
-    ]);
     currentDeclaration = await finalizeDeclaration({
       clientDirectory: committedWorkspace.directory,
       declarationDirectory: currentDeclarationDirectory,
       declaration: currentDeclaration,
-      finalExport: name,
+      finalExport: NO_EXPORT_MARKER,
       rows: snapshots,
     });
     setTableLocked(true);
     updateStartAvailability();
-    status.textContent = `ההצהרה נסגרה. הייצוא הסופי נשמר: ${name}`;
-    showExportResult({
-      title: "ההצהרה נסגרה והייצוא הושלם",
-      message: "קובצי PDF ו-TXT הסופיים נשמרו בהצלחה.",
-      exportName: name,
-    });
+    status.textContent = "ההצהרה נסגרה. ההיסטוריה עודכנה והטבלה ננעלה.";
   } catch (error) {
     if (error.name !== "AbortError") {
       const message = `לא ניתן לסגור את ההצהרה: ${error.message}`;

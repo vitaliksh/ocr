@@ -47,6 +47,14 @@ export function createDraftTable({ declarationId, rows = [], now = new Date().to
   return result.draft;
 }
 
+export const NO_EXPORT_MARKER = "no-export";
+
+// What the upload and close buttons need: a data root, an open declaration and (for closing) a committed workspace.
+export function declarationActions({ dataRoot, declaration, workspaceCommitted }) {
+  const open = declaration?.status === "open";
+  return { canStart: Boolean(dataRoot) && open, canClose: open && Boolean(workspaceCommitted), open };
+}
+
 export function closeDeclaration(declaration, { finalExport, now = new Date().toISOString() } = {}) {
   const current = normalizeDeclaration(declaration);
   if (!current.valid) throw new Error(current.error);
