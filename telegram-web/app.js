@@ -18,6 +18,9 @@ import { confirmDialog, dialogResult } from "./confirm-dialog.js";
 import { NO_EXPORT_MARKER, declarationActions } from "./declaration-core.js";
 import { formatMonth } from "./month-format.js";
 import { createClientsHome } from "./clients-home.js";
+import { setupJournalColumns } from "./journal-columns.js";
+import { setupJournalToolbar } from "./journal-toolbar.js";
+import { readUiSettings, saveUiSettings } from "./ui-settings.js";
 import { setupExcelImport } from "./excel-import-ui.js";
 import { relevantHistory } from "./history-ranker.js";
 import { setupReports } from "./reports-ui.js";
@@ -31,6 +34,19 @@ import {
 } from "./custom-rivhit-mapping.js";
 
 const clientsHome = createClientsHome();
+const journalColumns = setupJournalColumns({
+  table: document.querySelector("#journal-table"),
+  menu: document.querySelector("#columns-menu"),
+  onChange: (hiddenColumns) => {
+    if (dataRoot) saveUiSettings(dataRoot, { hiddenColumns }).catch((error) => showError(`לא ניתן לשמור את בחירת העמודות: ${error.message}`));
+  },
+});
+setupJournalToolbar({
+  records: document.querySelector("#records"),
+  chips: document.querySelector("#journal-filters"),
+  search: document.querySelector("#journal-search"),
+  footer: document.querySelector("#journal-totals"),
+});
 const api = (window.TELEGRAM_TRANSFER_API || "").replace(/\/$/, ""),
   builtInMapping = { ...(window.RIVHIT_MAPPING || {}) };
 const inactive = document.querySelector("#inactive"),
@@ -369,6 +385,7 @@ function clearActiveDeclaration(declarationId) {
 async function switchDataRoot(selected) {
   await saveCurrentDraft();
   dataRoot = selected;
+  readUiSettings(selected).then((settings) => journalColumns.setHidden(settings.hiddenColumns, { persist: false })).catch(() => {});
   clientsHome.showHome();
   dataRootTitle.textContent = `תיקיית נתונים: ${selected.name}`;
   workspace = null;
@@ -753,6 +770,9 @@ function recalculateRow(row) {
   if (net) net.value = amounts.net;
   else row.cells[9].textContent = amounts.net;
   row.cells[10].textContent = amounts.vat;
+  const partial = Number(expensePercent) !== 100 || Number(vatRecognisedPercent) !== 100;
+  row.cells[10].toggleAttribute("data-partial", partial);
+  row.cells[10].title = partial ? `מוכר: מע״מ ${vatRecognisedPercent}% · הוצאה ${expensePercent}%` : "";
 }
 function vatRate(row) {
   const stored = Number(row.dataset.vatPercent);

@@ -155,7 +155,34 @@ New views, switched by state (no router needed): **Clients** (start screen), **C
 - Drawer markup, backdrop and `.drawer-open` handling are removed; `app.js` drawer wiring (`setWorkspacesDrawer`,
   `#open-workspaces-drawer`) is adapted. Ids that tests use stay.
 
-### Stage 5 — Journal table (largest effect, highest risk)
+### Stage 5 as built (3 October)
+
+- Spike result: `<col style="visibility: collapse">` works in Chromium but the table then shrinks instead of
+  redistributing, so hidden columns are 18 px **stubs** (generated CSS by `nth-child` plus a `+` in the header) and the
+  visible columns share the rest by weight in a generated `<colgroup>`.
+- Chooser button "עמודות" (with a count of hidden columns) with grouped checkboxes and presets "מינימום" / "הכול", a
+  `×` in every non-core header on hover, and a click on a stub restores the column in place. The hidden set is stored in
+  `common/ui-settings.json` of the data root; drag-resized widths stay a per-viewer `localStorage` value.
+- Default preset: hides supplier ID, allocation number, both recognition percents, agent decision and confidence. The
+  "for export" checkbox stays visible because unchecked rows are left out of the reports.
+- Partial recognition (VAT or expense below 100 %) is marked with an amber bar and a tooltip on the VAT cell
+  (`recalculateRow`), so it stays visible while the percent columns are hidden.
+- Toolbar: filter chips with counts (all, needs review, duplicates, outside the reports), search over the visible and
+  edited text, and a sticky totals row (gross, net, VAT of the visible included rows) in the same columns.
+- Look: dark bold header with an accent underline, quiet inputs that show a border on hover and focus, no vertical
+  grid lines, tabular numbers right-aligned.
+- Deviations: no sticky first columns (the table fits the width, and a horizontal scroller would break the sticky
+  header); no row selection (a click on a row opens the photo, selection waits for the AI assistant); the row delete
+  button is only restyled, it still deletes without a confirmation (adding one would change behaviour); validation
+  errors do not link to hidden columns because the only validation left is the deprecated Rivhit export.
+- Existing code changed: `app.js` (creates the columns and the toolbar, loads the settings on a data-root switch,
+  `recalculateRow` sets the partial marker), `index.html` (header keys, `id="journal-table"`, toolbar, totals row),
+  `styles.css` (table rules moved to `journal.css`), `shell.css` (spacing moved to the children so the totals row sticks
+  flush), `package.json`. Removed: `table-columns.js`, `table-layout.css`.
+
+### Stage 5 plan text
+
+— Journal table (largest effect, highest risk)
 
 Column model:
 

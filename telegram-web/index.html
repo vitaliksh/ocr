@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="base.css">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="workspace.css">
-  <link rel="stylesheet" href="table-layout.css">
+  <link rel="stylesheet" href="journal.css">
   <link rel="stylesheet" href="reports.css">
   <link rel="stylesheet" href="clients.css">
   <link rel="stylesheet" href="sidebar.css">
@@ -17,7 +17,6 @@
   <script src="config.js" defer></script>
   <script src="rivhit-mapping.js" defer></script>
   <script type="module" src="app.js"></script>
-  <script src="table-columns.js" defer></script>
   <script type="module" src="shell.js"></script>
   <script type="module" src="sidebar.js"></script>
 </head>
@@ -37,7 +36,7 @@
       <footer class="sidebar-footer">
         <section class="data-root-setting" aria-label="תיקיית נתונים"><button id="select-data-root" type="button" class="secondary">בחירת תיקיית נתונים</button><p id="data-root-summary">טרם נבחרה תיקיית נתונים.</p></section>
         <button id="open-settings" type="button" class="nav-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg><span class="label">הגדרות</span></button>
-        <div class="sidebar-versions"><p class="app-version drawer-version" aria-label="גרסת ממשק">גרסת ממשק: 2026.10.03.13 · 11:48 IDT</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p></div>
+        <div class="sidebar-versions"><p class="app-version drawer-version" aria-label="גרסת ממשק">גרסת ממשק: 2026.10.03.14 · 11:59 IDT</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p><p id="backend-version" class="app-version drawer-version" aria-label="גרסת שרת">גרסת שרת: נבדקת…</p></div>
       </footer>
       <div id="sidebar-resizer" class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="שינוי רוחב החלונית" tabindex="0"></div>
     </aside>
@@ -60,8 +59,8 @@
         <div class="qr-panel"><canvas id="qr" width="260" height="260" aria-label="קוד QR לחיבור Telegram"></canvas><p>סרוק את הקוד ב‑Telegram או <a id="telegram-link" target="_blank" rel="noopener">פתח Telegram</a>.</p></div>
       </section>
       <section class="journal card" aria-labelledby="journal-title">
-        <div class="journal-heading"><h2 id="journal-title" class="sr-only">לקוח והצהרה לא נבחרו</h2><p id="count">שורות ביומן: 0</p></div>
-        <div class="table-wrap"><table><thead><tr><th>#</th><th>קוד מיון</th><th>תאריך</th><th>פרטים</th><th>ספק</th><th>ע.מ./ת.ז</th><th>אסמכתא</th><th>מספר הקצאה</th><th>כולל מע״מ</th><th>ללא מע״מ</th><th>מע״מ</th><th>% מוכר מע״מ</th><th>% מוכר כהוצאה</th><th>תמונה</th><th>החלטת הסוכן</th><th>ביטחון</th><th>סטטוס</th><th>לייצוא</th><th>מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="19" class="empty">עדיין לא התקבלו מסמכים.</td></tr></tbody></table></div>
+        <div class="journal-heading"><h2 id="journal-title" class="sr-only">לקוח והצהרה לא נבחרו</h2><p id="count">שורות ביומן: 0</p><div id="journal-filters" class="chips" role="group" aria-label="סינון שורות"></div><span class="topbar-spacer"></span><input id="journal-search" type="search" placeholder="חיפוש בטבלה" aria-label="חיפוש בטבלה"><details class="menu" id="columns-menu"><summary class="button secondary">עמודות</summary><div class="menu-panel columns-panel"></div></details></div>
+        <div class="table-wrap"><table id="journal-table"><thead><tr><th data-col="index">#</th><th data-col="code">קוד מיון</th><th data-col="date">תאריך</th><th data-col="details">פרטים</th><th data-col="supplier">ספק</th><th data-col="supplierId">ע.מ./ת.ז</th><th data-col="reference">אסמכתא</th><th data-col="allocation">מספר הקצאה</th><th data-col="gross">כולל מע״מ</th><th data-col="net">ללא מע״מ</th><th data-col="vat">מע״מ</th><th data-col="vatPercent">% מוכר מע״מ</th><th data-col="expensePercent">% מוכר כהוצאה</th><th data-col="image">תמונה</th><th data-col="agent">החלטת הסוכן</th><th data-col="confidence">ביטחון</th><th data-col="status">סטטוס</th><th data-col="export">לייצוא</th><th data-col="delete">מחק</th></tr></thead><tbody id="records"><tr id="empty-row"><td colspan="19" class="empty">עדיין לא התקבלו מסמכים.</td></tr></tbody><tfoot id="journal-totals" hidden><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tfoot></table></div>
       </section>
       </div>
     </main>

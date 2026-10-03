@@ -1,0 +1,366 @@
+/* Journal table. Column widths come from the generated <colgroup> (journal-columns.js); hidden columns are stubs. */
+
+.table-wrap {
+  margin-top: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+#journal-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+#journal-table th,
+#journal-table td {
+  padding: 7px 8px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+#journal-table td {
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+#journal-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+#journal-table tbody tr:hover {
+  background: var(--surface-muted);
+}
+
+/* Header: dark, bold, flush with the top of the scrolling workspace */
+#journal-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border: 0;
+  border-inline-start: 1px solid color-mix(in srgb, var(--white) 14%, transparent);
+  background: var(--ink);
+  box-shadow: 0 2px 0 var(--accent);
+  color: var(--white);
+  font-weight: 700;
+}
+
+#journal-table th:first-child {
+  border-start-start-radius: var(--radius-sm);
+}
+
+#journal-table th.col-stub {
+  background: var(--border-strong);
+  box-shadow: 0 2px 0 var(--border-strong);
+  color: var(--text-strong);
+  text-align: center;
+}
+
+#journal-table th.col-stub:hover {
+  background: var(--accent);
+  color: var(--white);
+}
+
+.col-hide {
+  position: absolute;
+  top: 3px;
+  inset-inline-end: 3px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: color-mix(in srgb, var(--white) 75%, transparent);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+}
+
+#journal-table th:hover .col-hide,
+.col-hide:focus-visible {
+  opacity: 1;
+}
+
+.col-hide:hover {
+  background: color-mix(in srgb, var(--white) 22%, transparent);
+  color: var(--white);
+}
+
+.column-resizer {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.column-resizer:hover,
+.column-resizer:active {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* Cells and fields: quiet until hovered or focused */
+.empty {
+  padding: var(--s6) !important;
+  color: var(--text-muted);
+  text-align: center !important;
+}
+
+.editable {
+  background: transparent;
+}
+
+.editable:hover {
+  background: var(--surface-hover);
+}
+
+.editable:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--surface);
+}
+
+#journal-table td input:not([type="checkbox"]),
+#journal-table td select {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 5px;
+  border-color: transparent;
+  background: transparent;
+  font: inherit;
+}
+
+#journal-table td input:not([type="checkbox"]):hover,
+#journal-table td select:hover {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+#journal-table td input:not([type="checkbox"]):focus,
+#journal-table td select:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.classification-picker {
+  display: grid;
+  gap: 2px;
+}
+
+td.amount-cell {
+  padding: 4px 4px;
+}
+
+td.amount-cell input {
+  text-align: end;
+  direction: ltr;
+}
+
+#journal-table td:nth-child(3),
+#journal-table td .delete {
+  white-space: nowrap;
+}
+
+#journal-table td:nth-child(9),
+#journal-table td:nth-child(10),
+#journal-table td:nth-child(11) {
+  text-align: end;
+}
+
+/* Partial recognition stays visible while its percent columns are hidden */
+#journal-table td[data-partial] {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+td .photo-button {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.photo-button,
+.retry {
+  padding: 3px 8px;
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+}
+
+.photo-button:hover,
+.retry:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+
+.retry {
+  margin-top: var(--s1);
+}
+
+.agent-opinion {
+  line-height: 1.4;
+}
+
+.field-swap {
+  float: left;
+  margin: -2px 0 -2px 3px;
+  padding: 1px 4px;
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+#journal-table td .delete {
+  border-color: transparent;
+  background: transparent;
+}
+
+#journal-table td .delete:hover {
+  border-color: var(--error-border);
+  background: var(--error-soft);
+}
+
+.state {
+  font-weight: 650;
+}
+
+.received,
+.ready {
+  color: var(--success);
+}
+
+.processing {
+  color: var(--info);
+}
+
+.review {
+  color: var(--warning);
+}
+
+.error {
+  color: var(--error);
+}
+
+.not-for-export td {
+  background: var(--surface-muted) !important;
+  color: var(--text-muted);
+}
+
+.not-for-export .editable {
+  background: transparent;
+}
+
+.table-locked {
+  opacity: .85;
+}
+
+.table-locked .editable {
+  cursor: not-allowed;
+}
+
+/* Column chooser */
+.columns-panel {
+  min-width: 250px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.columns-group {
+  display: grid;
+}
+
+.columns-option {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-weight: 400;
+}
+
+.columns-option:hover {
+  background: var(--surface-muted);
+}
+
+.columns-presets {
+  display: flex;
+  gap: var(--s2);
+  padding: var(--s2) 10px 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.menu > summary[data-hidden]:not([data-hidden="0"])::after {
+  content: attr(data-hidden);
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+/* Toolbar: filter chips and search */
+.journal-heading {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+
+.chip {
+  padding: 3px 12px;
+  border-color: var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.chip:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+  color: var(--text-strong);
+}
+
+.chip[aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 650;
+}
+
+#journal-search {
+  width: 200px;
+}
+
+/* Totals row: always visible at the bottom of the scrolling area */
+#journal-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 0;
+  background: var(--surface-hover);
+  color: var(--text-strong);
+  font-weight: 700;
+  text-align: end;
+}
+
+#journal-table tfoot td:nth-child(4) {
+  text-align: start;
+}
