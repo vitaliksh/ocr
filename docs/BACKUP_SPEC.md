@@ -58,7 +58,9 @@ Deleting old snapshots or unreferenced packs is a manual, confirmed action still
 - Two slots with their own folder, "גיבוי עכשיו" and "בדיקת תקינות" (deep verify): `cloud` (a folder inside Google Drive for
   desktop) and `usb` (the monthly flash copy). A folder inside the data root is refused.
 - Recovery code: created once, shown once; the key is stored in IndexedDB (non-extractable) only after the user ticks that the code is
-  written down and confirms. Restore asks for the code when the key is not on this PC.
+  written down and confirms. Restore asks for the code when the key is not on this PC. The same box takes a code from the other PC
+  ("שימוש בקוד"); once a key is saved it becomes "החלפת הקוד" and asks for confirmation first (old backups and transfer files need the
+  old code). The key survives Ctrl+F5 and a browser restart; only clearing the site data removes it.
 - Restore: pick the folder that holds `annateria-backup`, pick a snapshot, pick an empty target folder; then switch the data root to it.
 - The sidebar item carries a status dot: green when both slots are fresh, red when the cloud copy is older than 2 days or the
   flash copy older than 35 days, yellow when something was never done.

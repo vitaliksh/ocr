@@ -5,6 +5,7 @@
 import { createBackup, keyFromRecoveryCode, listSnapshots, newRecoveryCode, restoreSnapshot, verifyStore } from "./backup-store.js";
 import { SLOTS, backupLevel, readBackupState, saveBackupState } from "./backup-state.js";
 import { BACKUP_FOLDER_KEYS, BACKUP_KEY_NAME, readSetting, writeSetting } from "./backup-handles.js";
+import { confirmDialog } from "./confirm-dialog.js";
 
 const PLATE_CLASS = { ok: "plate-success", warning: "plate-warning", error: "plate-error", info: "plate-info", success: "plate-success" };
 const LEVEL_TEXT = {
@@ -30,6 +31,7 @@ export function setupBackup({
   store = { readSetting, writeSetting },
   pickDirectory = () => window.showDirectoryPicker({ mode: "readwrite", startIn: "documents" }),
   now = () => new Date().toISOString(),
+  confirm = confirmDialog,
 }) {
   const part = (id) => dialog.querySelector(`#${id}`);
   const slotPart = (slot, role) => dialog.querySelector(`[data-slot="${slot}"] [data-role="${role}"]`);
@@ -38,7 +40,7 @@ export function setupBackup({
     "backup-code-saved", "backup-code-confirm", "backup-restore-choose", "backup-restore-details", "backup-restore-snapshot",
     "backup-restore-code", "backup-restore-run",
   ].map(part);
-  const [enterBox, enterCode, useCode] = ["backup-enter-box", "backup-enter-code", "backup-use-code"].map(part);
+  const [enterBox, enterLabel, enterCode, useCode] = ["backup-enter-box", "backup-enter-label", "backup-enter-code", "backup-use-code"].map(part);
   const handles = { cloud: null, usb: null };
   let state = null;
   let key = null;
@@ -74,7 +76,9 @@ export function setupBackup({
     images.disabled = !root;
     keyState.textContent = key ? "קוד שחזור נשמר במחשב זה." : "טרם נוצר קוד שחזור. הוא נדרש לפני הגיבוי הראשון.";
     createKey.hidden = Boolean(key) || Boolean(pendingCode);
-    enterBox.hidden = Boolean(key) || Boolean(pendingCode);
+    enterBox.hidden = Boolean(pendingCode);
+    enterLabel.textContent = key ? "להחלפת הקוד השמור במחשב זה, הזן קוד אחר:" : "כבר יש לך קוד שחזור (למשל מהמחשב השני)?";
+    useCode.textContent = key ? "החלפת הקוד" : "שימוש בקוד";
     codeBox.hidden = !pendingCode;
     codeOutput.textContent = pendingCode ?? "";
     codeConfirm.disabled = !codeSaved.checked;
@@ -208,10 +212,15 @@ export function setupBackup({
 
   useCode.addEventListener("click", guarded(async () => {
     const created = await keyFromRecoveryCode(enterCode.value);
+    if (key) {
+      const warning = "להחליף את קוד השחזור השמור במחשב זה? גיבויים וקבצי העברה שנוצרו בקוד הקודם לא ייפתחו בלעדיו.";
+      if (!(await confirm(warning, { title: "החלפת קוד שחזור", confirmLabel: "החלפה" }))) return;
+    }
+    const replaced = Boolean(key);
     await store.writeSetting(BACKUP_KEY_NAME, created);
     key = created;
     enterCode.value = "";
-    setMessage("success", "קוד השחזור נשמר במחשב זה.");
+    setMessage("success", replaced ? "קוד השחזור הוחלף." : "קוד השחזור נשמר במחשב זה.");
   }));
 
   restoreChoose.addEventListener("click", guarded(async () => {

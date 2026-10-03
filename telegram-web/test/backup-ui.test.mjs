@@ -30,7 +30,7 @@ function withPermission(directory, { permission = "granted", isRoot = false } = 
   return handle;
 }
 
-async function setup() {
+async function setup({ confirm } = {}) {
   const dom = new JSDOM(html, { url: "https://vitaliksh.github.io/ocr/" });
   const { window } = dom;
   Object.assign(globalThis, { document: window.document, window });
@@ -58,6 +58,7 @@ async function setup() {
       return picks.shift();
     },
     now: () => clock.value,
+    ...(confirm ? { confirm } : {}),
   });
   await backup.refresh();
   const q = (selector) => dialog.querySelector(selector);
@@ -254,6 +255,27 @@ test("a recovery code from the other PC can be entered instead of creating a new
   q("#backup-enter-code").value = newRecoveryCode();
   await click(q("#backup-use-code"));
   assert.equal(stored.get(BACKUP_KEY_NAME).extractable, false);
-  assert.equal(q("#backup-enter-box").hidden, true);
   assert.equal(q("#backup-create-key").hidden, true);
+  assert.equal(q("#backup-enter-box").hidden, false, "the box stays, now as the way to replace the code");
+  assert.equal(q("#backup-use-code").textContent, "החלפת הקוד");
+});
+
+test("replacing the saved code asks first; declining keeps the old key, a malformed code is refused", async () => {
+  const answers = [];
+  const { q, click, stored, error, giveKey, plate } = await setup({ confirm: async (message) => { answers.push(message); return answers.length > 1; } });
+  await giveKey();
+  const original = stored.get(BACKUP_KEY_NAME);
+  q("#backup-enter-code").value = "garbage";
+  await click(q("#backup-use-code"));
+  assert.match(error(), /אינו תקין/);
+  assert.equal(answers.length, 0, "nothing to confirm for a malformed code");
+  q("#backup-enter-code").value = newRecoveryCode();
+  await click(q("#backup-use-code"));
+  assert.equal(answers.length, 1);
+  assert.match(answers[0], /לא ייפתחו בלעדיו/);
+  assert.equal(stored.get(BACKUP_KEY_NAME), original, "declined: the old key stays");
+  await click(q("#backup-use-code"));
+  assert.notEqual(stored.get(BACKUP_KEY_NAME), original);
+  assert.match(plate(), /הוחלף/);
+  assert.equal(q("#backup-enter-code").value, "");
 });
