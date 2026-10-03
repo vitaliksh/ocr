@@ -33,7 +33,7 @@ async function openTarget(clientDirectory, clientId, month, { replace, now }) {
     if (error.name !== "NotFoundError") throw error;
     return createDeclaration(clientDirectory, { clientId, month });
   }
-  if (loaded.declaration.status !== "open") throw new Error("ההצהרה לחודש זה סגורה. לא ניתן לייבא אליה.");
+  if (loaded.declaration.status !== "open") throw new Error("ההצהרה לחודש זה נעולה. לא ניתן לייבא אליה.");
   if (loaded.draft.rows.length) {
     if (!replace) throw new Error("ההצהרה לחודש זה כבר מכילה שורות. לא ניתן לייבא אליה.");
     await backupDraft(loaded.directory, loaded.draft, now);

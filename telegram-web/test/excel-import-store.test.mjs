@@ -4,7 +4,7 @@ import { SEED_CHART_OF_ACCOUNTS, matchClassNames, normaliseChart } from "../char
 import { buildImportedRows } from "../excel-import.js";
 import { importRowsIntoDeclaration, inspectImportTarget } from "../excel-import-store.js";
 import { parseJournalGrid } from "../excel-journal.js";
-import { createDeclaration, listDeclarations, loadDeclaration } from "../declaration-store.js";
+import { createDeclaration, listDeclarations, loadDeclaration, finalizeDeclaration, reopenLockedDeclaration } from "../declaration-store.js";
 import { buildJournalGrid } from "./excel-journal-fixture.mjs";
 import { memoryDirectory } from "./memory-directory.mjs";
 
@@ -50,7 +50,7 @@ test("импорт в декларацию: непустая или закрыт
   await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-05", rows: rows(), closeNow: true, now });
   await assert.rejects(
     importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-05", rows: rows(), now }),
-    /סגורה/,
+    /נעולה/,
   );
   assert.equal((await loadDeclaration(client, "2026-04")).draft.rows.length, 8);
 });
@@ -85,6 +85,22 @@ test("импорт в декларацию: замена сохраняет ко
   await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-06", rows: rows(), closeNow: true, now });
   await assert.rejects(
     importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-06", rows: rows(), replace: true, now }),
-    /סגורה/,
+    /נעולה/,
   );
+});
+
+test("reopen removes the history of the declaration and locking again does not duplicate it", async () => {
+  const client = memoryDirectory("client");
+  const closed = await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-05", rows: rows(), closeNow: true, now });
+  const other = await importRowsIntoDeclaration({ clientDirectory: client, clientId: "c1", month: "2026-06", rows: rows(), closeNow: true, now });
+  const entries = () => client.children.get("history.jsonl").text.split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  assert.equal(entries().length, 16);
+  const directory = (await listDeclarations(client)).find((item) => item.declaration.declarationId === closed.declarationId).directory;
+  const reopened = await reopenLockedDeclaration({ clientDirectory: client, declarationDirectory: directory, declaration: closed, reason: "fix", now });
+  assert.equal(reopened.status, "open");
+  assert.deepEqual(entries().map((entry) => entry.declarationId), Array(8).fill(other.declarationId));
+  const draft = (await loadDeclaration(client, "2026-05")).draft;
+  await finalizeDeclaration({ clientDirectory: client, declarationDirectory: directory, declaration: reopened, finalExport: "no-export", rows: draft.rows.map((row) => ({ ...row, active: true })), now });
+  assert.equal(entries().filter((entry) => entry.declarationId === closed.declarationId).length, 8);
+  assert.equal(entries().length, 16);
 });

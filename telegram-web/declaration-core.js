@@ -29,9 +29,15 @@ export function normalizeDeclaration(value) {
   const historyAppendedAt = value.historyAppendedAt === null || value.historyAppendedAt === undefined || value.historyAppendedAt === "" ? null : text(value.historyAppendedAt);
   if (closedAt !== null && !validTimestamp(closedAt)) return error("תאריך סגירת ההצהרה אינו תקין.");
   if (historyAppendedAt !== null && !validTimestamp(historyAppendedAt)) return error("תאריך כתיבת ההיסטוריה אינו תקין.");
+  const reopenLog = [];
+  for (const entry of Array.isArray(value.reopenLog) ? value.reopenLog : []) {
+    const at = text(entry?.at), reason = text(entry?.reason);
+    if (!validTimestamp(at) || !reason) return error("יומן הפתיחה מחדש של ההצהרה אינו תקין.");
+    reopenLog.push({ at, reason });
+  }
   if (status === "open" && (closedAt || finalExport || historyAppendedAt)) return error("להצהרה פתוחה אסור להכיל נתוני סגירה.");
   if (status === "closed" && (!closedAt || !finalExport || !historyAppendedAt)) return error("להצהרה סגורה חסרים נתוני סגירה.");
-  return { valid: true, declaration: { schemaVersion: DECLARATION_SCHEMA_VERSION, declarationId, clientId, month, status, archived: Boolean(value.archived), createdAt, updatedAt, closedAt, finalExport, historyAppendedAt } };
+  return { valid: true, declaration: { schemaVersion: DECLARATION_SCHEMA_VERSION, declarationId, clientId, month, status, archived: Boolean(value.archived), createdAt, updatedAt, closedAt, finalExport, historyAppendedAt, reopenLog } };
 }
 
 export function normalizeDraftTable(value, declarationId) {
@@ -49,10 +55,10 @@ export function createDraftTable({ declarationId, rows = [], now = new Date().to
 
 export const NO_EXPORT_MARKER = "no-export";
 
-// What the upload and close buttons need: a data root, an open declaration and (for closing) a committed workspace.
+// What the upload, lock and reopen buttons need: a data root, an open (or locked) declaration and a committed workspace.
 export function declarationActions({ dataRoot, declaration, workspaceCommitted }) {
   const open = declaration?.status === "open";
-  return { canStart: Boolean(dataRoot) && open, canClose: open && Boolean(workspaceCommitted), open };
+  return { canStart: Boolean(dataRoot) && open, canClose: open && Boolean(workspaceCommitted), canReopen: declaration?.status === "closed" && Boolean(workspaceCommitted), open };
 }
 
 export function closeDeclaration(declaration, { finalExport, now = new Date().toISOString() } = {}) {
@@ -60,6 +66,18 @@ export function closeDeclaration(declaration, { finalExport, now = new Date().to
   if (!current.valid) throw new Error(current.error);
   if (current.declaration.status !== "open") throw new Error("אפשר לסגור רק הצהרה פתוחה.");
   const result = normalizeDeclaration({ ...current.declaration, status: "closed", updatedAt: now, closedAt: now, finalExport, historyAppendedAt: now });
+  if (!result.valid) throw new Error(result.error);
+  return result.declaration;
+}
+
+// A locked (closed) declaration becomes open again; the reason is kept in reopenLog and the closing data is cleared.
+export function reopenDeclaration(declaration, { reason, now = new Date().toISOString() } = {}) {
+  const current = normalizeDeclaration(declaration);
+  if (!current.valid) throw new Error(current.error);
+  if (current.declaration.status !== "closed") throw new Error("אפשר לפתוח מחדש רק הצהרה נעולה.");
+  const why = text(reason);
+  if (!why) throw new Error("יש להזין סיבה לפתיחה מחדש.");
+  const result = normalizeDeclaration({ ...current.declaration, status: "open", updatedAt: now, closedAt: null, finalExport: null, historyAppendedAt: null, reopenLog: [...current.declaration.reopenLog, { at: now, reason: why }] });
   if (!result.valid) throw new Error(result.error);
   return result.declaration;
 }

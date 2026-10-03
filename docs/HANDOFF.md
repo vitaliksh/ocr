@@ -5,7 +5,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.7 · 10:59 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.8 · 11:03 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -43,7 +43,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The drawer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.03.7 · 10:59 IDT
+גרסת ממשק: 2026.10.03.8 · 11:03 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -147,7 +147,7 @@ Custom codes are root-local, available to every client in that root, exactly thr
 - A root can be empty; the app creates `common/` and `clients/`. Never silently copy/move/merge data between roots.
 - Users can create, edit, archive, restore, and delete clients. Each client has `YYYY-MM` declarations.
 - Open declarations are editable. Closed declarations stay visible, are read-only, and must not be silently reopened.
-- Closing needs at least one active row, appends history once by `declarationId`, then locks the table. It creates no export and needs no Rivhit template (`declarationActions` in `declaration-core.js` decides when upload and close are enabled).
+- "Closing" is now **locking** (נעילה, UI text; storage status stays `closed`). Locking needs at least one active row, appends history once by `declarationId`, then locks the table. It creates no export and needs no Rivhit template (`declarationActions` in `declaration-core.js` decides when upload, lock and reopen are enabled). A locked declaration can be reopened with a mandatory reason (`reopenLockedDeclaration`): `status` returns to `open`, closing fields are cleared, `{ at, reason }` is appended to `reopenLog` in `declaration.json`, and the declaration's rows are removed from `history.jsonl`; locking again replaces them (never duplicates).
 - A Telegram-authorised session allows one local PDF. The app saves the original PDF locally, renders JPEG pages locally, saves them locally, then queues each page through the existing Pass 1 route.
 
 `D:\projects\ocr\pdf examples\7-8.26.pdf` was checked: 34 A4 pages, 6.08 MB, unencrypted, valid. It was not the cause of the File System Access error.
@@ -232,7 +232,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the drawer and verify frontend `2026.10.03.7 · 10:59 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the drawer and verify frontend `2026.10.03.8 · 11:03 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -244,7 +244,7 @@ Next phase (Excel migration, reports, GUI): see [`MIGRATION_HANDOFF.md`](MIGRATI
 
 1. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row.
 2. Device recovery: add non-secret connected-device metadata and revocation after fresh Windows Hello.
-3. Closed-declaration recovery: if needed, require a reason, immutable audit record, and preserved prior final export.
+3. Closed-declaration recovery: done on 3 Oct as reopen-with-reason (`reopenLog`); the log is plain JSON, not tamper-proof.
 
 ## Validation and deployment
 
@@ -256,7 +256,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **165 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **168 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

@@ -104,7 +104,7 @@ rows are included — reproduce this through the type in the chart of accounts, 
 
 ## Open questions
 
-- Closed-declaration recovery (reason, immutable audit, preserve prior final export). Undecided.
+- Closed-declaration recovery: decided and done on 3 Oct (option A): locking is reversible, "פתיחה מחדש" requires a reason kept in `reopenLog`; no tamper-proof audit.
 - Backups (postponed on 2 Oct, still the biggest risk: the local folder is the only copy).
 - Equipment VAT line of the VAT report is not verified against a Rivhit report that has equipment (no sample).
 
@@ -164,7 +164,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.7 · 10:59 IDT`. Tests: **165** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.8 · 11:03 IDT`. Tests: **168** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct):** real disk folder, import of the sample files, the new-declaration

@@ -116,7 +116,7 @@ test("диалог импорта: состояние выбранного ме�
   assert.deepEqual(await check("2026-01"), ["ההצהרה ל-01/2026 לא קיימת ותיווצר.", false, true]);
   assert.deepEqual(await check("2026-04"), ["ההצהרה ל-04/2026 קיימת וריקה. השורות ייכנסו אליה.", false, true]);
   assert.deepEqual(await check("2026-02"), ["ב-02/2026 כבר יש 8 שורות.", true, false]);
-  assert.deepEqual(await check("2026-03"), ["ההצהרה ל-03/2026 סגורה, אי אפשר לייבא אליה.", true, true]);
+  assert.deepEqual(await check("2026-03"), ["ההצהרה ל-03/2026 נעולה, אי אפשר לייבא אליה.", true, true]);
 });
 
 test("диалог импорта: замена непустой декларации требует галочки, сохраняет копию и вызывает onBeforeCommit", async () => {

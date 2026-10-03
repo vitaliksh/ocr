@@ -1,4 +1,4 @@
-import { closeDeclaration, createDraftTable, createOpenDeclaration, normalizeDeclaration, normalizeDraftTable, setDeclarationArchived } from "./declaration-core.js";
+import { closeDeclaration, createDraftTable, createOpenDeclaration, normalizeDeclaration, normalizeDraftTable, reopenDeclaration, setDeclarationArchived } from "./declaration-core.js";
 
 const declarationsName = "declarations", declarationFile = "declaration.json", draftFile = "draft-table.json", imagesName = "images", exportsName = "exports";
 
@@ -79,14 +79,32 @@ export async function createDraftExportDirectory(declarationDirectory, date = ne
   throw new Error("לא ניתן ליצור תיקיית ייצוא נוספת.");
 }
 
+async function readHistoryText(clientDirectory) {
+  try { return await (await clientDirectory.getFileHandle("history.jsonl")).getFile().then((file) => file.text()); } catch (error) { if (error.name === "NotFoundError") return ""; throw error; }
+}
+async function writeHistoryLines(clientDirectory, lines) {
+  const writable = await (await clientDirectory.getFileHandle("history.jsonl", { create: true })).createWritable();
+  try { await writable.write(lines.length ? lines.join("\n") + "\n" : ""); } finally { await writable.close(); }
+}
+const historyLinesWithout = (text, declarationId) => text.split(/\r?\n/).filter(Boolean).filter((line) => { try { return JSON.parse(line).declarationId !== declarationId; } catch { return true; } });
+
+// Locks the declaration: its rows replace any earlier history entries of the same declaration (so a retry or a
+// re-lock after reopening never duplicates them), then the declaration file is written.
 export async function finalizeDeclaration({ clientDirectory, declarationDirectory, declaration, finalExport, rows, now = new Date().toISOString() }) {
-  const historyName = "history.jsonl"; let previous = "", history = [];
-  try { previous = await (await clientDirectory.getFileHandle(historyName)).getFile().then((file) => file.text()); history = previous.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)); } catch (error) { if (error.name !== "NotFoundError") throw error; }
-  if (!history.some((entry) => entry.declarationId === declaration.declarationId)) {
-    const records = rows.filter((row) => row.active).map((row) => JSON.stringify({ declarationId: declaration.declarationId, declarationMonth: declaration.month, finalizedAt: now, ...row }));
-    const writable = await (await clientDirectory.getFileHandle(historyName, { create: true })).createWritable(); try { await writable.write(previous + (previous && !previous.endsWith("\n") ? "\n" : "") + records.join("\n") + "\n"); } finally { await writable.close(); }
-  }
+  const lines = historyLinesWithout(await readHistoryText(clientDirectory), declaration.declarationId);
+  for (const row of rows.filter((item) => item.active)) lines.push(JSON.stringify({ declarationId: declaration.declarationId, declarationMonth: declaration.month, finalizedAt: now, ...row }));
+  await writeHistoryLines(clientDirectory, lines);
   const closed = closeDeclaration(declaration, { finalExport, now }); await writeJson(declarationDirectory, declarationFile, closed); return closed;
+}
+
+// Reopens a locked declaration with a reason. The declaration file is written first; the history entries of this
+// declaration are then removed (they return when it is locked again).
+export async function reopenLockedDeclaration({ clientDirectory, declarationDirectory, declaration, reason, now = new Date().toISOString() }) {
+  const reopened = reopenDeclaration(declaration, { reason, now });
+  await writeJson(declarationDirectory, declarationFile, reopened);
+  const text = await readHistoryText(clientDirectory), lines = historyLinesWithout(text, declaration.declarationId);
+  if (lines.length !== text.split(/\r?\n/).filter(Boolean).length) await writeHistoryLines(clientDirectory, lines);
+  return reopened;
 }
 
 export async function readClosedHistory(clientDirectory) {

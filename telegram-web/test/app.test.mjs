@@ -194,3 +194,11 @@ test("cancel buttons of dialogs with required fields skip form validation", asyn
     }
   }
 });
+
+test("the lock button is shown by default and the reopen button stays hidden without a locked declaration", async () => {
+  const { document } = await loadApp();
+  assert.equal(document.querySelector("#close-declaration").textContent, "נעילת הצהרה");
+  assert.equal(document.querySelector("#close-declaration").hidden, false);
+  assert.equal(document.querySelector("#reopen-declaration").hidden, true);
+  assert.ok(document.querySelector("#reopen-dialog #reopen-reason"));
+});

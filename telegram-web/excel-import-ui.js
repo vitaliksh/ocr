@@ -48,7 +48,7 @@ const TARGET_TEXTS = {
   missing: (month) => `ההצהרה ל-${month} לא קיימת ותיווצר.`,
   empty: (month) => `ההצהרה ל-${month} קיימת וריקה. השורות ייכנסו אליה.`,
   rows: (month, count) => `ב-${month} כבר יש ${count} שורות.`,
-  closed: (month) => `ההצהרה ל-${month} סגורה, אי אפשר לייבא אליה.`,
+  closed: (month) => `ההצהרה ל-${month} נעולה, אי אפשר לייבא אליה.`,
 };
 
 // onBeforeCommit(month) lets the host stop editing the target declaration before the rows are written.

@@ -5,6 +5,7 @@ import { pdfSourceFileName, renderPdfPages, validatePdfFile } from "./pdf-import
 import {
   createDraftExportDirectory,
   finalizeDeclaration,
+  reopenLockedDeclaration,
   loadDeclaration,
   readClosedHistory,
   readSourceImage,
@@ -13,7 +14,7 @@ import {
 } from "./declaration-store.js";
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
 import { readChartOfAccounts } from "./chart-of-accounts.js";
-import { confirmDialog } from "./confirm-dialog.js";
+import { confirmDialog, dialogResult } from "./confirm-dialog.js";
 import { NO_EXPORT_MARKER, declarationActions } from "./declaration-core.js";
 import { formatMonth } from "./month-format.js";
 import { setupExcelImport } from "./excel-import-ui.js";
@@ -56,6 +57,7 @@ const inactive = document.querySelector("#inactive"),
   dataRootTitle = document.querySelector("#data-root-title"),
   createPdf = document.querySelector("#create-pdf"),
   closeDeclarationButton = document.querySelector("#close-declaration"),
+  reopenDeclarationButton = document.querySelector("#reopen-declaration"),
   openPackage = document.querySelector("#open-package"),
   uploadModeDialog = document.querySelector("#upload-mode-dialog"),
   addToExisting = document.querySelector("#add-to-existing"),
@@ -283,12 +285,14 @@ function updateStartAvailability() {
   start.disabled = !actions.canStart;
   closeDeclarationButton.disabled = !actions.canClose;
   createPdf.disabled = !actions.canClose;
+  reopenDeclarationButton.hidden = !actions.canReopen;
+  closeDeclarationButton.hidden = actions.canReopen;
   uploadRequirements.textContent = !dataRoot
     ? "יש לבחור תחילה תיקיית נתונים בסביבות העבודה."
     : !currentDeclaration
       ? "יש לבחור הצהרה לפני העלאת תמונות."
       : !open
-        ? "ההצהרה סגורה ואי אפשר להוסיף אליה תמונות."
+        ? "ההצהרה נעולה ואי אפשר להוסיף אליה תמונות."
         : "";
 }
 async function activateDeclaration(selected) {
@@ -327,7 +331,7 @@ async function activateDeclaration(selected) {
   currentClient.textContent = `לקוח: ${workspace.config.clientName} · הצהרה: ${formatMonth(currentDeclaration.month)}`;
   journalTitle.textContent = currentClient.textContent;
   applyBusinessRules();
-  status.textContent = currentDeclaration.status === "open" ? "" : "ההצהרה סגורה לקריאה בלבד.";
+  status.textContent = currentDeclaration.status === "open" ? "" : "ההצהרה נעולה לקריאה בלבד.";
   updateStartAvailability();
   if (!selected.keepDrawer) setWorkspacesDrawer(false);
   return true;
@@ -1755,9 +1759,9 @@ closeDeclarationButton.addEventListener("click", async () => {
     reportRows = allRows
       .map((row, index) => ({ ...snapshots[index], imageBlob: row.documentImage }))
       .filter((row) => row.active);
-  if (!reportRows.length) return showError("יש לסמן לפחות שורה פעילה לפני סגירת ההצהרה.");
-  const closeMessage = "לסגור את ההצהרה? הפעולה תעדכן את ההיסטוריה ותנעל את הטבלה.";
-  if (!(await confirmDialog(closeMessage, { title: "סגירת הצהרה", confirmLabel: "סגירה" }))) return;
+  if (!reportRows.length) return showError("יש לסמן לפחות שורה פעילה לפני נעילת ההצהרה.");
+  const closeMessage = "לנעול את ההצהרה? הטבלה תינעל והשורות יצטרפו להיסטוריה. אפשר לפתוח מחדש עם ציון סיבה.";
+  if (!(await confirmDialog(closeMessage, { title: "נעילת הצהרה", confirmLabel: "נעילה" }))) return;
   closeDeclarationButton.disabled = true;
   status.textContent = "סוגר הצהרה…";
   try {
@@ -1771,15 +1775,47 @@ closeDeclarationButton.addEventListener("click", async () => {
     });
     setTableLocked(true);
     updateStartAvailability();
-    status.textContent = "ההצהרה נסגרה. ההיסטוריה עודכנה והטבלה ננעלה.";
+    status.textContent = "ההצהרה ננעלה. ההיסטוריה עודכנה.";
   } catch (error) {
     if (error.name !== "AbortError") {
-      const message = `לא ניתן לסגור את ההצהרה: ${error.message}`;
+      const message = `לא ניתן לנעול את ההצהרה: ${error.message}`;
       showError(message);
-      showExportResult({ title: "הייצוא נכשל", message, error: true });
+      showExportResult({ title: "הנעילה נכשלה", message, error: true });
     }
     updateStartAvailability();
   }
+});
+reopenDeclarationButton.addEventListener("click", async () => {
+  if (!committedWorkspace || currentDeclaration?.status !== "closed" || !currentDeclarationDirectory) return;
+  const dialog = document.querySelector("#reopen-dialog"),
+    reason = dialog.querySelector("#reopen-reason"),
+    errorLine = dialog.querySelector("#reopen-error");
+  reason.value = "";
+  errorLine.textContent = "";
+  const answer = await dialogResult(dialog, {
+    accept: dialog.querySelector("#reopen-confirm"),
+    getValue: () => {
+      if (!reason.value.trim()) throw new Error("יש להזין סיבה לפתיחה מחדש.");
+      return reason.value.trim();
+    },
+    onInvalid: (error) => {
+      errorLine.textContent = error.message;
+    },
+  });
+  if (!answer) return;
+  try {
+    currentDeclaration = await reopenLockedDeclaration({
+      clientDirectory: committedWorkspace.directory,
+      declarationDirectory: currentDeclarationDirectory,
+      declaration: currentDeclaration,
+      reason: answer,
+    });
+    setTableLocked(false);
+    status.textContent = "ההצהרה נפתחה מחדש. אפשר לערוך ולנעול שוב.";
+  } catch (error) {
+    showError(`לא ניתן לפתוח מחדש את ההצהרה: ${error.message}`);
+  }
+  updateStartAvailability();
 });
 openPackage?.addEventListener("click", async () => {
   try {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { NO_EXPORT_MARKER, closeDeclaration, declarationActions, createDraftTable, createOpenDeclaration, declarationMonth, normalizeDeclaration, normalizeDraftTable, setDeclarationArchived } from "../declaration-core.js";
+import { NO_EXPORT_MARKER, reopenDeclaration, closeDeclaration, declarationActions, createDraftTable, createOpenDeclaration, declarationMonth, normalizeDeclaration, normalizeDraftTable, setDeclarationArchived } from "../declaration-core.js";
 
 const now = "2026-09-11T10:20:30.000Z";
 
@@ -50,9 +50,24 @@ test("closing without an export uses the no-export marker", () => {
 
 test("upload and close need an open declaration, not a Rivhit template", () => {
   const open = { status: "open" }, closed = { status: "closed" };
-  assert.deepEqual(declarationActions({ dataRoot: {}, declaration: open, workspaceCommitted: {} }), { canStart: true, canClose: true, open: true });
+  assert.deepEqual(declarationActions({ dataRoot: {}, declaration: open, workspaceCommitted: {} }), { canStart: true, canClose: true, canReopen: false, open: true });
   assert.equal(declarationActions({ dataRoot: {}, declaration: open, workspaceCommitted: null }).canClose, false);
   assert.equal(declarationActions({ dataRoot: null, declaration: open, workspaceCommitted: {} }).canStart, false);
-  assert.deepEqual(declarationActions({ dataRoot: {}, declaration: closed, workspaceCommitted: {} }), { canStart: false, canClose: false, open: false });
+  assert.deepEqual(declarationActions({ dataRoot: {}, declaration: closed, workspaceCommitted: {} }), { canStart: false, canClose: false, canReopen: true, open: false });
   assert.equal(declarationActions({ dataRoot: {}, declaration: null, workspaceCommitted: {} }).canStart, false);
+});
+
+test("reopening a locked declaration needs a reason, clears the closing data and logs the reason", () => {
+  const open = createOpenDeclaration({ clientId: "client-1", month: "2026-09", declarationId: "declaration-1", now });
+  const locked = closeDeclaration(open, { finalExport: NO_EXPORT_MARKER, now });
+  assert.throws(() => reopenDeclaration(open, { reason: "x", now }), /נעולה/);
+  assert.throws(() => reopenDeclaration(locked, { reason: "  ", now }), /סיבה/);
+  const later = "2026-09-20T08:00:00.000Z";
+  const reopened = reopenDeclaration(locked, { reason: "late invoice", now: later });
+  assert.equal(reopened.status, "open");
+  assert.deepEqual([reopened.closedAt, reopened.finalExport, reopened.historyAppendedAt], [null, null, null]);
+  assert.deepEqual(reopened.reopenLog, [{ at: later, reason: "late invoice" }]);
+  const again = closeDeclaration(reopened, { finalExport: NO_EXPORT_MARKER, now: later });
+  assert.equal(again.reopenLog.length, 1);
+  assert.equal(normalizeDeclaration({ ...again, reopenLog: [{ at: "bad", reason: "x" }] }).valid, false);
 });
