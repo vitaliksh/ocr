@@ -61,6 +61,14 @@ read-only (since 3 October no final export is created; the Rivhit TXT export is
 deprecated). Rows marked
 **לא מיועד לייצוא** are excluded from validation and export.
 
+## Backup and transfer
+
+Two local-only features write encrypted files (AES-GCM, one random key shown once as a recovery code) to places the user picks; the
+app makes no network call for them. **Backup:** a write-once, hash-addressed store (packs and snapshots) in a folder carried off the
+PC by the user's own Google Drive for desktop client, and the same on a USB drive; text data and report PDFs only. **Transfer file:**
+one `.annateria` file with one month or a whole client, moved by USB drive or e-mail and merged add-only on the other PC. Format,
+runbook and limits: `docs/BACKUP_SPEC.md`.
+
 ## AI boundary
 
 Pass 1 sends a temporary document image, business activity and approved mapping

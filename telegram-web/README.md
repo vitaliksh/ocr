@@ -28,6 +28,14 @@ loaded on demand from its official CDN (`cdn.sheetjs.com`). Formats and formulas
 [`../docs/EXCEL_IMPORT_SPEC.md`](../docs/EXCEL_IMPORT_SPEC.md), [`../docs/REPORTS_SPEC.md`](../docs/REPORTS_SPEC.md);
 status and testing notes: [`../docs/MIGRATION_HANDOFF.md`](../docs/MIGRATION_HANDOFF.md).
 
+## Backup and transfer
+
+The sidebar item **גיבוי** writes encrypted copies of the data (text data and report PDFs, no images by default) into folders the
+user picks: a Google Drive folder that Google Drive for desktop mirrors, and a USB drive used by hand about once a month; a dot shows
+whether the copies are fresh. **העברה לקובץ** saves one month or a whole client into one encrypted `.annateria` file (USB drive or
+e-mail) and imports such a file on the other PC (add-only merge). Both use the same recovery code, created once and kept on paper.
+The app makes no network call for this. Format, runbook and limits: [`../docs/BACKUP_SPEC.md`](../docs/BACKUP_SPEC.md).
+
 ## Local check
 
 From the repository root:

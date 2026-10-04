@@ -1,9 +1,9 @@
 # Handoff — Rivhit → OCR migration, Excel import and reports
 
-**Written:** 2 October 2026. **Updated:** 3 October 2026.
+**Written:** 2 October 2026. **Updated:** 4 October 2026.
 **Status:** steps 1–5 (migration, reports) and step 6 (the GUI redesign, now the product **ANNATERIA**) are implemented, tested
 and pushed to `main`. Vitalik checked steps 1–5 and most of the redesign on the published page; stages 7–8 (reports page,
-keyboard polish) await his check. See "Status and what is left" at the end and `GUI_REDESIGN_PLAN.md`.
+keyboard polish) await his check. Step 7 (backups and the transfer file, 3–4 Oct) is built too, see `BACKUP_SPEC.md`. See "Status and what is left" at the end and `GUI_REDESIGN_PLAN.md`.
 **Primary user:** Vitalik (Russian, informal). UI stays Hebrew. Read `AGENTS.md` first.
 
 ## Client request (three items)
@@ -19,8 +19,8 @@ from Rivhit into this app. Consequences:
 
 - The app becomes the system of record, not a pre-Rivhit aid. Reports are computed from the app's own data.
 - The Rivhit TXT export stays untouched (no deletion, no further development).
-- Local-only storage is now the only copy of the data. **Backups are required but postponed to a later stage**
-  (decided 2 Oct). Do not forget this risk.
+- Local storage was the only copy of the data. Backups were postponed on 2 Oct and built on 3–4 Oct (encrypted copies into a
+  Google Drive folder and a USB drive, see `BACKUP_SPEC.md`); until the rollout on the real PC the risk stays open.
 - Reopening a closed declaration (with reason and audit) becomes more important; still undecided.
 
 ## Sample data (local only, never commit)
@@ -74,7 +74,7 @@ Rivhit's printed journal "ספר תקבולים תשלומים – יומן קל
    separate files feeding one report). Merging two months into one declaration (the bookkeeper does this when volume is
    low) works because document dates do not depend on the declaration month.
 7. Rivhit report layout is acceptable. No prior-year comparison table is needed.
-8. Backups: postponed.
+8. Backups: built on 3–4 Oct as an in-app encrypted copy (`BACKUP_SPEC.md`).
 
 ### Seed chart of accounts (from the ledger PDF)
 
@@ -192,7 +192,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
   them; `test/app-harness.mjs` loads the real `index.html`); `app.js` addresses journal cells by index; colours only in
   `tokens.css` (a test enforces it); a bump of the frontend marker is needed per push. The jsdom harness does not enforce
   module-scope ordering (temporal dead zone), so changes to `app.js` need one run in a real browser.
-- Backups: built, see `BACKUP_SPEC.md`; to do: rollout on the real PC and a restore drill.
+- **Backups and transfer (step 7, 3–4 Oct):** `backup-store.js`, `backup-state.js`, `backup-handles.js`, `backup-ui.js`, `transfer-store.js`, `transfer-ui.js`; the sidebar items "גיבוי" (dialog with a status dot) and "העברה לקובץ"; format, decisions, runbook and limits in `BACKUP_SPEC.md`. Verified by Vitalik on the published page: the copy into a Drive folder, restore into an empty folder and opening it, export and import of a transfer file. Not reported as checked: the copy to a USB drive through the dialog, the automatic copy after locking a declaration, anything on the bookkeeper's own PC. To do: rollout there (checklist in `BACKUP_SPEC.md`).
 - Not done on purpose: client tax ID (עוסק מורשה) is not stored, so the report PDFs show only the client name; the
   ledger PDF lacks line number / value date / counter account / reference 2 columns (no such data in the app).
 

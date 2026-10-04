@@ -1,6 +1,6 @@
 # Handoff — ANNATERIA (formerly Rivhit document intake)
 
-**Updated:** 3 October 2026. Since then the app is called **ANNATERIA** and its product is **client management plus reports**;
+**Updated:** 4 October 2026 (backup and transfer phase added, see `BACKUP_SPEC.md`). Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
 the Rivhit TXT export is deprecated (code kept, hidden in the "⋯" menu). Read in this order: this file, `MIGRATION_HANDOFF.md`
 (Excel migration, reports, working agreements), `GUI_REDESIGN_PLAN.md` (what the new interface is and why).
 The Rivhit-intake sections below were last re-verified on 19 September 2026 and describe the legacy export.
@@ -125,17 +125,18 @@ One window, no router: `clients-home.js` keeps exactly one of four views visible
 | Journal | `#journal-view` | click a declaration (card or sidebar) |
 
 Shell: top bar (☰ sidebar toggle, breadcrumb, open/locked badge, then — journal only — "דוחות", "+ הוספת מסמכים" with the groups
-Telegram / from the computer (PDF, Excel), and "⋯" with lock/reopen and the legacy Rivhit export), the docked sidebar (clients and
-the expanded client's declarations, settings, versions; collapsible, resizable), the scrolling workspace and a status bar
+Telegram / from the computer (PDF, Excel), and "⋯" with lock/reopen, "ייצוא הצהרה לקובץ…" and the legacy Rivhit export), the docked sidebar (clients and
+the expanded client's declarations, "העברה לקובץ", "גיבוי" with a status dot, settings, versions; collapsible, resizable), the scrolling workspace and a status bar
 (`#upload-requirements`, `#status`). The wordmark ANNATERIA sits alone in the top-left corner. The bottom grid row is reserved for
 the future AI assistant dock. Settings (Gemini model, data folder with a typed full path, Rivhit template, classification codes,
 AI connection) are a dialog. Journal: dark sticky header, "עמודות" chooser, "סינון" menu, sticky labelled summary bar
 (turnover, expenses, VAT lines, payable or refund, rows to review / outside the reports). Dialogs share one template; Enter
-presses the primary action. Declarations are **locked** (UI) = storage status `closed`; "פתיחה מחדש" needs a reason.
+presses the primary action. Declarations are **locked** (UI) = storage status `closed`; "פתיחה מחדש" needs a reason. Transfer files: "ייצוא לקוח לקובץ…" in the client's "⋯" menu of the sidebar and a "ייצוא" button per month on the client card (both open the transfer dialog preselected), import from the sidebar item "העברה לקובץ".
 
 Browser-side per-viewer storage (never the source of truth): `annateria-sidebar-v1` (collapsed, width),
-`annateria-column-widths-v2` (column weights), `rivhit-passkey-credential-id-v1`, IndexedDB `rivhit-local-workspaces-v1` (also the backup folder handles and the non-extractable backup key)
-(directory handles). Per data root: `common/ui-settings.json` (hidden journal columns, typed folder path).
+`annateria-column-widths-v2` (column weights), `rivhit-passkey-credential-id-v1`, IndexedDB `rivhit-local-workspaces-v1` (the data-root handle, the backup folder handles and the
+non-extractable backup key). Per data root: `common/ui-settings.json` (hidden journal columns, typed folder path) and
+`common/backup-state.json` (last success per backup slot).
 
 ## Local data model
 
@@ -279,7 +280,7 @@ Recommended short production check:
 
 Next phase (Excel migration, reports, GUI): see [`MIGRATION_HANDOFF.md`](MIGRATION_HANDOFF.md).
 
-1. **Backups** — core and dialog are built (3 Oct, see `BACKUP_SPEC.md`); left: manual clean-up of old snapshots, rollout and a restore drill on the real PC. Until the first real copies exist the local folder is the only copy of the client data.
+1. **Backups and transfer files** — built and pushed (3–4 Oct, `BACKUP_SPEC.md`): encrypted copies into a Google Drive folder and a USB drive with a status dot, restore, and the `.annateria` transfer file for a month or a whole client. Verified by Vitalik: Drive copy, restore into an empty folder, transfer export/import. Left: the rollout on the real PC (checklist in `BACKUP_SPEC.md`), then optionally the manual clean-up of old snapshots (nothing is deleted automatically; the data are small). Until the first real copies exist the local folder is the only copy of the client data.
 2. Store the client tax ID (עוסק מורשה) so the report PDFs can show it (data-model change; the client card has room for it).
 3. The AI assistant dock (reserved empty row in the shell grid; the journal rows can be selected for it later).
 4. Remove the Rivhit export code (`rivhit-export.js`, the template handling, `invoices.pdf` path) once the client confirms it is not needed.

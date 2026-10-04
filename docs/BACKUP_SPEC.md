@@ -1,10 +1,19 @@
 # Backup store — format and decisions
 
-**Status (3 October 2026):** core module `telegram-web/backup-store.js` and the dialog (`backup-ui.js`, state in `backup-state.js`) are done and tested (17 + 18 tests) and ran end to end in a real browser on an origin-private folder; not yet run against Google Drive or a flash drive through the UI. Owner approval and the
-product-boundary exception are in `AGENTS.md` and `HANDOFF.md`. Background: the data root is the only copy of the data, the PC of the
-user sleeps except 15:00–19:00, and she already has Google Drive for desktop (mirroring) and copies to a USB flash drive by hand
-once a month. The app writes **encrypted files into a folder the user picks**; the sync client or the USB drive carries them away.
-The app makes no network call.
+**Status (4 October 2026): built, pushed and partly verified by Vitalik; the rollout on the real PC is the only required step left.**
+Modules (all in `telegram-web/`): `backup-store.js` (format, no DOM), `backup-state.js`, `backup-handles.js`, `backup-ui.js` (the
+dialog "גיבוי"), `transfer-store.js` and `transfer-ui.js` (the file "העברה לקובץ"); 279 frontend tests in total. The owner's approval
+and the product-boundary exception are in `AGENTS.md` and `HANDOFF.md`.
+
+Background: the data root is the only copy of the data, the bookkeeper's PC sleeps except about 15:00–19:00, and she already has Google
+Drive for desktop (mirroring) and copies to a USB flash drive by hand once a month. The owner and the bookkeeper are the only users
+(a private tool, not for sale). The app writes **encrypted files into places the user picks**; the sync client, the USB drive or an
+e-mail carries them away. The app makes no network call.
+
+**Verified by Vitalik on the published page:** a copy into a Google Drive folder (files appeared there), restore into an empty folder and
+opening it, the "העברה לקובץ" export and import (his words: "looks excellent"). **Not reported as checked:** entering an existing code on a
+second PC or profile, replacing a saved code, a copy to a USB drive through the dialog (the spike did cover a flash drive), the
+automatic copy after locking a declaration, the whole procedure on the bookkeeper's PC.
 
 ## What is backed up
 
@@ -98,7 +107,44 @@ dropped as impractical). `transfer-store.js` (no DOM) and `transfer-ui.js` (`#tr
   travel. The result lists every month (`created`, `appended`, `copied-locked`, `skipped-locked`). The open table is detached before
   the import and the result opened afterwards (a month, or the client card for a whole client).
 
-## Still to do
+## Rollout on the real PC (one time, Vitalik sits with her)
 
-Manual, confirmed clean-up of old snapshots and unreferenced packs; rollout on the real PC with a restore drill (restore into an
-empty folder, open it in the app, report totals match) and the first real transfer between the two PCs.
+1. Open ANNATERIA and choose the data folder: a **local** folder, not inside Google Drive or OneDrive (a synced active root breaks the
+   folder handles).
+2. Recovery code: both PCs must hold the **same** code. If a code already exists (Vitalik's PC), enter it in "גיבוי" → "כבר יש לך קוד
+   שחזור" → "שימוש בקוד". Only if none exists yet, create one, write it on paper (two copies in two safe places, not on the PC only)
+   and confirm. Do not photograph it or send it by chat or mail.
+3. Google Drive for desktop must be signed in and mirroring. Create a subfolder inside it (for example `ANNATERIA`; the browser refuses
+   the Drive root and system folders), choose it under "Google Drive", press "גיבוי עכשיו", then "בדיקת תקינות" (both must be green).
+4. Plug in the flash drive, choose a folder on it under "USB", back up, verify, eject it. The dot in the sidebar turns green when both
+   copies are fresh.
+5. Restore drill: "שחזור מגיבוי" into a new empty folder (for example `D:estore_test`), pick that folder with "החלפת תיקיית נתונים", check
+   that the clients and one report match, then switch back to the working folder.
+6. Lock a test declaration and check that a new snapshot appears in the Drive folder without any action.
+
+## Routine
+
+- **Every day:** nothing. The copy into the Drive folder starts by itself when the data folder is opened (if the last one is older than
+  a day) and after a declaration is locked, **but only while the browser still holds the folder permission**. After a browser restart
+  the first copy of a session is the button "גיבוי עכשיו" (one click on "Allow"). A red dot means the cloud copy is older than 2 days.
+- **Once a month:** the flash drive: plug in, "גיבוי" → USB → "גיבוי עכשיו" → "בדיקת תקינות", eject. The dot turns red after 35 days.
+- **Every quarter:** "בדיקת תקינות" on both copies. **Once a year:** repeat the restore drill.
+- **New PC, lost PC or cleared browser data:** open the page, choose the folders again, enter the recovery code (the key lives only in the
+  browser's storage; Ctrl+F5 and a browser restart keep it, clearing the site data removes it), restore from the Drive folder or the
+  flash drive. **Without the recovery code the copies cannot be read; there is no way around that.**
+- **A wrong code on one PC:** "גיבוי" → enter the right code → "החלפת הקוד" (asks first). New copies then need a new folder.
+
+## Known limits
+
+- Images and legacy exports are not in the copy by default (paper originals exist); rows restored from a copy have no photo, and rows
+  without a photo cannot be re-run through Gemini. A checkbox includes them (heavy).
+- The transfer file is an **add-only merge**: an edit of an existing row on one PC does not reach the other; rows are matched by
+  `documentId`. A locked month is never changed by an import.
+- Nothing is ever deleted by the app: old snapshots, packs and transfer files stay until the user removes them by hand. The text data
+  are small, so the folders grow slowly. `snapshotsToKeep` (30 days, then one per month for 5 years) exists and is tested but is **not
+  wired to a button**; a confirmed manual clean-up is the optional next step.
+- Drive for desktop may refuse to delete or overwrite while syncing; the store therefore never does either.
+- `common/backup-state.json` is also inside later copies, so after a restore on another PC it may claim a copy that does not exist
+  there until the first run.
+- Month export is not in the sidebar's month list (those rows have no menu); it is on the client card and in the journal menu.
+- The key is per browser profile; two PCs share one code by entering it, there is no key server and no recovery by e-mail.
