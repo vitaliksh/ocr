@@ -205,8 +205,8 @@
 /* Excel import wizard */
 .wizard-dialog {
   width: min(660px, calc(100vw - 32px));
-  height: min(640px, calc(100vh - 48px));
-  height: min(640px, calc(100dvh - 48px));
+  height: min(760px, calc(100vh - 48px));
+  height: min(760px, calc(100dvh - 48px));
 }
 
 .wizard-dialog form {
@@ -302,6 +302,10 @@
   background: var(--error-soft);
   color: var(--error);
   font-weight: 600;
+}
+
+#excel-import-warnings:not(:empty) {
+  margin-top: var(--s3);
 }
 
 .unknown-account {

@@ -77,6 +77,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
   ].map(part);
   const [nextButton, backButton, resultLine] = ["excel-import-next", "excel-import-back", "excel-import-result"].map(part);
   const unknownText = part("excel-import-unknown-text");
+  const warningList = part("excel-import-warnings");
   let prepared = null;
   let context = null;
   let target = null;
@@ -148,14 +149,25 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
 
   const renderProblems = () => {
     const { errors, warnings } = prepared;
-    const footerHint = errors.some((item) => item.code === "footer-mismatch")
-      ? [element("li", "הסכומים בסוף הקובץ תלויים בסוג של כל קוד מיון. בדוק את הסוגים ברשימה למטה; הבדיקה מתעדכנת מיד.")]
+    // Footer mismatches share one line, so the class list below stays in view; warnings go after the list.
+    const mismatches = errors.filter((item) => item.code === "footer-mismatch");
+    const footerLines = mismatches.length
+      ? [
+          element(
+            "li",
+            `שגיאה: סכומי סוף הקובץ אינם תואמים לשורות: ${mismatches.map((item) => `«${FOOTER_LABELS[item.key] ?? item.key}»`).join(", ")}`,
+            "problem-error",
+          ),
+          element("li", "הסכומים תלויים בסוג של כל קוד מיון. בדוק את הסוגים ברשימה למטה; הבדיקה מתעדכנת מיד."),
+        ]
       : [];
     problems.replaceChildren(
-      ...errors.map((item) => element("li", `שגיאה${item.row ? ` בשורה ${item.row}` : ""}: ${problemText(item)}`, "problem-error")),
-      ...footerHint,
-      ...warnings.map((item) => element("li", `אזהרה: ${problemText(item)}`)),
+      ...errors
+        .filter((item) => item.code !== "footer-mismatch")
+        .map((item) => element("li", `שגיאה${item.row ? ` בשורה ${item.row}` : ""}: ${problemText(item)}`, "problem-error")),
+      ...footerLines,
     );
+    warningList.replaceChildren(...warnings.map((item) => element("li", `אזהרה: ${problemText(item)}`)));
     nextButton.disabled = Boolean(prepared.errors.length || !prepared.rows.length);
     updateRunState();
   };

@@ -159,12 +159,12 @@ test("диалог импорта: предупреждения и ошибки 
   const { pick, q, open } = await setup();
   open();
   await pick(buildJournalGrid());
-  assert.match(q("excel-import-problems").textContent, /ל-8 שורות סטטוס «טיוטא»/);
-  assert.doesNotMatch(q("excel-import-problems").textContent, /rows have/);
+  assert.match(q("excel-import-warnings").textContent, /ל-8 שורות סטטוס «טיוטא»/);
+  assert.doesNotMatch(q("excel-import-warnings").textContent, /rows have/);
   const broken = await setup();
   broken.open();
   await broken.pick(buildJournalGrid({ footer: { totalVat: "1.00" } }));
-  assert.match(broken.q("excel-import-problems").textContent, /אינו תואם לשורות/);
+  assert.match(broken.q("excel-import-problems").textContent, /אינם תואמים לשורות/);
 });
 
 test("диалог импорта: месяц вводится как MM/YYYY (и как M/YYYY), неверный формат отклоняется", async () => {
@@ -236,7 +236,10 @@ test("диалог импорта: смена типа кода мгновенн
   open();
   await pick(buildJournalGrid(OTHER_CLIENT));
   await settle();
-  assert.match(q("excel-import-problems").textContent, /«עסקאות כולל» בסוף הקובץ אינו תואם/);
+  assert.equal(q("excel-import-problems").querySelectorAll(".problem-error").length, 1);
+  assert.match(q("excel-import-problems").textContent, /אינם תואמים לשורות: «עסקאות כולל», «מע״מ עסקאות»/);
+  const order = [...q("excel-import-problems").parentElement.children].map((node) => node.id);
+  assert.ok(order.indexOf("excel-import-unknown") < order.indexOf("excel-import-warnings"));
   assert.equal(q("excel-import-next").disabled, true);
   const setType = (name, type) => {
     const select = q("excel-import-unknown-list").querySelector(`[data-name="${name}"] select`);
