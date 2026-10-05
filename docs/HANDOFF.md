@@ -91,7 +91,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `pdf-import.js`, `pdf-report.js` — local PDF import and reports.
   - `excel-journal.js` — pure parser of the Rivhit journal grid (see `EXCEL_IMPORT_SPEC.md`).
   - `excel-journal-reader.js` — `.xlsx` → grid; loads SheetJS 0.20.3 on demand from `cdn.sheetjs.com` (dev copy: `xlsx` tarball).
-  - `chart-of-accounts.js` — per-root chart of accounts (`common/chart-of-accounts.json`, schema 1): classification name → code and type (`income`, `expense`, `outsideVatBase`, `equipment`); seed from the ledger, unknown-name matching, `classTypes` for the Excel parser.
+  - `chart-of-accounts.js` — per-root chart of accounts (`common/chart-of-accounts.json`, schema 1): classification name → code and type (`income`, `expense`, `outsideVatBase`, `equipment`), optional per-client types (`clientTypes`, `chartForClient`, `setClientType`); seed from the ledger, unknown-name matching, `classTypes` for the Excel parser.
   - `excel-import.js` — parsed journal rows → draft-table rows (source amounts, recognition 100/100, no image).
   - `excel-import-store.js` — writes imported rows into a new or empty open declaration; optional close without an export folder (`finalExport = "excel-import"`, history appended once). Replaces a declaration that has rows only on request (the old table is first copied to `draft-table.before-import-<time>.json`); closed declarations are never touched.
   - `excel-import-flow.js` — wizard steps without DOM: `prepareImport` (read, parse, match names, totals) and `commitImport` (extend and save the chart first, then write rows).

@@ -2,24 +2,44 @@
 import {
   SEED_CHART_OF_ACCOUNTS,
   addAccount,
+  chartForClient,
   classTypesFromChart,
   matchClassNames,
   normaliseChart,
   readChartOfAccounts,
   saveChartOfAccounts,
+  setClientType,
 } from "./chart-of-accounts.js";
 import { buildImportedRows, importWarnings } from "./excel-import.js";
 import { importRowsIntoDeclaration } from "./excel-import-store.js";
-import { parseJournalGrid } from "./excel-journal.js";
+import { footerErrors, parseJournalGrid } from "./excel-journal.js";
 import { readJournalGrid } from "./excel-journal-reader.js";
 
 const round2 = (value) => Math.round(value * 100) / 100;
 
-// `reserved` holds codes the chart must not use (built-in and custom Rivhit codes).
-export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary } = {}) {
+const FOOTER_CODES = ["footer-missing", "footer-mismatch"];
+
+// Class types as parseJournalGrid expects them, from { classification name: type }.
+function classTypesOf(typesByName) {
+  const namesOf = (type) => Object.keys(typesByName).filter((name) => typesByName[name] === type);
+  return { income: namesOf("income"), equipment: namesOf("equipment"), outsideVatBase: namesOf("outsideVatBase") };
+}
+
+// The file's errors with the footer checks re-run for the given types ({ classification name: type }, every name of
+// the file). Footer checks are skipped while rows have errors, as in parseJournalGrid.
+export function recheckImport(prepared, typesByName) {
+  const others = prepared.errors.filter((error) => !FOOTER_CODES.includes(error.code));
+  if (!prepared.rows.length || others.some((error) => error.row)) return prepared.errors;
+  return [...others, ...footerErrors(prepared.rows, prepared.footer, classTypesOf(typesByName))];
+}
+
+// `reserved` holds codes the chart must not use (built-in and custom Rivhit codes). `clientId` selects the client's
+// own class types for the footer checks; `types` maps every known name of the file to that type.
+export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary, clientId } = {}) {
   const existing = await readChartOfAccounts(dataRoot, reserved);
   const chart = existing ?? normaliseChart({ accounts: SEED_CHART_OF_ACCOUNTS }, reserved);
-  const parsed = parseJournalGrid(await readJournalGrid(file, { loadLibrary }), { classTypes: classTypesFromChart(chart) });
+  const clientChart = chartForClient(chart, clientId);
+  const parsed = parseJournalGrid(await readJournalGrid(file, { loadLibrary }), { classTypes: classTypesFromChart(clientChart) });
   const { codes, unknown } = matchClassNames(parsed.rows.map((row) => row.classificationName), chart);
   const sum = (field) => round2(parsed.rows.reduce((total, row) => total + row[field], 0));
   const { month, year } = parsed.declarationMonth ?? {};
@@ -28,6 +48,8 @@ export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary
     chartIsNew: existing === null,
     codes,
     unknown,
+    types: Object.fromEntries(Object.entries(codes).map(([name, code]) => [name, clientChart[code].type])),
+    footer: parsed.footer,
     rows: parsed.rows,
     errors: parsed.errors,
     warnings: [...parsed.warnings, ...importWarnings(parsed.rows)],
@@ -36,12 +58,16 @@ export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary
   };
 }
 
-// `newAccounts` is [{ name, code, type }] for every name in prepared.unknown. The chart is saved first:
+// `newAccounts` is [{ name, code, type }] for every name in prepared.unknown; `typeChanges` is [{ name, type }] for
+// known names whose type this client sees differently (stored for this client only). The chart is saved first:
 // imported rows refer to its codes, and an extended chart is harmless if the import then fails.
-export async function commitImport(prepared, { newAccounts = [], month, closeNow, replace = false, dataRoot, client, reserved = {}, now }) {
-  if (prepared.errors.length) throw new Error("בקובץ יש שגיאות. לא ניתן לייבא.");
+export async function commitImport(prepared, { newAccounts = [], typeChanges = [], month, closeNow, replace = false, dataRoot, client, reserved = {}, now }) {
+  const types = { ...prepared.types };
+  for (const { name, type } of [...newAccounts, ...typeChanges]) types[name] = type;
+  if (recheckImport(prepared, types).length) throw new Error("בקובץ יש שגיאות. לא ניתן לייבא.");
   let chart = prepared.chart;
   for (const account of newAccounts) chart = addAccount(chart, account, reserved);
+  for (const { name, type } of typeChanges) chart = setClientType(chart, prepared.codes[name], client.config.clientId, type);
   const { codes, unknown } = matchClassNames(prepared.rows.map((row) => row.classificationName), chart);
   if (unknown.length) throw new Error(`חסר קוד מיון עבור: ${unknown.join(", ")}`);
   const rows = buildImportedRows(prepared.rows, codes, { now });

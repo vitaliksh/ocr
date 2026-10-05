@@ -83,14 +83,20 @@ The label text contains an ASCII `''` (two apostrophes) and variable spaces arou
 Verified on all six sample files:
 
 1. Σ net (signed) = arithmetic net; Σ gross (signed) = arithmetic gross.
-2. Σ signed VAT = total VAT, and total VAT = outputs VAT − inputs VAT − equipment VAT.
-3. Outputs gross and VAT = Σ gross and VAT of `הכנסות` rows.
+2. Σ signed VAT = total VAT, and total VAT = outputs VAT − inputs VAT − equipment VAT + Σ signed VAT of the rows
+   outside the VAT input base. The total is the plain sum of column B, so VAT on such a row (clothing, `ביגוד`) stays
+   in it while the inputs line leaves it out. The six samples had no such row; a second client (Oct 2026) did.
+3. Outputs gross and VAT = Σ gross and VAT of the income classes (`הכנסות`; another client names it `הכנסה חייבת`).
 4. Equipment gross and VAT = Σ of the equipment class (`רכישת ציוד/רכוש קבוע`, code 900).
 5. Inputs gross and VAT = Σ over remaining expense rows, **excluding** classes outside the VAT input base
    (`ביטוח עסק`, `ארנונה`), with credit notes subtracting. Zero-VAT rows of other classes (parking) are included.
 
-A footer mismatch is an error shown to the user before import, not a silent warning. Checksum 5 is the test of the
-class types in the chart of accounts.
+A footer mismatch is an error shown to the user before import, not a silent warning. Checksums 2, 3 and 5 test the
+class types in the chart of accounts. The types depend on the client's Rivhit settings (one client books
+`רכב רשוי וביטוח` as an ordinary expense, another keeps it outside the input base), so the chart keeps a default type
+per class and optional per-client types (`clientTypes: { clientId: type }`). The import wizard lists every class of
+the file with this client's type, re-runs the footer checks (`recheckImport`) on every change, and saves a changed
+type of a known class for this client only.
 
 ## Not in the file
 

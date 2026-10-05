@@ -7,7 +7,8 @@ against the four Rivhit PDFs of the migrated client on 2 October 2026 (real data
 
 - `reportEntries(declarations, accounts, names)`: every **active** draft-table row of the declarations in scope.
   Amounts are the recognised values of the row (`values[7..9]`: gross, net, VAT); for Excel-imported rows they equal
-  the source values. The kind comes from the chart of accounts (`income`, `expense`, `outsideVatBase`, `equipment`);
+  the source values. The kind comes from the chart of accounts as the client sees it (`chartForClient`: per-client type
+  over the default; `income`, `expense`, `outsideVatBase`, `equipment`);
   a code outside the chart is `income` if its name is `הכנסות`, otherwise `expense`.
 - `inPeriod(entries, from, to)` keeps entries whose **declaration month** is in the period. The document date plays
   no role (dates often fall outside the declaration month).
@@ -21,7 +22,7 @@ All rounding is half-up to whole shekels unless noted.
 | --- | --- | --- |
 | VAT | turnover | Σ net of income |
 | VAT | output VAT | Σ VAT of income |
-| VAT | input VAT | Σ VAT of expense and `outsideVatBase` classes (credit notes subtract); equipment excluded |
+| VAT | input VAT | Σ VAT of `expense` classes (credit notes subtract); `outsideVatBase` and equipment excluded, as in the Rivhit inputs line |
 | VAT | equipment VAT | Σ VAT of equipment (separate line, assumption: not yet compared with a Rivhit report that has equipment) |
 | VAT | payable | output − input − equipment, **of the rounded lines** (as on the VAT form) |
 | VAT | warning | number of active entries in declarations that are not closed (Rivhit: "N non-updated transactions") |

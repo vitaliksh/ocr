@@ -93,3 +93,11 @@ test("ведомость кодов: строки внутри кода идут
   const ledger = classificationLedger(entries(declaration("2026-03"), declaration("2026-01")));
   assert.deepEqual(ledger.sections[0].accounts[0].rows.map((row) => row.month), ["2026-01", "2026-03"]);
 });
+
+test("отчёт НДС: НДС статей вне базы (ביגוד) не вычитается, расход в P&L остаётся", () => {
+  const types = { "200": { name: "ביגוד", type: "outsideVatBase" }, "203": { name: "אחזקה", type: "expense" } };
+  const row = (code, net, vat) => ({ active: true, values: ["", code, "", "", "", "", "", String(net + vat), String(net), String(vat)] });
+  const list = reportEntries([declaration("2026-01", "open", [row("200", 101.61, 18.29), row("203", 100, 18)])], types);
+  assert.equal(vatReport(list).inputVat, 18);
+  assert.equal(profitLoss(list).expenseTotal, 202);
+});

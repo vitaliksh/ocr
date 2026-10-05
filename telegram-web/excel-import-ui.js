@@ -1,6 +1,6 @@
 // Dialog for the one-time Excel migration. All logic lives in excel-import-flow.js; this file only renders.
 import { ACCOUNT_TYPES } from "./chart-of-accounts.js";
-import { commitImport, prepareImport } from "./excel-import-flow.js";
+import { commitImport, prepareImport, recheckImport } from "./excel-import-flow.js";
 import { inspectImportTarget } from "./excel-import-store.js";
 import { formatMonth, parseMonthText } from "./month-format.js";
 
@@ -25,7 +25,20 @@ const PROBLEM_TEXTS = {
   "bad-date": () => "תאריך המסמך חסר או אינו תקין",
   "no-classification": () => "שם קוד המיון ריק",
   "footer-missing": (item) => `ערך ${item.key} לא נמצא בסוף הקובץ`,
-  "footer-mismatch": (item) => `סכום ${item.key} בסוף הקובץ אינו תואם לשורות`,
+  "footer-mismatch": (item) => `סכום «${FOOTER_LABELS[item.key] ?? item.key}» בסוף הקובץ אינו תואם לשורות`,
+};
+// The footer lines as Rivhit labels them; `balance` is the check that total VAT = outputs − inputs − equipment.
+const FOOTER_LABELS = {
+  totalVat: "סה״כ מע״מ לחודש",
+  arithmeticNet: "סיכום ללא מע״מ",
+  arithmeticGross: "סיכום כולל מע״מ",
+  outputsGross: "עסקאות כולל",
+  outputsVat: "מע״מ עסקאות",
+  inputsGross: "תשומות כולל",
+  inputsVat: "מע״מ תשומות",
+  equipmentGross: "ת.ציוד כולל",
+  equipmentVat: "מע״מ ת.ציוד",
+  balance: "סה״כ מע״מ = עסקאות − תשומות − ציוד",
 };
 export const problemText = (item) => PROBLEM_TEXTS[item.code]?.(item) ?? item.message;
 
@@ -63,6 +76,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     "excel-import-replace-text",
   ].map(part);
   const [nextButton, backButton, resultLine] = ["excel-import-next", "excel-import-back", "excel-import-result"].map(part);
+  const unknownText = part("excel-import-unknown-text");
   let prepared = null;
   let context = null;
   let target = null;
@@ -119,23 +133,54 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     targetCheck += 1;
     clientLine.textContent = `לקוח: ${context.client.config.clientName ?? ""}`;
   };
-  const unknownInputs = () => [...unknownList.querySelectorAll("[data-name]")].map((row) => ({
+  const unknownInputs = () => [...unknownList.querySelectorAll("[data-name]:not([data-known])")].map((row) => ({
     name: row.dataset.name,
     code: row.querySelector("input").value.trim(),
     type: row.querySelector("select").value,
   }));
+  // Known names whose chosen type differs from the one this client has now.
+  const typeChanges = () => [...unknownList.querySelectorAll("[data-known]")]
+    .map((row) => ({ name: row.dataset.name, type: row.querySelector("select").value }))
+    .filter(({ name, type }) => prepared.types[name] !== type);
+  const chosenTypes = () => Object.fromEntries(
+    [...unknownList.querySelectorAll("[data-name]")].map((row) => [row.dataset.name, row.querySelector("select").value]),
+  );
 
-  const render = () => {
-    const { rows, errors, warnings, totals, unknown, chart } = prepared;
-    summary.textContent = `${rows.length} שורות · נטו ${money(totals.net)} · מע״מ נטו ${money(totals.vat)} · ברוטו ${money(totals.gross)}`;
+  const renderProblems = () => {
+    const { errors, warnings } = prepared;
+    const footerHint = errors.some((item) => item.code === "footer-mismatch")
+      ? [element("li", "הסכומים בסוף הקובץ תלויים בסוג של כל קוד מיון. בדוק את הסוגים ברשימה למטה; הבדיקה מתעדכנת מיד.")]
+      : [];
     problems.replaceChildren(
       ...errors.map((item) => element("li", `שגיאה${item.row ? ` בשורה ${item.row}` : ""}: ${problemText(item)}`, "problem-error")),
+      ...footerHint,
       ...warnings.map((item) => element("li", `אזהרה: ${problemText(item)}`)),
     );
+    nextButton.disabled = Boolean(prepared.errors.length || !prepared.rows.length);
+    updateRunState();
+  };
+  const typeSelect = (name, value) => {
+    const type = element("select");
+    for (const option of ACCOUNT_TYPES) type.add(new Option(TYPE_LABELS[option], option));
+    type.value = value;
+    type.setAttribute("aria-label", `סוג עבור ${name}`);
+    type.addEventListener("change", () => {
+      prepared.errors = recheckImport(prepared, chosenTypes());
+      renderProblems();
+    });
+    return type;
+  };
+
+  const render = () => {
+    const { rows, totals, unknown, chart, codes, types } = prepared;
+    summary.textContent = `${rows.length} שורות · נטו ${money(totals.net)} · מע״מ נטו ${money(totals.vat)} · ברוטו ${money(totals.gross)}`;
     month.value = formatMonth(prepared.suggestedMonth);
-    unknownBox.hidden = !unknown.length;
+    unknownBox.hidden = !rows.length;
+    unknownText.textContent = unknown.length
+      ? "קודי המיון בקובץ. לשמות החדשים יש להגדיר קוד וסוג; את הסוג של שם קיים אפשר לשנות ללקוח זה בלבד:"
+      : "קודי המיון בקובץ. את הסוג אפשר לשנות ללקוח זה בלבד:";
     const used = { ...context.reserved, ...chart };
-    unknownList.replaceChildren(...unknown.map((name) => {
+    const unknownRows = unknown.map((name) => {
       const row = element("div", undefined, "unknown-account");
       row.dataset.name = name;
       const code = element("input");
@@ -143,14 +188,20 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       used[code.value] = true;
       code.maxLength = 3;
       code.setAttribute("aria-label", `קוד עבור ${name}`);
-      const type = element("select");
-      for (const value of ACCOUNT_TYPES) type.add(new Option(TYPE_LABELS[value], value));
-      type.value = "expense";
-      row.append(element("strong", name), code, type);
+      row.append(element("strong", name), code, typeSelect(name, "expense"));
       return row;
-    }));
+    });
+    const knownRows = Object.keys(codes).map((name) => {
+      const row = element("div", undefined, "unknown-account");
+      row.dataset.name = name;
+      row.dataset.known = "";
+      row.append(element("strong", name), element("span", codes[name]), typeSelect(name, types[name]));
+      return row;
+    });
+    unknownList.replaceChildren(...unknownRows, ...knownRows);
+    prepared.errors = recheckImport(prepared, chosenTypes());
     details.hidden = false;
-    nextButton.disabled = Boolean(prepared.errors.length || !prepared.rows.length);
+    renderProblems();
     setStep("check");
     refreshTarget();
   };
@@ -176,7 +227,12 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     setStep("file");
     if (!file.files?.length) return;
     try {
-      prepared = await prepareImport(file.files[0], { dataRoot: context.dataRoot, reserved: context.reserved, loadLibrary });
+      prepared = await prepareImport(file.files[0], {
+        dataRoot: context.dataRoot,
+        reserved: context.reserved,
+        loadLibrary,
+        clientId: context.client.config.clientId,
+      });
       render();
     } catch (error) {
       prepared = null;
@@ -196,6 +252,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       await onBeforeCommit?.(iso);
       const result = await commitImport(prepared, {
         newAccounts: unknownInputs(),
+        typeChanges: typeChanges(),
         month: iso,
         closeNow: closeNow.checked,
         replace: replaceBox.checked && target?.state === "rows",

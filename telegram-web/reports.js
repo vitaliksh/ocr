@@ -68,7 +68,8 @@ const ofType = (entries, ...types) => entries.filter((entry) => types.includes(e
 export function vatReport(entries, { vatRate = 18 } = {}) {
   const turnover = whole(sum(ofType(entries, "income"), "net"));
   const outputVat = whole(sum(ofType(entries, "income"), "vat"));
-  const inputVat = whole(sum(ofType(entries, "expense", "outsideVatBase"), "vat"));
+  // Classes outside the input base (property tax, insurance, clothing) are expenses, but their VAT is not deducted.
+  const inputVat = whole(sum(ofType(entries, "expense"), "vat"));
   const equipmentVat = whole(sum(ofType(entries, "equipment"), "vat"));
   return {
     vatRate,

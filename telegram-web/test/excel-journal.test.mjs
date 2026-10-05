@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseJournalGrid } from "../excel-journal.js";
-import { buildJournalGrid, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
+import { footerErrors, parseJournalGrid } from "../excel-journal.js";
+import { buildJournalGrid, OTHER_CLIENT, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
 
 const codes = (list) => list.map((item) => item.code);
 
@@ -96,4 +96,13 @@ test("журнал Excel: месяц в шапке отсутствует — т
   assert.deepEqual(result.errors, []);
   assert.equal(result.declarationMonth, null);
   assert.ok(codes(result.warnings).includes("no-month"));
+});
+
+test("журнал Excel: НДС строк вне базы входит в итог месяца, но не в תשומות — баланс сходится", () => {
+  const grid = buildJournalGrid(OTHER_CLIENT);
+  const classTypes = { income: OTHER_CLIENT.income, equipment: [], outsideVatBase: OTHER_CLIENT.outside };
+  assert.deepEqual(parseJournalGrid(grid, { classTypes }).errors, []);
+  const wrong = parseJournalGrid(grid);
+  assert.deepEqual(wrong.errors.map((error) => error.key), ["outputsGross", "outputsVat", "inputsGross", "inputsVat", "balance"]);
+  assert.deepEqual(footerErrors(wrong.rows, wrong.footer, classTypes), []);
 });

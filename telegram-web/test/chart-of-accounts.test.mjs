@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import {
   SEED_CHART_OF_ACCOUNTS,
   addAccount,
+  chartForClient,
   classTypesFromChart,
   matchClassNames,
   normaliseChart,
   readChartOfAccounts,
   saveChartOfAccounts,
+  setClientType,
 } from "../chart-of-accounts.js";
 import { parseJournalGrid } from "../excel-journal.js";
 import { buildJournalGrid } from "./excel-journal-fixture.mjs";
@@ -101,4 +103,18 @@ test("план счетов: без файла null, сохранение и ч�
 
 test("план счетов: корень с пустой папкой common тоже даёт null", async () => {
   assert.equal(await readChartOfAccounts(memoryRoot(true)), null);
+});
+
+test("план счетов: тип класса у клиента отдельно от общего, тот же тип снимает исключение", () => {
+  const seed = normaliseChart({ accounts: SEED_CHART_OF_ACCOUNTS });
+  const chart = setClientType(seed, "217", "c2", "outsideVatBase");
+  assert.deepEqual(chart[217], { name: "רכב רשוי וביטוח", type: "expense", clientTypes: { c2: "outsideVatBase" } });
+  assert.equal(chartForClient(chart, "c2")[217].type, "outsideVatBase");
+  assert.equal(chartForClient(chart, "c1")[217].type, "expense");
+  assert.equal(chartForClient(chart)[217].type, "expense");
+  assert.deepEqual(normaliseChart({ accounts: chart }), chart);
+  assert.deepEqual(setClientType(chart, "217", "c2", "expense")[217], { name: "רכב רשוי וביטוח", type: "expense" });
+  assert.throws(() => setClientType(chart, "999", "c2", "income"));
+  const dirty = normaliseChart({ accounts: { 217: { name: "x", type: "expense", clientTypes: { c1: "bogus", c2: "expense", c3: "income" } } } });
+  assert.deepEqual(dirty[217].clientTypes, { c3: "income" });
 });

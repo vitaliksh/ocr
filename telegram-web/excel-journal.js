@@ -118,10 +118,20 @@ function checkFooter(rows, footer, classTypes, errors) {
       errors.push({ code: "footer-mismatch", message: `footer ${key} ${footer[key]} differs from rows ${value}`, key });
     }
   }
-  const balance = round2(footer.outputsVat - footer.inputsVat - footer.equipmentVat);
+  // The month total is the plain sum of the VAT column, so it also holds VAT of rows outside the input base
+  // (signed as in the file), which the inputs line leaves out.
+  const outsideVat = sumBy(group(classTypes.outsideVatBase), "vat");
+  const balance = round2(footer.outputsVat - footer.inputsVat - footer.equipmentVat + outsideVat);
   if (footer.totalVat != null && Math.abs(footer.totalVat - balance) > TOLERANCE) {
     errors.push({ code: "footer-mismatch", message: `total VAT ${footer.totalVat} differs from ${balance}`, key: "balance" });
   }
+}
+
+// Footer checks alone, for re-running them on parsed rows after the user changed class types.
+export function footerErrors(rows, footer, classTypes = DEFAULT_CLASS_TYPES) {
+  const errors = [];
+  checkFooter(rows, footer, classTypes, errors);
+  return errors;
 }
 
 // `rows` is a 0-based grid of cells; dates may be Excel serial numbers or ISO strings.

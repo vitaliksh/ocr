@@ -17,6 +17,18 @@ export const SAMPLE_ROWS = [
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
+// A client whose Rivhit names income differently and keeps clothing (with VAT) and car licence outside the input base.
+export const OTHER_CLIENT = {
+  rows: [
+    { kind: "expense", net: 100, vat: 18, cls: "אחזקה", ref1: "1001", details: "Shop A", date: 46023 },
+    { kind: "expense", net: 101.61, vat: 18.29, cls: "ביגוד", ref1: "496", details: "Sport B", date: 46042 },
+    { kind: "expense", net: 2267, vat: 0, cls: "רכב רשוי וביטוח", ref1: "", details: "Licence C", date: 46023 },
+    { kind: "income", net: 1000, vat: 180, cls: "הכנסה חייבת", ref1: "", details: "Income D", date: 46052 },
+  ],
+  income: ["הכנסה חייבת"],
+  outside: ["ביגוד", "רכב רשוי וביטוח"],
+};
+
 export function formatMoney(value) {
   const text = Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return value < 0 ? `(${text})` : text;
@@ -36,7 +48,16 @@ function put(cells, col, text) {
 }
 
 // Returns a 0-based grid with empty cells as "". `footer` overrides computed footer cells by key.
-export function buildJournalGrid({ month = 1, year = 2026, rows = SAMPLE_ROWS, status = "טיוטא", footer = {} } = {}) {
+// `income` and `outside` are the class names Rivhit treats as outputs and as outside the VAT input base.
+export function buildJournalGrid({
+  month = 1,
+  year = 2026,
+  rows = SAMPLE_ROWS,
+  status = "טיוטא",
+  footer = {},
+  income = ["הכנסות"],
+  outside = OUTSIDE_VAT_BASE,
+} = {}) {
   const grid = [];
   const line = () => Array(WIDTH).fill("");
   const at = (rowNumber) => (grid[rowNumber - 1] ??= line());
@@ -68,10 +89,10 @@ export function buildJournalGrid({ month = 1, year = 2026, rows = SAMPLE_ROWS, s
     put(cells, COLS.date, row.date);
     for (const key of ["vat", "net", "gross"]) sums[key] = round2(sums[key] + s[key]);
     const group =
-      row.cls === "הכנסות" ? groups.outputs : row.cls === EQUIPMENT ? groups.equipment : OUTSIDE_VAT_BASE.includes(row.cls) ? null : groups.inputs;
+      income.includes(row.cls) ? groups.outputs : row.cls === EQUIPMENT ? groups.equipment : outside.includes(row.cls) ? null : groups.inputs;
     if (group) {
       group.gross = round2(group.gross + s.gross);
-      group.vat = round2(group.vat + (row.cls === "הכנסות" ? s.vat : -s.vat));
+      group.vat = round2(group.vat + (income.includes(row.cls) ? s.vat : -s.vat));
     }
     at(rowNumber + 1); // empty spacer row
     rowNumber += 2;

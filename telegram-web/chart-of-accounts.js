@@ -1,4 +1,5 @@
-// Per-root chart of accounts for imported journals: classification name -> code and VAT treatment.
+// Per-root chart of accounts for imported journals: classification name -> code and VAT treatment, with optional
+// per-client types ({ clientId: type } in `clientTypes`) where a client's Rivhit treats a class differently.
 // Stored as common/chart-of-accounts.json next to custom-rivhit-mapping.json (docs/EXCEL_IMPORT_SPEC.md).
 const filename = "chart-of-accounts.json";
 export const ACCOUNT_TYPES = ["income", "expense", "outsideVatBase", "equipment"];
@@ -39,9 +40,30 @@ export function normaliseChart(value, reserved = {}) {
     const name = cleanName(account?.name);
     if (!validCode(code) || reserved[code] || !name || names.has(name) || !ACCOUNT_TYPES.includes(account?.type)) continue;
     accounts[code] = { name, type: account.type };
+    const clientTypes = Object.fromEntries(
+      Object.entries(account.clientTypes ?? {}).filter(([clientId, type]) => clientId && ACCOUNT_TYPES.includes(type) && type !== account.type),
+    );
+    if (Object.keys(clientTypes).length) accounts[code].clientTypes = clientTypes;
     names.add(name);
   }
   return accounts;
+}
+
+// One client's view of the chart: per-client types (Rivhit settings differ between clients) replace the default type.
+export function chartForClient(accounts, clientId) {
+  return Object.fromEntries(
+    Object.entries(accounts).map(([code, account]) => [code, { name: account.name, type: account.clientTypes?.[clientId] ?? account.type }]),
+  );
+}
+
+// Sets the type of an account for one client; the default type itself removes the client's override.
+export function setClientType(accounts, code, clientId, type) {
+  const account = accounts[code];
+  if (!account || !clientId || !ACCOUNT_TYPES.includes(type)) throw new Error("קוד המיון או הסוג אינם תקינים.");
+  const { [clientId]: _previous, ...others } = account.clientTypes ?? {};
+  const clientTypes = type === account.type ? others : { ...others, [clientId]: type };
+  const { clientTypes: _old, ...base } = account;
+  return { ...accounts, [code]: Object.keys(clientTypes).length ? { ...base, clientTypes } : base };
 }
 
 export function addAccount(accounts, { code, name, type }, reserved = {}) {

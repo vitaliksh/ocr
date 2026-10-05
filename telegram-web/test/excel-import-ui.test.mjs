@@ -10,7 +10,7 @@ import { createDeclaration, loadDeclaration } from "../declaration-store.js";
 import { buildImportedRows } from "../excel-import.js";
 import { importRowsIntoDeclaration } from "../excel-import-store.js";
 import { parseJournalGrid } from "../excel-journal.js";
-import { buildJournalGrid, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
+import { buildJournalGrid, OTHER_CLIENT, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
 import { memoryDirectory } from "./memory-directory.mjs";
 
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "index.html"), "utf8");
@@ -229,4 +229,28 @@ test("мастер импорта: файл с ошибками остаётся
   assert.equal(dialog.dataset.step, "check");
   assert.equal(q("excel-import-next").disabled, true);
   assert.match(q("excel-import-problems").textContent, /שגיאה/);
+});
+
+test("диалог импорта: смена типа кода мгновенно пересчитывает итоги и сохраняется для клиента", async () => {
+  const { pick, q, open, window, calls, dataRoot } = await setup();
+  open();
+  await pick(buildJournalGrid(OTHER_CLIENT));
+  await settle();
+  assert.match(q("excel-import-problems").textContent, /«עסקאות כולל» בסוף הקובץ אינו תואם/);
+  assert.equal(q("excel-import-next").disabled, true);
+  const setType = (name, type) => {
+    const select = q("excel-import-unknown-list").querySelector(`[data-name="${name}"] select`);
+    select.value = type;
+    select.dispatchEvent(new window.Event("change"));
+  };
+  setType("הכנסה חייבת", "income");
+  setType("ביגוד", "outsideVatBase");
+  assert.match(q("excel-import-problems").textContent, /תשומות כולל/);
+  setType("רכב רשוי וביטוח", "outsideVatBase");
+  assert.doesNotMatch(q("excel-import-problems").textContent, /שגיאה/);
+  assert.equal(q("excel-import-next").disabled, false);
+  q("excel-import-run").click();
+  for (let i = 0; i < 100 && !calls.imported.length; i += 1) await settle();
+  assert.equal(calls.imported.length, 1);
+  assert.deepEqual((await readChartOfAccounts(dataRoot))[217].clientTypes, { c1: "outsideVatBase" });
 });

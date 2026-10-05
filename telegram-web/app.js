@@ -13,7 +13,7 @@ import {
   saveSourceImage,
 } from "./declaration-store.js";
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
-import { readChartOfAccounts } from "./chart-of-accounts.js";
+import { chartForClient, readChartOfAccounts } from "./chart-of-accounts.js";
 import { confirmDialog, dialogResult } from "./confirm-dialog.js";
 import { NO_EXPORT_MARKER, declarationActions } from "./declaration-core.js";
 import { formatMonth } from "./month-format.js";
@@ -514,7 +514,7 @@ setupJournalToolbar({
     compute: () =>
       summarise(
         [...document.querySelectorAll("#records tr[data-document-id]")].map((row) => rowSnapshot(row)),
-        { chart: chartAccounts, names: rivhitMapping },
+        { chart: chartForClient(chartAccounts, committedWorkspace?.config.clientId), names: rivhitMapping },
       ),
   },
 });

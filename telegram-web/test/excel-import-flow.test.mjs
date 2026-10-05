@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as XLSX from "xlsx";
-import { readChartOfAccounts } from "../chart-of-accounts.js";
+import { chartForClient, readChartOfAccounts } from "../chart-of-accounts.js";
 import { loadDeclaration } from "../declaration-store.js";
-import { commitImport, prepareImport } from "../excel-import-flow.js";
-import { buildJournalGrid, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
+import { commitImport, prepareImport, recheckImport } from "../excel-import-flow.js";
+import { buildJournalGrid, OTHER_CLIENT, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
 import { memoryDirectory } from "./memory-directory.mjs";
 
 const loadLibrary = async () => XLSX;
@@ -76,4 +76,31 @@ test("мастер импорта: зарезервированный код н�
     commitImport(prepared, { newAccounts, month: "2026-01", dataRoot, client, reserved: { 812: "x" }, now }),
     /אינם תקינים/,
   );
+});
+
+test("мастер импорта: типы клиента исправляют сверку итогов и сохраняются только для этого клиента", async () => {
+  const { dataRoot, client } = setup();
+  const file = () => xlsxFile(buildJournalGrid(OTHER_CLIENT));
+  const prepared = await prepareImport(file(), { dataRoot, loadLibrary, clientId: "c1" });
+  assert.deepEqual(prepared.unknown, ["ביגוד", "הכנסה חייבת"]);
+  assert.equal(prepared.types["רכב רשוי וביטוח"], "expense");
+  assert.ok(prepared.errors.some((error) => error.code === "footer-mismatch"));
+  const newAccounts = [
+    { name: "ביגוד", code: "240", type: "outsideVatBase" },
+    { name: "הכנסה חייבת", code: "161", type: "income" },
+  ];
+  const typeChanges = [{ name: "רכב רשוי וביטוח", type: "outsideVatBase" }];
+  const types = { ...prepared.types, "ביגוד": "outsideVatBase", "הכנסה חייבת": "income", "רכב רשוי וביטוח": "outsideVatBase" };
+  assert.deepEqual(recheckImport(prepared, types), []);
+  const options = { month: "2026-01", closeNow: false, dataRoot, client, now };
+  await assert.rejects(commitImport(prepared, { ...options, newAccounts }), /שגיאות/);
+  const result = await commitImport(prepared, { ...options, newAccounts, typeChanges });
+  assert.equal(result.rowCount, OTHER_CLIENT.rows.length);
+  const chart = await readChartOfAccounts(dataRoot);
+  assert.deepEqual(chart[217], { name: "רכב רשוי וביטוח", type: "expense", clientTypes: { c1: "outsideVatBase" } });
+  assert.equal(chartForClient(chart, "c2")[217].type, "expense");
+  const again = await prepareImport(file(), { dataRoot, loadLibrary, clientId: "c1" });
+  assert.deepEqual([again.unknown, again.errors], [[], []]);
+  const other = await prepareImport(file(), { dataRoot, loadLibrary, clientId: "c2" });
+  assert.ok(other.errors.some((error) => error.key === "inputsGross"));
 });
