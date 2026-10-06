@@ -4,9 +4,9 @@ import { normaliseChart } from "./chart-of-accounts.js";
 import { readJournalGrid } from "./excel-journal-reader.js";
 import { loadPdfJs, validatePdfFile } from "./pdf-import.js";
 
-const SECTION_TITLE = /^(הכנסות|עלות המכר|הוצאות|לא משתתף)/;
-const CODE_LABEL = /קוד מס/;
-const clean = (value) => String(value ?? "").replace(/[‎‏‪-‮]/g, "").replace(/\s+/g, " ").trim();
+export const SECTION_TITLE = /^(הכנסות|עלות המכר|הוצאות|לא משתתף)/;
+export const CODE_LABEL = /קוד מס/;
+export const clean = (value) => String(value ?? "").replace(/[‎‏‪-‮]/g, "").replace(/\s+/g, " ").trim();
 
 // The ledger groups codes into sections; income and "not participating" (equipment) decide the type, the rest are expenses.
 export function sectionType(title) {
@@ -80,7 +80,7 @@ export function chartFromLedgerEntries(entries, { typeByName = {}, reserved = {}
   return { accounts: Object.fromEntries(Object.entries(chart).sort(([a], [b]) => a.localeCompare(b))), skipped };
 }
 
-async function readPdfPages(file, loadPdf) {
+export async function readPdfPages(file, loadPdf = loadPdfJs) {
   const pdfjs = await loadPdf();
   const document = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
   const pages = [];

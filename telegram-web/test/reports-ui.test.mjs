@@ -15,13 +15,13 @@ import { memoryDirectory } from "./memory-directory.mjs";
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "index.html"), "utf8");
 const now = "2026-10-02T10:00:00.000Z";
 
-async function setup({ declarations = ["2026-01", "2026-02"], context = true, openViewer, renderPdf } = {}) {
+async function setup({ declarations = ["2026-01", "2026-02"], context = true, openViewer, renderPdf, periods = {} } = {}) {
   const { window } = new JSDOM(html, { url: "https://vitaliksh.github.io/ocr/" });
   Object.assign(globalThis, { document: window.document, window });
   const dialog = window.document.querySelector("#reports-view");
   let opened = 0;
   const dataRoot = memoryDirectory("root");
-  const client = { directory: memoryDirectory("client"), config: { clientId: "c1", clientName: "Test Client" } };
+  const client = { directory: memoryDirectory("client"), config: { clientId: "c1", clientName: "Test Client", ...periods } };
   const accounts = normaliseChart({ accounts: SEED_CHART_OF_ACCOUNTS });
   await saveChartOfAccounts(dataRoot, accounts);
   const parsed = parseJournalGrid(buildJournalGrid()).rows;
@@ -191,4 +191,23 @@ test("страница отчётов: авансы без процента не
   q("reports-advance-percent").value = "12";
   q("reports-advance-percent").dispatchEvent(new globalThis.window.Event("input"));
   assert.ok(q("reports-preview").querySelector(".report-sheet"));
+});
+
+test("диалог отчётов: периоды НДС и авансов берутся из свойств клиента и независимы друг от друга", async () => {
+  const { q, open } = await setup({ periods: { vatPeriod: "bimonthly", advancesPeriod: "monthly" } });
+  await open();
+  assert.deepEqual([q("reports-vat-period").value, q("reports-advances-period").value], ["bimonthly", "monthly"]);
+  assert.equal(q("reports-vat-period").disabled, true);
+  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["01/2026", "02/2026"], "VAT report: two months");
+  q("reports-kind").value = "advances";
+  q("reports-kind").dispatchEvent(new globalThis.window.Event("change"));
+  assert.deepEqual([q("reports-from").value, q("reports-to").value], ["02/2026", "02/2026"], "advances report: one month");
+});
+
+test("диалог отчётов: клиент без периодов в свойствах берёт период НДС из старых настроек отчётов", async () => {
+  const { q, open, client } = await setup();
+  const { saveReportSettings } = await import("../report-data.js");
+  await saveReportSettings(client.directory, { vatPeriod: "bimonthly", advancePercent: 12 });
+  await open();
+  assert.deepEqual([q("reports-vat-period").value, q("reports-advances-period").value], ["bimonthly", "bimonthly"]);
 });

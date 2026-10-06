@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RIVHIT_COLUMN_COUNT, firstNonEmptyLine, normalizeWorkspaceConfig, validateRivhitTemplateText } from "../workspace-core.js";
+import { REPORT_PERIODS, RIVHIT_COLUMN_COUNT, firstNonEmptyLine, normalizeWorkspaceConfig, validateRivhitTemplateText } from "../workspace-core.js";
 
 test("выбирает первую непустую строку и убирает BOM", () => {
   assert.equal(firstNonEmptyLine("\uFEFF\r\n\r\nодин\tдва\r\n"), "один\tдва");
@@ -22,4 +22,15 @@ test("нормализует корректную конфигурацию кл�
 test("отклоняет конфигурацию без обязательных данных", () => {
   assert.equal(normalizeWorkspaceConfig({ clientName: "Клиент", businessActivity: "", businessKind: "home" }).valid, false);
   assert.equal(normalizeWorkspaceConfig({ clientName: "Клиент", businessActivity: "Спорт", businessKind: "invalid" }).valid, false);
+});
+
+test("свойства клиента хранят периоды НДС и авансов независимо; неверные значения отбрасываются", () => {
+  const base = { clientId: "id", clientName: "Клиент", businessActivity: "Спорт", businessKind: "home" };
+  assert.deepEqual(REPORT_PERIODS, ["monthly", "bimonthly"]);
+  const both = normalizeWorkspaceConfig({ ...base, vatPeriod: "bimonthly", advancesPeriod: "monthly" }).config;
+  assert.deepEqual([both.vatPeriod, both.advancesPeriod], ["bimonthly", "monthly"]);
+  const wrong = normalizeWorkspaceConfig({ ...base, vatPeriod: "weekly", advancesPeriod: 2 }).config;
+  assert.deepEqual(Object.keys(wrong).filter((key) => key.endsWith("Period")), []);
+  const kept = normalizeWorkspaceConfig({ ...both, clientName: "Другое имя" }).config;
+  assert.deepEqual([kept.vatPeriod, kept.advancesPeriod], ["bimonthly", "monthly"]);
 });

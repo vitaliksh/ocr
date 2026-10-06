@@ -11,9 +11,10 @@ const REPORT_FILES = { vat: "vat", advances: "advances", profitLoss: "profit-los
 const PDF_TYPES = [{ description: "PDF", accept: { "application/pdf": [".pdf"] } }];
 
 // Default period: the reporting period of the latest declaration for VAT/advances, the year to date otherwise.
-export function defaultPeriod(kind, latestMonth, vatPeriod) {
+export function defaultPeriod(kind, latestMonth, vatPeriod, advancesPeriod = vatPeriod) {
   if (!latestMonth) return { from: "", to: "" };
-  if (kind === "vat" || kind === "advances") return periodContaining(latestMonth, vatPeriod);
+  if (kind === "vat") return periodContaining(latestMonth, vatPeriod);
+  if (kind === "advances") return periodContaining(latestMonth, advancesPeriod);
   return { from: `${latestMonth.slice(0, 4)}-01`, to: latestMonth };
 }
 
@@ -23,16 +24,16 @@ export function defaultPeriod(kind, latestMonth, vatPeriod) {
 // entry points (sidebar, client card).
 export function setupReports({ button, dialog, getContext, onError, onOpen, openViewer = openReportWindow, renderPdf = renderReportPdf }) {
   const part = (id) => dialog.querySelector(`#${id}`);
-  const [kind, from, to, vatPeriod, percent, errorLine, statusLine, preview, show, saveAll] = [
+  const [kind, from, to, vatPeriod, percent, errorLine, statusLine, preview, show, saveAll, advancesPeriod] = [
     "reports-kind", "reports-from", "reports-to", "reports-vat-period", "reports-advance-percent", "reports-error",
-    "reports-status", "reports-preview", "reports-show", "reports-save-all",
+    "reports-status", "reports-preview", "reports-show", "reports-save-all", "reports-advances-period",
   ].map(part);
   let context = null;
   let entries = [];
   let latestMonth = "";
 
   const applyDefaultPeriod = () => {
-    const period = defaultPeriod(kind.value, latestMonth, vatPeriod.value);
+    const period = defaultPeriod(kind.value, latestMonth, vatPeriod.value, advancesPeriod.value);
     from.value = formatMonth(period.from);
     to.value = formatMonth(period.to);
   };
@@ -49,7 +50,9 @@ export function setupReports({ button, dialog, getContext, onError, onOpen, open
       entries = reportEntries(declarations, chart, context.names);
       // Prefer the latest month that has active rows: a freshly created empty declaration must not hide the data.
       latestMonth = (declarations.findLast((item) => item.rows.some((row) => row.active)) ?? declarations.at(-1))?.month ?? "";
-      vatPeriod.value = settings.vatPeriod;
+      // The periods are client properties; the old report settings only serve clients saved before that.
+      vatPeriod.value = context.client.config?.vatPeriod ?? settings.vatPeriod;
+      advancesPeriod.value = context.client.config?.advancesPeriod ?? vatPeriod.value;
       percent.value = settings.advancePercent ?? "";
       statusLine.textContent = "";
       errorLine.textContent = declarations.length ? "" : "ללקוח אין הצהרות.";
@@ -64,7 +67,7 @@ export function setupReports({ button, dialog, getContext, onError, onOpen, open
   }
   button?.addEventListener("click", () => open());
   kind.addEventListener("change", () => { applyDefaultPeriod(); renderPreview(); });
-  vatPeriod.addEventListener("change", () => { applyDefaultPeriod(); renderPreview(); });
+  for (const field of [vatPeriod, advancesPeriod]) field.addEventListener("change", () => { applyDefaultPeriod(); renderPreview(); });
   for (const field of [from, to, percent]) {
     field.addEventListener("input", () => renderPreview());
     field.addEventListener("change", () => renderPreview());

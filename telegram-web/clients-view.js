@@ -154,7 +154,9 @@ export function renderClientCard(root, { client, settings, showingArchived }, ha
   };
   addFact("סוג פעילות", text(client.config?.businessActivity));
   addFact("סוג העסק", BUSINESS_KIND_LABELS[client.config?.businessKind] || "");
-  addFact("דיווח מע״מ", VAT_PERIOD_LABELS[settings?.vatPeriod] || "");
+  const vatPeriod = client.config?.vatPeriod ?? settings?.vatPeriod;
+  addFact("דיווח מע״מ", VAT_PERIOD_LABELS[vatPeriod] || "");
+  addFact("דיווח מקדמות", VAT_PERIOD_LABELS[client.config?.advancesPeriod ?? vatPeriod] || "");
   addFact("אחוז מקדמות", settings?.advancePercent === null || settings?.advancePercent === undefined ? "" : `${settings.advancePercent}%`);
   root.append(facts);
 

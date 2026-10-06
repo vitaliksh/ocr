@@ -14,6 +14,7 @@ import {
 } from "./declaration-store.js";
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
 import { chartForClient, readChartOfAccounts, readClientChart } from "./chart-of-accounts.js";
+import { setupLedgerCheck } from "./ledger-check-ui.js";
 import { setupLedgerCodes } from "./ledger-codes-ui.js";
 import { confirmDialog, dialogResult } from "./confirm-dialog.js";
 import { NO_EXPORT_MARKER, declarationActions } from "./declaration-core.js";
@@ -484,6 +485,10 @@ const workspaceControls = setupWorkspaceControls({
   declarationDialog: document.querySelector("#new-declaration-dialog"),
   businessActivityInput: businessActivity,
   businessKindInput: businessKind,
+  vatPeriodInput: document.querySelector("#client-vat-period"),
+  advancesPeriodInput: document.querySelector("#client-advances-period"),
+  clientVatPeriodInput: document.querySelector("#new-client-vat-period"),
+  clientAdvancesPeriodInput: document.querySelector("#new-client-advances-period"),
   summary: workspaceSummary,
   templateSummary: document.querySelector("#template-summary"),
   onDataRoot: switchDataRoot,
@@ -570,6 +575,30 @@ const ledgerCodes = setupLedgerCodes({
     excelImport.refreshCodes();
     if (!month) return;
     const selected = await loadDeclaration(committedWorkspace.directory, month);
+    await activateDeclaration({ workspace: committedWorkspace, ...selected });
+  },
+  onError: showError,
+});
+const ledgerCheck = setupLedgerCheck({
+  button: document.querySelector("#check-ledger"),
+  dialog: document.querySelector("#ledger-check-dialog"),
+  getContext: () =>
+    dataRoot && committedWorkspace
+      ? { dataRoot, client: committedWorkspace, reserved: { ...builtInMapping, ...customMapping } }
+      : null,
+  // Same as for the ledger codes: the open table is detached while its file is rewritten and opened again afterwards.
+  onBeforeWrite: async (months) => {
+    if (!currentDeclaration || !months.includes(currentDeclaration.month)) return null;
+    const month = currentDeclaration.month;
+    await saveCurrentDraft();
+    clearActiveDeclaration(currentDeclaration.declarationId);
+    return month;
+  },
+  onSaved: async (result, month) => {
+    await workspaceControls.refreshFromUserAction();
+    const reopen = month ?? currentDeclaration?.month;
+    if (!reopen) return;
+    const selected = await loadDeclaration(committedWorkspace.directory, reopen);
     await activateDeclaration({ workspace: committedWorkspace, ...selected });
   },
   onError: showError,

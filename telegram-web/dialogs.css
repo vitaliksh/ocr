@@ -304,6 +304,19 @@
   font-weight: 600;
 }
 
+.ledger-missing-list {
+  display: grid;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.workspace-dialog label.ledger-missing {
+  align-items: flex-start;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
 .unknown-account.suggested {
   padding: var(--s1) var(--s2);
   border: 1px solid var(--warning-border);

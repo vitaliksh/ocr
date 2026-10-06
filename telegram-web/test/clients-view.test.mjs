@@ -93,3 +93,12 @@ test("each declaration card has an export button for that month", () => {
   buttons.forEach((node) => node.click());
   assert.deepEqual(exported, ["2026-02", "2026-01"]);
 });
+
+test("the client card shows the VAT and the advances period separately, from the client properties first", () => {
+  const container = root();
+  const item = client("Alpha", [declaration("2026-02")], { vatPeriod: "bimonthly", advancesPeriod: "monthly" });
+  renderClientCard(container, { client: item, settings: { vatPeriod: "monthly", advancePercent: 12 }, showingArchived: false }, { onOpenDeclaration() {}, onNewDeclaration() {}, onEdit() {}, onToggleArchived() {} });
+  const facts = [...container.querySelectorAll(".fact")].map((fact) => fact.textContent);
+  assert.ok(facts.some((fact) => /דיווח מע״מ.*דו‑חודשי/.test(fact)), facts.join("|"));
+  assert.ok(facts.some((fact) => /דיווח מקדמות.*חד‑חודשי/.test(fact)), facts.join("|"));
+});

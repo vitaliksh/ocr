@@ -117,8 +117,23 @@ names. The ledger lists every class with its code, grouped into sections (`הכ�
   (by name) and can be changed in the dialog, and the journal footer checks catch the rest.
 - Loading rewrites the codes of rows imported earlier from Excel (documentId `import-*`) in open declarations by class
   name, after saving a copy of each table. Locked declarations are listed and not touched.
-- The ledger also lists every transaction with its line number, which allows a later check of the imported journals
-  against it (rows missing from the journals show up as gaps; found once in a real client).
+### Checking the declarations against the ledger
+
+The ledger lists every operation with its declaration month, line number, date, details, references and amounts; the
+exported journals turned out to miss operations (Eva: 7, Tali: 4; every class total of the ledger is equal otherwise).
+`ledger-rows.js` reads all operations (xlsx: columns by the header row of each block; pdf: columns by the right edge of
+the text, a class that continues on the next page repeats its header). Each class block is checked against its own total
+(gross, net, VAT); a file that does not add up is rejected instead of being reconciled against.
+
+`ledger-reconcile.js` matches the operations with the rows of the declarations of the ledger's year by declaration month,
+class name, date, net and gross (the ledger shows expenses negative and credits positive, the declarations the opposite;
+VAT follows the sign of the net). Equal operations are counted, so two identical payments need two rows. What is left on
+the ledger side is missing, what is left on the declarations' side is reported and never changed.
+
+The dialog "בדיקה מול כרטסת…" (menu "+ הוספת מסמכים") lists the missing operations; the chosen ones are appended to the
+declaration of their month (open ones only, a missing declaration is created) after saving a copy
+`draft-table.before-ledger-<time>.json`; the rows read "נוסף מהכרטסת". An operation whose class has no code in the
+client's chart is not added (load the ledger codes first).
 
 ## Not in the file
 
