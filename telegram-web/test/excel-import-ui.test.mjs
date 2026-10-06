@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 import * as XLSX from "xlsx";
-import { SEED_CHART_OF_ACCOUNTS, matchClassNames, normaliseChart, readChartOfAccounts } from "../chart-of-accounts.js";
+import { SEED_CHART_OF_ACCOUNTS, matchClassNames, normaliseChart, readChartOfAccounts, saveClientChart } from "../chart-of-accounts.js";
 import { createDeclaration, loadDeclaration } from "../declaration-store.js";
 import { buildImportedRows } from "../excel-import.js";
 import { importRowsIntoDeclaration } from "../excel-import-store.js";
@@ -265,4 +265,17 @@ test("диалог импорта: если типы по итогам не по
   assert.equal(q("excel-import-problems").querySelectorAll(".problem-error").length, 1);
   assert.doesNotMatch(q("excel-import-problems").textContent, /הוגדרו אוטומטית/);
   assert.equal(q("excel-import-next").disabled, true);
+});
+
+test("диалог импорта: на первом шаге видно, есть ли у клиента свои коды, кнопка открывает загрузку כרטסת", async () => {
+  const { q, open, client, calls } = await setup();
+  open();
+  await settle();
+  assert.match(q("excel-import-codes").textContent, /אין עדיין קודי מיון משלו/);
+  await saveClientChart(client.directory, { 110: { name: "הכנסות", type: "income" } });
+  open();
+  await settle();
+  assert.match(q("excel-import-codes").textContent, /נטענו מהכרטסת \(1 קודים\)/);
+  assert.equal(q("excel-import-codes-open").textContent.includes("כרטסת"), true);
+  assert.equal(calls.errors.length, 0);
 });

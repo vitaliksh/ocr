@@ -118,3 +118,41 @@ export async function saveChartOfAccounts(dataRoot, accounts, reserved = {}) {
   }
   return normalised;
 }
+
+// A client's own chart (Rivhit codes differ between clients) lives in the client folder and replaces the root chart.
+const clientFilename = "classification-codes.json";
+
+export function setAccountType(accounts, code, type) {
+  if (!accounts[code] || !ACCOUNT_TYPES.includes(type)) throw new Error("קוד המיון או הסוג אינם תקינים.");
+  return { ...accounts, [code]: { ...accounts[code], type } };
+}
+
+// Returns null when the client has no chart of its own.
+export async function readClientChart(clientDirectory, reserved = {}) {
+  if (!clientDirectory) return null;
+  try {
+    return normaliseChart(await readJson(clientDirectory, clientFilename), reserved);
+  } catch (error) {
+    if (error.name === "NotFoundError") return null;
+    throw error;
+  }
+}
+
+export async function saveClientChart(clientDirectory, accounts, { source = "ledger", reserved = {}, now = new Date().toISOString() } = {}) {
+  if (!clientDirectory) throw new Error("יש לבחור תחילה לקוח.");
+  const normalised = normaliseChart({ accounts }, reserved);
+  const writable = await (await clientDirectory.getFileHandle(clientFilename, { create: true })).createWritable();
+  try {
+    await writable.write(JSON.stringify({ schemaVersion: 1, source, savedAt: now, accounts: normalised }, null, 2));
+  } finally {
+    await writable.close();
+  }
+  return normalised;
+}
+
+// The chart in effect for one client: its own chart, else the root chart with the client's types.
+export async function readEffectiveChart(dataRoot, clientDirectory, clientId, reserved = {}) {
+  const own = await readClientChart(clientDirectory, reserved);
+  if (own) return own;
+  return chartForClient((await readChartOfAccounts(dataRoot, reserved)) ?? {}, clientId);
+}

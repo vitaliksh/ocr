@@ -101,6 +101,25 @@ searches the class types that make every check pass (`suggestClassTypes`, at mos
 the current types), preselects them, highlights the changed rows at the top and says so. A suggestion is used only
 if `recheckImport` confirms it; the user can still change any type.
 
+## Classification ledger (`כרטסת קודי מיון`)
+
+Rivhit codes are per client (the same class has different codes at two clients), and the journal has no codes, only
+names. The ledger lists every class with its code, grouped into sections (`הכנסות`, `עלות המכר`,
+`הוצאות הנהלה וכלליות`, `לא משתתף`). It is loaded once per client, before the journals, into
+`<client>/classification-codes.json`; the import wizard, the journal and the reports then use that chart for the client.
+
+- Excel: a row with `קוד מס'` in column N holds the code in M, the name is in N of the next non-empty row; a section
+  title is a row with that single cell.
+- PDF (text positions from pdf.js): the code is the number left of the `קוד מס':` label on the same line, the name is the
+  text right below the label with the same right edge, section titles are short texts at the left margin (x < 200).
+- Section decides the type: `הכנסות` income, `לא משתתף` equipment, others expense. A class outside the VAT input base
+  (property tax, clothing) is not visible in the ledger; its type carries over from the chart the client had before
+  (by name) and can be changed in the dialog, and the journal footer checks catch the rest.
+- Loading rewrites the codes of rows imported earlier from Excel (documentId `import-*`) in open declarations by class
+  name, after saving a copy of each table. Locked declarations are listed and not touched.
+- The ledger also lists every transaction with its line number, which allows a later check of the imported journals
+  against it (rows missing from the journals show up as gaps; found once in a real client).
+
 ## Not in the file
 
 Supplier ID (write `0`), allocation number, image, confidence, agent opinion, raw (pre-recognition) amounts, client

@@ -13,7 +13,7 @@ export function pdfSourceFileName(now = new Date(), random = crypto.randomUUID()
   return `source-${now.toISOString().replace(/[:.]/g, "-")}-${random}.pdf`;
 }
 
-async function loadPdfJs() {
+export async function loadPdfJs() {
   const pdfjs = await import(PDF_JS_URL);
   pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;
   return pdfjs;

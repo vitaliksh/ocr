@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as XLSX from "xlsx";
-import { chartForClient, readChartOfAccounts } from "../chart-of-accounts.js";
+import { chartForClient, readChartOfAccounts, readClientChart, saveClientChart } from "../chart-of-accounts.js";
 import { loadDeclaration } from "../declaration-store.js";
 import { commitImport, prepareImport, recheckImport } from "../excel-import-flow.js";
 import { buildJournalGrid, OTHER_CLIENT, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
@@ -104,4 +104,31 @@ test("мастер импорта: типы клиента исправляют 
   assert.deepEqual([again.unknown, again.errors, again.suggested], [[], [], {}]);
   const other = await prepareImport(file(), { dataRoot, loadLibrary, clientId: "c2" });
   assert.ok(other.errors.some((error) => error.key === "inputsGross"));
+});
+
+test("мастер импорта: у клиента свой план — импорт идёт по нему, новые классы и типы пишутся ему, общий план не трогают", async () => {
+  const { dataRoot, client } = setup();
+  await saveClientChart(client.directory, {
+    110: { name: "הכנסות", type: "income" },
+    301: { name: "אחזקה", type: "expense" },
+    302: { name: "חשמל", type: "expense" },
+    303: { name: "חניה פנגו", type: "expense" },
+    304: { name: "טלפון סלולרי", type: "expense" },
+    305: { name: "ארנונה", type: "outsideVatBase" },
+    900: { name: "רכישת ציוד/רכוש קבוע", type: "equipment" },
+  });
+  const rows = SAMPLE_ROWS.map((row, i) => (i === 0 ? { ...row, cls: "ספרים" } : row));
+  // This client's Rivhit keeps electricity outside the input base, so the footer of the file says so.
+  const grid = buildJournalGrid({ rows, outside: ["ביטוח עסק", "ארנונה", "חשמל"] });
+  const prepared = await prepareImport(xlsxFile(grid), { dataRoot, loadLibrary, clientId: "c1", clientDirectory: client.directory });
+  assert.equal(prepared.chartScope, "client");
+  assert.equal(prepared.suggested["חשמל"], "outsideVatBase");
+  assert.deepEqual(prepared.unknown, ["ספרים"]);
+  const result = await commitImport(prepared, { month: "2026-01", dataRoot, client, newAccounts: [{ name: "ספרים", code: "240", type: "expense" }], typeChanges: [{ name: "חשמל", type: "outsideVatBase" }], now });
+  assert.equal(result.chart[240].name, "ספרים");
+  assert.equal(await readChartOfAccounts(dataRoot), null, "the shared chart is untouched");
+  const saved = await readClientChart(client.directory);
+  assert.deepEqual([saved[240].type, saved[302].type, saved[302].clientTypes], ["expense", "outsideVatBase", undefined]);
+  const codes = (await loadDeclaration(client.directory, "2026-01")).draft.rows.map((row) => row.values[1]);
+  assert.deepEqual([codes[0], codes[1], codes.at(-1)], ["240", "302", "110"]);
 });

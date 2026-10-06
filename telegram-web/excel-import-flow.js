@@ -7,7 +7,10 @@ import {
   matchClassNames,
   normaliseChart,
   readChartOfAccounts,
+  readClientChart,
   saveChartOfAccounts,
+  saveClientChart,
+  setAccountType,
   setClientType,
 } from "./chart-of-accounts.js";
 import { buildImportedRows, importWarnings } from "./excel-import.js";
@@ -34,9 +37,11 @@ export function recheckImport(prepared, typesByName) {
 }
 
 // `reserved` holds codes the chart must not use (built-in and custom Rivhit codes). `clientId` selects the client's
-// own class types for the footer checks; `types` maps every known name of the file to that type.
-export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary, clientId } = {}) {
-  const existing = await readChartOfAccounts(dataRoot, reserved);
+// own class types for the footer checks; `types` maps every known name of the file to that type. A client that has a
+// chart of its own (loaded from its ledger) is imported against that chart, which `chartScope` reports.
+export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary, clientId, clientDirectory } = {}) {
+  const own = await readClientChart(clientDirectory, reserved);
+  const existing = own ?? (await readChartOfAccounts(dataRoot, reserved));
   const chart = existing ?? normaliseChart({ accounts: SEED_CHART_OF_ACCOUNTS }, reserved);
   const clientChart = chartForClient(chart, clientId);
   const parsed = parseJournalGrid(await readJournalGrid(file, { loadLibrary }), { classTypes: classTypesFromChart(clientChart) });
@@ -46,6 +51,7 @@ export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary
   const prepared = {
     chart,
     chartIsNew: existing === null,
+    chartScope: own ? "client" : "root",
     codes,
     unknown,
     types: Object.fromEntries(Object.entries(codes).map(([name, code]) => [name, clientChart[code].type])),
@@ -80,11 +86,14 @@ export async function commitImport(prepared, { newAccounts = [], typeChanges = [
   if (recheckImport(prepared, types).length) throw new Error("בקובץ יש שגיאות. לא ניתן לייבא.");
   let chart = prepared.chart;
   for (const account of newAccounts) chart = addAccount(chart, account, reserved);
-  for (const { name, type } of typeChanges) chart = setClientType(chart, prepared.codes[name], client.config.clientId, type);
+  const own = prepared.chartScope === "client";
+  for (const { name, type } of typeChanges) {
+    chart = own ? setAccountType(chart, prepared.codes[name], type) : setClientType(chart, prepared.codes[name], client.config.clientId, type);
+  }
   const { codes, unknown } = matchClassNames(prepared.rows.map((row) => row.classificationName), chart);
   if (unknown.length) throw new Error(`חסר קוד מיון עבור: ${unknown.join(", ")}`);
   const rows = buildImportedRows(prepared.rows, codes, { now });
-  chart = await saveChartOfAccounts(dataRoot, chart, reserved);
+  chart = own ? await saveClientChart(client.directory, chart, { reserved, now }) : await saveChartOfAccounts(dataRoot, chart, reserved);
   const declaration = await importRowsIntoDeclaration({
     clientDirectory: client.directory,
     clientId: client.config.clientId,

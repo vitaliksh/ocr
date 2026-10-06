@@ -1,5 +1,5 @@
 // Reports page: pick a report and period, see it at once, show it in a child window, save it (or all reports) as PDF.
-import { chartForClient, readChartOfAccounts } from "./chart-of-accounts.js";
+import { readEffectiveChart } from "./chart-of-accounts.js";
 import { formatMonth, parseMonthText } from "./month-format.js";
 import { loadReportDeclarations, readReportSettings, saveReportSettings } from "./report-data.js";
 import { advancesReport, classificationLedger, inPeriod, periodContaining, profitLoss, reportEntries, vatReport } from "./reports.js";
@@ -43,10 +43,10 @@ export function setupReports({ button, dialog, getContext, onError, onOpen, open
     try {
       const [declarations, chart, settings] = await Promise.all([
         loadReportDeclarations(context.client.directory),
-        readChartOfAccounts(context.dataRoot),
+        readEffectiveChart(context.dataRoot, context.client.directory, context.client.config.clientId),
         readReportSettings(context.client.directory),
       ]);
-      entries = reportEntries(declarations, chartForClient(chart ?? {}, context.client.config.clientId), context.names);
+      entries = reportEntries(declarations, chart, context.names);
       // Prefer the latest month that has active rows: a freshly created empty declaration must not hide the data.
       latestMonth = (declarations.findLast((item) => item.rows.some((row) => row.active)) ?? declarations.at(-1))?.month ?? "";
       vatPeriod.value = settings.vatPeriod;

@@ -13,7 +13,8 @@ import {
   saveSourceImage,
 } from "./declaration-store.js";
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
-import { chartForClient, readChartOfAccounts } from "./chart-of-accounts.js";
+import { chartForClient, readChartOfAccounts, readClientChart } from "./chart-of-accounts.js";
+import { setupLedgerCodes } from "./ledger-codes-ui.js";
 import { confirmDialog, dialogResult } from "./confirm-dialog.js";
 import { NO_EXPORT_MARKER, declarationActions } from "./declaration-core.js";
 import { formatMonth } from "./month-format.js";
@@ -321,6 +322,7 @@ async function activateDeclaration(selected) {
     return false;
   await saveCurrentDraft();
   workspace = committedWorkspace = selected.workspace;
+  await applyClientChart(workspace.directory);
   currentDeclaration = selected.declaration;
   currentDeclarationDirectory = selected.directory;
   businessActivity.value = workspace.config.businessActivity;
@@ -432,6 +434,11 @@ function currentMapping() {
   const chart = Object.fromEntries(Object.entries(chartAccounts).map(([code, account]) => [code, account.name]));
   return { ...chart, ...builtInMapping, ...customMapping };
 }
+// A client with its own codes (loaded from its ledger) is shown by them; any other client by the shared chart.
+async function applyClientChart(clientDirectory) {
+  chartAccounts = (await readClientChart(clientDirectory, builtInMapping)) ?? (await readChartOfAccounts(dataRoot, builtInMapping)) ?? {};
+  rivhitMapping = currentMapping();
+}
 async function loadCustomMapping(root) {
   [customMapping, customMappingMetadata, form6111Mappings, chartAccounts] = await Promise.all([
     readCustomRivhitMapping(root, builtInMapping),
@@ -518,7 +525,7 @@ setupJournalToolbar({
       ),
   },
 });
-setupExcelImport({
+const excelImport = setupExcelImport({
   button: document.querySelector("#import-excel"),
   dialog: document.querySelector("#excel-import-dialog"),
   getContext: () =>
@@ -536,6 +543,32 @@ setupExcelImport({
     rivhitMapping = currentMapping();
     refreshClassificationSelectors();
     await workspaceControls.refreshFromUserAction();
+    const selected = await loadDeclaration(committedWorkspace.directory, month);
+    await activateDeclaration({ workspace: committedWorkspace, ...selected });
+  },
+  onOpenCodes: () => ledgerCodes.open(),
+  onError: showError,
+});
+const ledgerCodes = setupLedgerCodes({
+  dialog: document.querySelector("#ledger-codes-dialog"),
+  getContext: () =>
+    dataRoot && committedWorkspace
+      ? { dataRoot, client: committedWorkspace, reserved: { ...builtInMapping, ...customMapping } }
+      : null,
+  // Writing the remapped tables under the open table would be overwritten by its next save, so detach it first.
+  onBeforeWrite: async (months) => {
+    if (!currentDeclaration || !months.includes(currentDeclaration.month)) return null;
+    const month = currentDeclaration.month;
+    await saveCurrentDraft();
+    clearActiveDeclaration(currentDeclaration.declarationId);
+    return month;
+  },
+  onSaved: async ({ chart }, month) => {
+    chartAccounts = chart;
+    rivhitMapping = currentMapping();
+    refreshClassificationSelectors();
+    excelImport.refreshCodes();
+    if (!month) return;
     const selected = await loadDeclaration(committedWorkspace.directory, month);
     await activateDeclaration({ workspace: committedWorkspace, ...selected });
   },

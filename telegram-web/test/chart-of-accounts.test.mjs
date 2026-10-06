@@ -8,10 +8,15 @@ import {
   matchClassNames,
   normaliseChart,
   readChartOfAccounts,
+  readClientChart,
+  readEffectiveChart,
+  saveClientChart,
+  setAccountType,
   saveChartOfAccounts,
   setClientType,
 } from "../chart-of-accounts.js";
 import { parseJournalGrid } from "../excel-journal.js";
+import { memoryDirectory } from "./memory-directory.mjs";
 import { buildJournalGrid } from "./excel-journal-fixture.mjs";
 
 // Minimal in-memory File System Access stand-in: a data root with one `common` directory.
@@ -117,4 +122,22 @@ test("план счетов: тип класса у клиента отдель�
   assert.throws(() => setClientType(chart, "999", "c2", "income"));
   const dirty = normaliseChart({ accounts: { 217: { name: "x", type: "expense", clientTypes: { c1: "bogus", c2: "expense", c3: "income" } } } });
   assert.deepEqual(dirty[217].clientTypes, { c3: "income" });
+});
+
+test("תרשים לקוח: נשמר בתיקיית הלקוח, מחליף את התרשים המשותף, ובלעדיו נשאר התרשים המשותף עם סוגי הלקוח", async () => {
+  const root = memoryRoot();
+  const client = memoryDirectory("client");
+  await saveChartOfAccounts(root, setClientType(normaliseChart({ accounts: SEED_CHART_OF_ACCOUNTS }), "217", "c1", "outsideVatBase"));
+  assert.equal(await readClientChart(client), null);
+  assert.equal(await readClientChart(null), null);
+  assert.equal((await readEffectiveChart(root, client, "c1"))[217].type, "outsideVatBase");
+  assert.equal((await readEffectiveChart(root, client, "c2"))[217].type, "expense");
+  const saved = await saveClientChart(client, { 110: { name: "הכנסה חייבת", type: "income" }, 214: { name: "רכב רשוי וביטוח", type: "expense" } }, { reserved: { 214: "x" } });
+  assert.deepEqual(Object.keys(saved), ["110"], "reserved codes are dropped");
+  assert.deepEqual(await readEffectiveChart(root, client, "c1"), saved);
+  assert.equal(JSON.parse(client.children.get("classification-codes.json").text).source, "ledger");
+  await assert.rejects(saveClientChart(null, {}), /לקוח/);
+  assert.equal(setAccountType(saved, "110", "expense")[110].type, "expense");
+  assert.throws(() => setAccountType(saved, "999", "expense"));
+  assert.throws(() => setAccountType(saved, "110", "bogus"));
 });

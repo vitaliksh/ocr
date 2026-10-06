@@ -1,10 +1,11 @@
 // Dialog for the one-time Excel migration. All logic lives in excel-import-flow.js; this file only renders.
 import { ACCOUNT_TYPES } from "./chart-of-accounts.js";
+import { readClientChart } from "./chart-of-accounts.js";
 import { commitImport, prepareImport, recheckImport } from "./excel-import-flow.js";
 import { inspectImportTarget } from "./excel-import-store.js";
 import { formatMonth, parseMonthText } from "./month-format.js";
 
-const TYPE_LABELS = {
+export const TYPE_LABELS = {
   income: "הכנסה",
   expense: "הוצאה",
   outsideVatBase: "הוצאה מחוץ לבסיס מע״מ",
@@ -65,7 +66,7 @@ const TARGET_TEXTS = {
 };
 
 // onBeforeCommit(month) lets the host stop editing the target declaration before the rows are written.
-export function setupExcelImport({ button, dialog, getContext, onImported, onError, loadLibrary, onBeforeCommit }) {
+export function setupExcelImport({ button, dialog, getContext, onImported, onError, loadLibrary, onBeforeCommit, onOpenCodes }) {
   const part = (id) => dialog.querySelector(`#${id}`);
   const [file, details, summary, problems, month, unknownBox, unknownList, closeNow, errorLine, run] = [
     "excel-import-file", "excel-import-details", "excel-import-summary", "excel-import-problems", "excel-import-month",
@@ -78,6 +79,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
   const [nextButton, backButton, resultLine] = ["excel-import-next", "excel-import-back", "excel-import-result"].map(part);
   const unknownText = part("excel-import-unknown-text");
   const warningList = part("excel-import-warnings");
+  const [codesLine, codesButton] = ["excel-import-codes", "excel-import-codes-open"].map(part);
   let prepared = null;
   let context = null;
   let target = null;
@@ -133,6 +135,21 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     target = null;
     targetCheck += 1;
     clientLine.textContent = `לקוח: ${context.client.config.clientName ?? ""}`;
+    showCodesState();
+  };
+  // Tells whether the client has its own classification codes (loaded from its ledger) or the shared defaults are used.
+  const showCodesState = async () => {
+    const shown = context;
+    codesLine.textContent = "";
+    try {
+      const own = await readClientChart(shown.client.directory);
+      if (shown !== context) return;
+      codesLine.textContent = own
+        ? `קודי המיון של הלקוח נטענו מהכרטסת (${Object.keys(own).length} קודים).`
+        : "ללקוח אין עדיין קודי מיון משלו, ויעשה שימוש בקודי ברירת המחדל. מומלץ לטעון קודם את כרטסת קודי המיון של הלקוח.";
+    } catch {
+      /* the state line is informative only */
+    }
   };
   const unknownInputs = () => [...unknownList.querySelectorAll("[data-name]:not([data-known])")].map((row) => ({
     name: row.dataset.name,
@@ -234,6 +251,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
     dialog.showModal();
   });
 
+  codesButton.addEventListener("click", () => onOpenCodes?.());
   nextButton.addEventListener("click", () => setStep("month"));
   backButton.addEventListener("click", () => setStep(dialog.dataset.step === "month" ? "check" : "file"));
   month.addEventListener("input", refreshTarget);
@@ -253,6 +271,7 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
         reserved: context.reserved,
         loadLibrary,
         clientId: context.client.config.clientId,
+        clientDirectory: context.client.directory,
       });
       render();
     } catch (error) {
@@ -289,4 +308,6 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       refreshTarget();
     }
   });
+  // The client's codes changed (ledger loaded): start the wizard over, the file read so far used the old chart.
+  return { refreshCodes: () => context && reset() };
 }
