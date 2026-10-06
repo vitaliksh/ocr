@@ -161,11 +161,16 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
           element("li", "הסכומים תלויים בסוג של כל קוד מיון. בדוק את הסוגים ברשימה למטה; הבדיקה מתעדכנת מיד."),
         ]
       : [];
+    const suggested = Object.entries(prepared.suggested);
+    const suggestionLines = suggested.length
+      ? [element("li", `סוגי הקודים הוגדרו אוטומטית כך שסכומי סוף הקובץ יתאימו: ${suggested.map(([name, type]) => `«${name}» — ${TYPE_LABELS[type]}`).join("; ")}. יש לבדוק לפני המשך.`)]
+      : [];
     problems.replaceChildren(
       ...errors
         .filter((item) => item.code !== "footer-mismatch")
         .map((item) => element("li", `שגיאה${item.row ? ` בשורה ${item.row}` : ""}: ${problemText(item)}`, "problem-error")),
       ...footerLines,
+      ...suggestionLines,
     );
     warningList.replaceChildren(...warnings.map((item) => element("li", `אזהרה: ${problemText(item)}`)));
     nextButton.disabled = Boolean(prepared.errors.length || !prepared.rows.length);
@@ -200,17 +205,21 @@ export function setupExcelImport({ button, dialog, getContext, onImported, onErr
       used[code.value] = true;
       code.maxLength = 3;
       code.setAttribute("aria-label", `קוד עבור ${name}`);
-      row.append(element("strong", name), code, typeSelect(name, "expense"));
+      row.append(element("strong", name), code, typeSelect(name, prepared.suggested[name] ?? "expense"));
       return row;
     });
     const knownRows = Object.keys(codes).map((name) => {
       const row = element("div", undefined, "unknown-account");
       row.dataset.name = name;
       row.dataset.known = "";
-      row.append(element("strong", name), element("span", codes[name]), typeSelect(name, types[name]));
+      row.append(element("strong", name), element("span", codes[name]), typeSelect(name, prepared.suggested[name] ?? types[name]));
       return row;
     });
-    unknownList.replaceChildren(...unknownRows, ...knownRows);
+    // Rows whose type was suggested come first and are marked, so the user sees what the file made the app change.
+    const listed = [...unknownRows, ...knownRows];
+    for (const row of listed) row.classList.toggle("suggested", row.dataset.name in prepared.suggested);
+    listed.sort((a, b) => Number(b.classList.contains("suggested")) - Number(a.classList.contains("suggested")));
+    unknownList.replaceChildren(...listed);
     prepared.errors = recheckImport(prepared, chosenTypes());
     details.hidden = false;
     renderProblems();

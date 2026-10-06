@@ -96,7 +96,10 @@ class types in the chart of accounts. The types depend on the client's Rivhit se
 `רכב רשוי וביטוח` as an ordinary expense, another keeps it outside the input base), so the chart keeps a default type
 per class and optional per-client types (`clientTypes: { clientId: type }`). The import wizard lists every class of
 the file with this client's type, re-runs the footer checks (`recheckImport`) on every change, and saves a changed
-type of a known class for this client only.
+type of a known class for this client only. When the footer does not add up under the current types, the wizard
+searches the class types that make every check pass (`suggestClassTypes`, at most 16 classes, fewest changes from
+the current types), preselects them, highlights the changed rows at the top and says so. A suggestion is used only
+if `recheckImport` confirms it; the user can still change any type.
 
 ## Not in the file
 

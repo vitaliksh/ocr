@@ -134,6 +134,63 @@ export function footerErrors(rows, footer, classTypes = DEFAULT_CLASS_TYPES) {
   return errors;
 }
 
+// Finds the class types ({ name: type }) under which every footer check passes, changing as few of `current` as
+// possible; null when no assignment fits, the footer is incomplete or the file has too many classes to search.
+export function suggestClassTypes(rows, footer, current = {}) {
+  const keys = ["outputsGross", "outputsVat", "equipmentGross", "equipmentVat", "inputsGross", "inputsVat", "totalVat"];
+  if (keys.some((key) => footer[key] == null)) return null;
+  const names = [...new Set(rows.map((row) => row.classificationName))];
+  if (!names.length || names.length > 16) return null;
+  const cents = (value) => Math.round(value * 100);
+  const near = (a, b) => Math.abs(a - b) <= 1;
+  const gross = names.map(() => 0);
+  const vat = names.map(() => 0);
+  for (const row of rows) {
+    const index = names.indexOf(row.classificationName);
+    gross[index] += cents(row.gross);
+    vat[index] += cents(row.vat);
+  }
+  const full = (1 << names.length) - 1;
+  const sumGross = new Float64Array(full + 1);
+  const sumVat = new Float64Array(full + 1);
+  for (let mask = 1; mask <= full; mask += 1) {
+    const low = 31 - Math.clz32(mask & -mask);
+    const rest = mask & (mask - 1);
+    sumGross[mask] = sumGross[rest] + gross[low];
+    sumVat[mask] = sumVat[rest] + vat[low];
+  }
+  const [outputsGross, outputsVat, equipmentGross, equipmentVat, inputsGross, inputsVat, totalVat] = keys.map((key) => cents(footer[key]));
+  const incomes = [];
+  const equipments = [];
+  for (let mask = 0; mask <= full; mask += 1) {
+    if (near(sumGross[mask], outputsGross) && near(sumVat[mask], outputsVat)) incomes.push(mask);
+    if (near(sumGross[mask], equipmentGross) && near(-sumVat[mask], equipmentVat)) equipments.push(mask);
+  }
+  let best = null;
+  let bestScore = Infinity;
+  let budget = 3_000_000;
+  for (const income of incomes) {
+    for (const equipment of equipments) {
+      if (income & equipment) continue;
+      const rest = full & ~(income | equipment);
+      for (let outside = rest; budget > 0; outside = (outside - 1) & rest) {
+        budget -= 1;
+        const inputs = rest & ~outside;
+        if (near(sumGross[inputs], inputsGross) && near(-sumVat[inputs], inputsVat) && near(outputsVat - inputsVat - equipmentVat + sumVat[outside], totalVat)) {
+          const types = names.map((_, i) => {
+            const bit = 1 << i;
+            return income & bit ? "income" : equipment & bit ? "equipment" : outside & bit ? "outsideVatBase" : "expense";
+          });
+          const score = types.filter((type, i) => type !== (current[names[i]] ?? "expense")).length;
+          if (score < bestScore) [best, bestScore] = [types, score];
+        }
+        if (outside === 0) break;
+      }
+    }
+  }
+  return best && Object.fromEntries(names.map((name, i) => [name, best[i]]));
+}
+
 // `rows` is a 0-based grid of cells; dates may be Excel serial numbers or ISO strings.
 export function parseJournalGrid(rows, { classTypes = DEFAULT_CLASS_TYPES } = {}) {
   const errors = [];

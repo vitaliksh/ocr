@@ -304,6 +304,13 @@
   font-weight: 600;
 }
 
+.unknown-account.suggested {
+  padding: var(--s1) var(--s2);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+}
+
 #excel-import-warnings:not(:empty) {
   margin-top: var(--s3);
 }

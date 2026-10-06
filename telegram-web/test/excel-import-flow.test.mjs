@@ -85,6 +85,7 @@ test("мастер импорта: типы клиента исправляют 
   assert.deepEqual(prepared.unknown, ["ביגוד", "הכנסה חייבת"]);
   assert.equal(prepared.types["רכב רשוי וביטוח"], "expense");
   assert.ok(prepared.errors.some((error) => error.code === "footer-mismatch"));
+  assert.deepEqual(prepared.suggested, { "ביגוד": "outsideVatBase", "הכנסה חייבת": "income", "רכב רשוי וביטוח": "outsideVatBase" });
   const newAccounts = [
     { name: "ביגוד", code: "240", type: "outsideVatBase" },
     { name: "הכנסה חייבת", code: "161", type: "income" },
@@ -100,7 +101,7 @@ test("мастер импорта: типы клиента исправляют 
   assert.deepEqual(chart[217], { name: "רכב רשוי וביטוח", type: "expense", clientTypes: { c1: "outsideVatBase" } });
   assert.equal(chartForClient(chart, "c2")[217].type, "expense");
   const again = await prepareImport(file(), { dataRoot, loadLibrary, clientId: "c1" });
-  assert.deepEqual([again.unknown, again.errors], [[], []]);
+  assert.deepEqual([again.unknown, again.errors, again.suggested], [[], [], {}]);
   const other = await prepareImport(file(), { dataRoot, loadLibrary, clientId: "c2" });
   assert.ok(other.errors.some((error) => error.key === "inputsGross"));
 });

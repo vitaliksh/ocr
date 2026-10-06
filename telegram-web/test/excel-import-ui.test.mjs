@@ -231,29 +231,38 @@ test("мастер импорта: файл с ошибками остаётся
   assert.match(q("excel-import-problems").textContent, /שגיאה/);
 });
 
-test("диалог импорта: смена типа кода мгновенно пересчитывает итоги и сохраняется для клиента", async () => {
+test("диалог импорта: типы подбираются по итогам файла, выделяются и ведут к импорту без ручной правки", async () => {
   const { pick, q, open, window, calls, dataRoot } = await setup();
   open();
   await pick(buildJournalGrid(OTHER_CLIENT));
   await settle();
-  assert.equal(q("excel-import-problems").querySelectorAll(".problem-error").length, 1);
-  assert.match(q("excel-import-problems").textContent, /אינם תואמים לשורות: «עסקאות כולל», «מע״מ עסקאות»/);
-  const order = [...q("excel-import-problems").parentElement.children].map((node) => node.id);
-  assert.ok(order.indexOf("excel-import-unknown") < order.indexOf("excel-import-warnings"));
-  assert.equal(q("excel-import-next").disabled, true);
-  const setType = (name, type) => {
-    const select = q("excel-import-unknown-list").querySelector(`[data-name="${name}"] select`);
-    select.value = type;
-    select.dispatchEvent(new window.Event("change"));
-  };
-  setType("הכנסה חייבת", "income");
-  setType("ביגוד", "outsideVatBase");
+  assert.equal(q("excel-import-problems").querySelectorAll(".problem-error").length, 0);
+  assert.equal(q("excel-import-next").disabled, false);
+  assert.match(q("excel-import-problems").textContent, /הוגדרו אוטומטית.*«ביגוד».*«רכב רשוי וביטוח».*«הכנסה חייבת»/);
+  const rows = [...q("excel-import-unknown-list").children];
+  assert.deepEqual(rows.map((row) => row.classList.contains("suggested")), [true, true, true, false]);
+  const select = (name) => q("excel-import-unknown-list").querySelector(`[data-name="${name}"] select`);
+  assert.deepEqual(["הכנסה חייבת", "ביגוד", "רכב רשוי וביטוח", "אחזקה"].map((name) => select(name).value), ["income", "outsideVatBase", "outsideVatBase", "expense"]);
+  // A manual change is re-checked at once.
+  select("ביגוד").value = "expense";
+  select("ביגוד").dispatchEvent(new window.Event("change"));
   assert.match(q("excel-import-problems").textContent, /תשומות כולל/);
-  setType("רכב רשוי וביטוח", "outsideVatBase");
-  assert.doesNotMatch(q("excel-import-problems").textContent, /שגיאה/);
+  assert.equal(q("excel-import-next").disabled, true);
+  select("ביגוד").value = "outsideVatBase";
+  select("ביגוד").dispatchEvent(new window.Event("change"));
   assert.equal(q("excel-import-next").disabled, false);
   q("excel-import-run").click();
   for (let i = 0; i < 100 && !calls.imported.length; i += 1) await settle();
   assert.equal(calls.imported.length, 1);
   assert.deepEqual((await readChartOfAccounts(dataRoot))[217].clientTypes, { c1: "outsideVatBase" });
+});
+
+test("диалог импорта: если типы по итогам не подобрать, ошибка остаётся и блокирует импорт", async () => {
+  const { pick, q, open } = await setup();
+  open();
+  await pick(buildJournalGrid({ ...OTHER_CLIENT, footer: { totalVat: "1.00" } }));
+  await settle();
+  assert.equal(q("excel-import-problems").querySelectorAll(".problem-error").length, 1);
+  assert.doesNotMatch(q("excel-import-problems").textContent, /הוגדרו אוטומטית/);
+  assert.equal(q("excel-import-next").disabled, true);
 });

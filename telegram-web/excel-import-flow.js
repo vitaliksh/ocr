@@ -12,7 +12,7 @@ import {
 } from "./chart-of-accounts.js";
 import { buildImportedRows, importWarnings } from "./excel-import.js";
 import { importRowsIntoDeclaration } from "./excel-import-store.js";
-import { footerErrors, parseJournalGrid } from "./excel-journal.js";
+import { footerErrors, parseJournalGrid, suggestClassTypes } from "./excel-journal.js";
 import { readJournalGrid } from "./excel-journal-reader.js";
 
 const round2 = (value) => Math.round(value * 100) / 100;
@@ -43,12 +43,13 @@ export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary
   const { codes, unknown } = matchClassNames(parsed.rows.map((row) => row.classificationName), chart);
   const sum = (field) => round2(parsed.rows.reduce((total, row) => total + row[field], 0));
   const { month, year } = parsed.declarationMonth ?? {};
-  return {
+  const prepared = {
     chart,
     chartIsNew: existing === null,
     codes,
     unknown,
     types: Object.fromEntries(Object.entries(codes).map(([name, code]) => [name, clientChart[code].type])),
+    suggested: {},
     footer: parsed.footer,
     rows: parsed.rows,
     errors: parsed.errors,
@@ -56,6 +57,18 @@ export async function prepareImport(file, { dataRoot, reserved = {}, loadLibrary
     suggestedMonth: month ? `${year}-${String(month).padStart(2, "0")}` : "",
     totals: { net: sum("net"), vat: sum("vat"), gross: sum("gross") },
   };
+  prepared.suggested = suggestTypes(prepared);
+  return prepared;
+}
+
+// Class types ({ name: type }, only those that differ from the current ones) under which the footer of the file adds
+// up, or {} when it already does or no assignment fits. A suggestion is kept only if recheckImport confirms it.
+function suggestTypes(prepared) {
+  if (!prepared.errors.some((error) => error.code === "footer-mismatch") || prepared.errors.some((error) => error.row)) return {};
+  const current = Object.fromEntries(prepared.rows.map(({ classificationName: name }) => [name, prepared.types[name] ?? "expense"]));
+  const found = suggestClassTypes(prepared.rows, prepared.footer, current);
+  if (!found || recheckImport(prepared, found).length) return {};
+  return Object.fromEntries(Object.entries(found).filter(([name, type]) => type !== current[name]));
 }
 
 // `newAccounts` is [{ name, code, type }] for every name in prepared.unknown; `typeChanges` is [{ name, type }] for

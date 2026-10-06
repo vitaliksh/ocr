@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { footerErrors, parseJournalGrid } from "../excel-journal.js";
+import { footerErrors, parseJournalGrid, suggestClassTypes } from "../excel-journal.js";
 import { buildJournalGrid, OTHER_CLIENT, SAMPLE_ROWS } from "./excel-journal-fixture.mjs";
 
 const codes = (list) => list.map((item) => item.code);
@@ -105,4 +105,16 @@ test("журнал Excel: НДС строк вне базы входит в ит
   const wrong = parseJournalGrid(grid);
   assert.deepEqual(wrong.errors.map((error) => error.key), ["outputsGross", "outputsVat", "inputsGross", "inputsVat", "balance"]);
   assert.deepEqual(footerErrors(wrong.rows, wrong.footer, classTypes), []);
+});
+
+test("журнал Excel: типы классов подбираются по итогам файла с минимумом правок", () => {
+  const grid = buildJournalGrid(OTHER_CLIENT);
+  const { rows, footer } = parseJournalGrid(grid);
+  const found = suggestClassTypes(rows, footer, { "אחזקה": "expense", "ביגוד": "expense", "רכב רשוי וביטוח": "expense", "הכנסה חייבת": "expense" });
+  assert.deepEqual(found, { "אחזקה": "expense", "ביגוד": "outsideVatBase", "רכב רשוי וביטוח": "outsideVatBase", "הכנסה חייבת": "income" });
+  assert.deepEqual(footerErrors(rows, footer, { income: ["הכנסה חייבת"], equipment: [], outsideVatBase: ["ביגוד", "רכב רשוי וביטוח"] }), []);
+  // The current types are kept when they already fit.
+  assert.deepEqual(suggestClassTypes(rows, footer, found), found);
+  assert.equal(suggestClassTypes(rows, { ...footer, outputsGross: 1 }, {}), null);
+  assert.equal(suggestClassTypes(rows, { ...footer, equipmentGross: undefined }, {}), null);
 });
