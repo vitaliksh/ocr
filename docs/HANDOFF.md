@@ -1,13 +1,13 @@
 # Handoff — ANNATERIA (formerly Rivhit document intake)
 
-**Updated:** 4 October 2026 (backup and transfer phase added, see `BACKUP_SPEC.md`). Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
+**Updated:** 7 October 2026 (the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties; see "Dry run with two real clients" below). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
 the Rivhit TXT export is deprecated (code kept, hidden in the "⋯" menu). Read in this order: this file, `MIGRATION_HANDOFF.md`
 (Excel migration, reports, working agreements), `GUI_REDESIGN_PLAN.md` (what the new interface is and why).
 The Rivhit-intake sections below were last re-verified on 19 September 2026 and describe the legacy export.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.03.27 · 21:15 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.07.28 · 17:55 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.03.27 · 21:15 IDT
+גרסת ממשק: 2026.10.07.28 · 17:55 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -89,7 +89,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `custom-rivhit-mapping.js` — local custom codes and Form 6111 overrides.
   - `rivhit-export.js` — CP1255 186-column TXT builder and validation.
   - `pdf-import.js`, `pdf-report.js` — local PDF import and reports.
-  - `excel-journal.js` — pure parser of the Rivhit journal grid (see `EXCEL_IMPORT_SPEC.md`).
+  - `excel-journal.js` — pure parser of the Rivhit journal grid (see `EXCEL_IMPORT_SPEC.md`); `footerErrors` re-runs the footer checks for given class types, `suggestClassTypes` finds the class types under which every footer check passes (fewest changes from the current ones, at most 16 classes). The month total of the footer is the plain sum of the VAT column, so VAT of rows outside the input base is part of it.
   - `excel-journal-reader.js` — `.xlsx` → grid; loads SheetJS 0.20.3 on demand from `cdn.sheetjs.com` (dev copy: `xlsx` tarball).
   - `chart-of-accounts.js` — per-root chart of accounts (`common/chart-of-accounts.json`, schema 1): classification name → code and type (`income`, `expense`, `outsideVatBase`, `equipment`), optional per-client types (`clientTypes`, `chartForClient`, `setClientType`); seed from the ledger, unknown-name matching, `classTypes` for the Excel parser. A client's own chart (`<client>/classification-codes.json`: `readClientChart`, `saveClientChart`, `readEffectiveChart`) replaces the root chart for that client.
   - `ledger-chart.js` — reads the client's classification ledger (`כרטסת קודי מיון`, .xlsx or .pdf via pdf.js text positions) into a chart; `ledger-codes-flow.js` — prepare/commit: writes the client chart and rewrites the codes of Excel-imported rows in open declarations by class name (copy `draft-table.before-codes-<time>.json` first; locked declarations are only reported); `ledger-codes-ui.js` — the dialog, opened from the first step of the Excel import wizard.
@@ -97,14 +97,14 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - Client properties (`workspace.json`): `vatPeriod` and `advancesPeriod`, each `monthly` or `bimonthly`, edited in the client dialogs (new client, "פרטי לקוח"), shown on the client card, used by the reports page as the default periods of the VAT and of the advances report. A client saved before that keeps its VAT period in `report-settings.json`; it is read from there until the client is saved again.
   - `excel-import.js` — parsed journal rows → draft-table rows (source amounts, recognition 100/100, no image).
   - `excel-import-store.js` — writes imported rows into a new or empty open declaration; optional close without an export folder (`finalExport = "excel-import"`, history appended once). Replaces a declaration that has rows only on request (the old table is first copied to `draft-table.before-import-<time>.json`); closed declarations are never touched.
-  - `excel-import-flow.js` — wizard steps without DOM: `prepareImport` (read, parse, match names, totals) and `commitImport` (extend and save the chart first, then write rows).
+  - `excel-import-flow.js` — wizard steps without DOM: `prepareImport` (read, parse, match names, totals; imports against the client's own chart when it has one, `chartScope`; `suggested` = class types that make the footer add up, kept only if `recheckImport` confirms them) and `commitImport` (extend and save the chart first — the client chart or the root chart —, then write rows).
   - `excel-import-ui.js` — the "ייבוא מ‑Excel" dialog (`#excel-import-dialog`); imports into the currently selected client; `app.js` wires it and opens the imported declaration. The dialog shows the state of the chosen month (missing / empty / N rows / closed) and, for a declaration with rows, a "replace" checkbox; `app.js` detaches the open table (`onBeforeCommit`) so its autosave cannot overwrite imported rows.
   - `reports.js` — pure VAT, advances, profit-and-loss and classification-ledger calculations (see `REPORTS_SPEC.md`).
-  - `report-data.js` — loads all declarations of a client for the reports and the per-client `report-settings.json` (VAT period monthly/bimonthly, advance percent).
+  - `report-data.js` — loads all declarations of a client for the reports and the per-client `report-settings.json` (advance percent; its VAT period is only a fallback for clients saved before the periods became client properties).
   - `reports-view.js`, `reports.css` — RTL HTML rendering of the four reports (inline fallback when the popup is blocked).
   - `reports-pdf.js` — Rivhit-style A4 pages: pure `layoutReport` (draw operations) and a canvas renderer wrapped into a PDF by `jpegPagesToPdf`.
   - `report-viewer.js` — child window with Close / Save a copy as / Save buttons.
-  - `reports-ui.js` — the reports page (`#reports-view`, since 3 Oct a page of the app, not a dialog; `setupReports` returns `open({ client, kind })` and calls `onOpen` to reveal the view): report kind, period (default: the client's VAT period or year to date), advance percent, "הצגה" (child window), "שמירת כל המסמכים" (PDFs into `<client>/reports/`).
+  - `reports-ui.js` — the reports page (`#reports-view`, since 3 Oct a page of the app, not a dialog; `setupReports` returns `open({ client, kind })` and calls `onOpen` to reveal the view): report kind, period (default: the client's VAT period for the VAT report, its advances period for the advances report, year to date for the others; both come from the client properties and are shown read-only), advance percent, "הצגה" (child window), "שמירת כל המסמכים" (PDFs into `<client>/reports/`).
   - `history-ranker.js` — local, text-only Pass 2 history selection.
   - Backup (`BACKUP_SPEC.md`): `backup-store.js` (encrypted, write-once, hash-addressed copy into a user-picked folder: create, list, verify, restore, retention list; pure of DOM), `backup-state.js` (`common/backup-state.json`: last success per slot `cloud`/`usb`, `includeImages`; `backupLevel` decides the plate: cloud older than 2 days or flash older than 35 days = red), `backup-handles.js` (IndexedDB keys `backup-folder-cloud`, `backup-folder-usb`, `backup-key`), `transfer-store.js` / `transfer-ui.js` (the `.annateria` transfer file, see `BACKUP_SPEC.md`), `backup-ui.js` (`#backup-dialog`, the "גיבוי" sidebar item with a status dot, recovery code, copy now, verify, restore; `runAuto("start" | "lock")` is called by `app.js` after a data root is opened and after a declaration is locked), `backup.css`.
 - `cloudflare-worker/`
@@ -148,17 +148,19 @@ non-extractable backup key). Per data root: `common/ui-settings.json` (hidden jo
 ├─ common/
 │  ├─ PKUDA_AI_TEST.TXT          (legacy Rivhit export only; optional)
 │  ├─ custom-rivhit-mapping.json
-│  ├─ chart-of-accounts.json     (created by the Excel import, see MIGRATION_HANDOFF.md)
+│  ├─ chart-of-accounts.json     (shared default chart for clients without their own; created by the Excel import, see MIGRATION_HANDOFF.md)
 │  ├─ ui-settings.json           (hidden journal columns, typed folder path)
 │  └─ backup-state.json          (when each backup slot last succeeded)
 └─ clients/<client>/
-   ├─ workspace.json
+   ├─ workspace.json             (client name, activity, kind, vatPeriod and advancesPeriod: monthly|bimonthly)
+   ├─ classification-codes.json  (the client's own Rivhit codes, loaded from its ledger; replaces the shared chart for this client)
    ├─ history.jsonl              (rows of locked declarations; removed on reopen, written again on lock)
-   ├─ report-settings.json       (VAT period, advance percent)
+   ├─ report-settings.json       (advance percent; legacy VAT period)
    ├─ reports/                   (saved report PDFs)
    └─ declarations/YYYY-MM/
       ├─ declaration.json        (status open|closed, finalExport, reopenLog [{ at, reason }])
       ├─ draft-table.json
+      ├─ draft-table.before-<import|codes|ledger>-<time>.json  (copy of the table before an import replace, a code remap or an added ledger row)
       ├─ images/
       └─ exports/YYYY-MM-DD_HH-mm[_NNN]/
          ├─ invoices.pdf
@@ -251,6 +253,22 @@ Pass 2 receives only the active draft row and 1–8 relevant closed-history reco
 
 Pass 2 may change classification, recognition percentages, confidence, review state, and agent opinion. It must not alter date, supplier, supplier ID, references, allocation number, raw net/VAT/gross, or currency. It receives the same Form 6111 and custom-code context as Pass 1.
 
+## Dry run with two real clients (5–7 October 2026)
+
+Two real clients (called A and B here; folders `<data-root>\clients\…`, sources in `<data-root>\input\input_<date>_<name>` with the journals, the classification ledger `כרטסת`, the profit-and-loss report and the VAT/advances PDFs of the bookkeeper) were imported from scratch and compared with the bookkeeper's reports. Real names and amounts stay out of the repository.
+
+What was verified (all equal to the bookkeeper): every imported row against its journal file; every class (net and VAT) against the ledger totals; VAT July–August of both clients and the advances of client B; after the ledger check, expenses and profit of both profit-and-loss reports.
+
+What the dry run found and what was built for it:
+
+1. **The footer checks failed on the first file.** Rivhit's month total is the plain sum of the VAT column, while the inputs line leaves out rows outside the input base (clothing, property tax …); the old formula assumed those rows have no VAT. Fixed, and `checkFooter` is re-run live when the user changes a class type in the import wizard. The wizard no longer makes the user guess the types: `suggestClassTypes` preselects the types under which the footer adds up and highlights them.
+2. **Rivhit codes are per client** (the same class has different codes at the two clients; the old shared chart was just client B's). A client now has its own chart in `<client>/classification-codes.json`, loaded from its ledger (xlsx or pdf) in the dialog opened from the first step of the Excel import wizard; the shared chart stays only as the default for clients without one. Loading rewrites the codes of rows imported earlier (by class name, copy first).
+3. **The journals miss operations that the ledger has** (client A: 7, client B: 4; cause unknown, the guess is operations entered through another book or standing orders; the bookkeeper was asked). The ledger is complete, so "בדיקה מול כרטסת…" (menu "+ הוספת מסמכים") compares all its operations with the declarations and adds the missing ones.
+4. **Months declared together.** Client B has no declarations 03 and 07: March documents are in journal 4, July's in journal 8; its VAT period is 7–8 and is built from declaration 08 alone. VAT and advances periods are now two separate client properties (`vatPeriod`, `advancesPeriod`).
+5. Pitfalls met on the way: the embedded browser caches module files (use a static server with `Cache-Control: no-store`); a cloned `<dialog>` keeps its `open` attribute and then refuses `showModal()`; PDF ledgers print a header again when a class continues on the next page.
+
+Order that works for a new client (also the answer to "what do I do with the bookkeeper's files"): 1. create the client and set its VAT and advances periods; 2. load the ledger codes; 3. import the journals month by month (types are suggested from the footer); 4. run "בדיקה מול כרטסת…"; 5. compare the VAT and profit-and-loss reports with the bookkeeper's PDFs; 6. only then lock the months.
+
 ## Confirmed state and remaining manual checks
 
 Completed:
@@ -273,7 +291,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.03.27 · 21:15 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.07.28 · 17:55 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -282,6 +300,13 @@ Recommended short production check:
 ## Next decisions
 
 Next phase (Excel migration, reports, GUI): see [`MIGRATION_HANDOFF.md`](MIGRATION_HANDOFF.md).
+
+After the dry run (7 Oct):
+
+- **Open with the bookkeeper:** why the journal export misses operations (see above). Until answered, run the ledger check for every client after its import.
+- **Open with Vitalik:** set the VAT and advances periods in the details of both test clients (they default to monthly; both clients file their VAT every two months) and press save once on a test client (the save button of the client dialog cannot be exercised in the embedded browser, only the code was reviewed); check "בדיקה מול כרטסת…" on the published page; then lock the months.
+- **Proposed next feature, not built:** "accept the bookkeeper's folder": pick one folder, the app finds the ledger and the journals `1…12`, imports them in order and finishes with the checks against the control files (profit-and-loss and VAT PDFs). The ledger parser already reads everything needed except those two reports.
+- The client edit dialog still lacks the advance percent (it stays on the reports page); moving it to the client properties would finish the idea.
 
 1. **Backups and transfer files** — built and pushed (3–4 Oct, `BACKUP_SPEC.md`): encrypted copies into a Google Drive folder and a USB drive with a status dot, restore, and the `.annateria` transfer file for a month or a whole client. Verified by Vitalik: Drive copy, restore into an empty folder, transfer export/import. Left: the rollout on the real PC (checklist in `BACKUP_SPEC.md`), then optionally the manual clean-up of old snapshots (nothing is deleted automatically; the data are small). Until the first real copies exist the local folder is the only copy of the client data.
 2. Store the client tax ID (עוסק מורשה) so the report PDFs can show it (data-model change; the client card has room for it).
@@ -301,7 +326,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **279 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **317 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

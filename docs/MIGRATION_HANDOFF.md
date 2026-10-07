@@ -1,6 +1,6 @@
 # Handoff — Rivhit → OCR migration, Excel import and reports
 
-**Written:** 2 October 2026. **Updated:** 4 October 2026.
+**Written:** 2 October 2026. **Updated:** 7 October 2026 (dry run with two real clients, see the end).
 **Status:** steps 1–5 (migration, reports) and step 6 (the GUI redesign, now the product **ANNATERIA**) are implemented, tested
 and pushed to `main`. Vitalik checked steps 1–5 and most of the redesign on the published page; stages 7–8 (reports page,
 keyboard polish) await his check. Step 7 (backups and the transfer file, 3–4 Oct) is built too, see `BACKUP_SPEC.md`. See "Status and what is left" at the end and `GUI_REDESIGN_PLAN.md`.
@@ -64,12 +64,13 @@ Rivhit's printed journal "ספר תקבולים תשלומים – יומן קל
    Pass 2).
 4. **Store imported amounts as source values with expense 100 % and VAT 100 %.** Do **not** run the business rules
    (`applyBusinessRule`, codes 806/807/812, home-utility 25 %) on imported rows, or the VAT is reduced twice.
-5. **Chart of accounts per client/root** (new concept): code, name, type. Types observed in the data:
+5. **Chart of accounts** (new concept; since 6 Oct per client, see "Dry run" at the end): code, name, type. Types observed in the data:
    income; ordinary expense; expense outside the VAT input base (property tax, business insurance); equipment
    (separate VAT line, excluded from P&L). Seed it once from the ledger PDF (below), let the user confirm in the
    wizard and map unknown names manually. Store it next to `common/custom-rivhit-mapping.json`. New clients create their
    own codes as today. Codes 160, 2xx, 900 do not collide with built-in 800–888.
-6. **Reporting period is separate from the declaration month.** Per-client setting monthly/bimonthly, overridable per
+6. **Reporting period is separate from the declaration month.** Two per-client properties, `vatPeriod` and `advancesPeriod`
+   (monthly or bimonthly each, since 7 Oct; before that one shared setting in `report-settings.json`), overridable per
    declaration. The VAT report sums all declarations whose month falls in the period (as Rivhit did: months 1 and 2 were
    separate files feeding one report). Merging two months into one declaration (the bookkeeper does this when volume is
    low) works because document dates do not depend on the declaration month.
@@ -99,8 +100,8 @@ All figures below are derived from the Excel rows; the PDFs are the expected val
   Expenses are shown negative here.
 
 Verified relations (use as the migration test): per-class sums from the Excel files equal the ledger totals for every
-class except code 217 (one row without VAT that is in no provided file; months 3 and 7 were merged into other
-declarations, so no file exists). Business insurance and property tax are excluded from the "inputs" aggregate while zero-VAT parking
+class except code 217 (four operations without VAT that the journal export misses; months 3 and 7 were merged into other
+declarations, so no file exists). The ledger check of 7 Oct adds such operations. Business insurance and property tax are excluded from the "inputs" aggregate while zero-VAT parking
 rows are included — reproduce this through the type in the chart of accounts, and confirm with the footer checksums.
 
 ## Open questions
@@ -165,7 +166,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.03.27 · 21:15 IDT`. Tests: **279** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.07.28 · 17:55 IDT`. Tests: **317** frontend,
   **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct, with the interface of that time):** real disk folder, import of the
@@ -175,7 +176,8 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
   in-page confirm dialogs for delete / archive / close declaration.
 - Expected figures with the six sample files (Vitalik's own data, not in the repo): VAT July–August turnover 46,490, output
   VAT 8,368, input VAT 1,598, payable 6,770; advances at 12 % 5,579; P&L year income 172,046; every figure matches the Rivhit
-  PDFs except class 217 (8,693), whose single transaction is in none of the files.
+  PDFs except class 217 (8,693), whose four operations are in none of the journal files; the ledger check adds them and then the
+  profit-and-loss report matches too.
 - Known limitations: imported rows have no source image, so the legacy `invoices.pdf` export fails for them (Rivhit TXT
   export is not supported for imported rows; Rivhit is abandoned); locking a declaration no longer needs the template or an
   export (changed 3 Oct); month names in the ledger are Hebrew, amounts in the ledger keep agorot while other reports use
@@ -205,3 +207,16 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
   bump the frontend marker in `index.html` (and `docs/HANDOFF.md`) before a push that changes `telegram-web/`.
 - Real client data (`new examples/`) never goes into code, tests, docs or commits.
 - Test harness for `app.js`: `telegram-web/test/app-harness.mjs` (jsdom + esbuild in memory). Run `npm ci` first.
+
+## Dry run with two real clients (5–7 October 2026)
+
+The details (what was verified, what was found, the order for a new client) are in `HANDOFF.md`, section "Dry run with two
+real clients". In short, built in this phase, all in `main`:
+
+- Footer fix and live re-check; `suggestClassTypes` preselects the class types that make the footer add up.
+- Per-client chart `classification-codes.json` loaded from the ledger (`ledger-chart.js`, `ledger-codes-flow.js`,
+  `ledger-codes-ui.js`); the wizard imports against it; the old shared chart is only the default.
+- Ledger check (`ledger-rows.js`, `ledger-reconcile.js`, `ledger-reconcile-flow.js`, `ledger-check-ui.js`): reads every
+  operation, compares with the declarations, adds the missing ones.
+- `vatPeriod` and `advancesPeriod` in the client properties; the reports page and the client card use them.
+- Not built: the one-folder "accept the bookkeeper's folder" import with checks against the control reports.

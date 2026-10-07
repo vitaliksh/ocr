@@ -120,7 +120,7 @@ names. The ledger lists every class with its code, grouped into sections (`הכ�
 ### Checking the declarations against the ledger
 
 The ledger lists every operation with its declaration month, line number, date, details, references and amounts; the
-exported journals turned out to miss operations (Eva: 7, Tali: 4; every class total of the ledger is equal otherwise).
+exported journals turned out to miss operations (7 and 4 operations at the two real clients tested; every other class total of the ledger was equal).
 `ledger-rows.js` reads all operations (xlsx: columns by the header row of each block; pdf: columns by the right edge of
 the text, a class that continues on the next page repeats its header). Each class block is checked against its own total
 (gross, net, VAT); a file that does not add up is rejected instead of being reconciled against.
