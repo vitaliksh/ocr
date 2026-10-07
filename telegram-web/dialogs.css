@@ -317,6 +317,36 @@
   border-radius: var(--radius-sm);
 }
 
+.rows-move-list {
+  display: grid;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.move-line {
+  display: grid;
+  grid-template-columns: 10em minmax(0, 1fr);
+  gap: var(--s1) var(--s3);
+  align-items: center;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.move-line[data-moving="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.move-line .move-note {
+  grid-column: 2;
+  color: var(--warning);
+}
+
+.move-line .move-note:empty {
+  display: none;
+}
+
 .unknown-account.suggested {
   padding: var(--s1) var(--s2);
   border: 1px solid var(--warning-border);

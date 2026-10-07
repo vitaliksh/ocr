@@ -12,7 +12,7 @@ export function binaryDirectory(name = "root", state = { failures: [] }) {
       createWritable: async () => {
         let next = file.bytes;
         return {
-          write: async (data) => { next = typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data); },
+          write: async (data) => { next = typeof data === "string" ? new TextEncoder().encode(data) : data?.arrayBuffer ? new Uint8Array(await data.arrayBuffer()) : new Uint8Array(data); },
           close: async () => {
             const failure = state.failures.find((f) => f.times > 0 && f.match.test(childName));
             if (failure) {

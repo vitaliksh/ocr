@@ -1,13 +1,13 @@
 # Handoff — ANNATERIA (formerly Rivhit document intake)
 
-**Updated:** 7 October 2026 (the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties; see "Dry run with two real clients" below). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
+**Updated:** 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
 the Rivhit TXT export is deprecated (code kept, hidden in the "⋯" menu). Read in this order: this file, `MIGRATION_HANDOFF.md`
 (Excel migration, reports, working agreements), `GUI_REDESIGN_PLAN.md` (what the new interface is and why).
 The Rivhit-intake sections below were last re-verified on 19 September 2026 and describe the legacy export.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.07.28 · 17:55 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.07.29 · 18:36 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.07.28 · 17:55 IDT
+גרסת ממשק: 2026.10.07.29 · 18:36 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -94,6 +94,9 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `chart-of-accounts.js` — per-root chart of accounts (`common/chart-of-accounts.json`, schema 1): classification name → code and type (`income`, `expense`, `outsideVatBase`, `equipment`), optional per-client types (`clientTypes`, `chartForClient`, `setClientType`); seed from the ledger, unknown-name matching, `classTypes` for the Excel parser. A client's own chart (`<client>/classification-codes.json`: `readClientChart`, `saveClientChart`, `readEffectiveChart`) replaces the root chart for that client.
   - `ledger-chart.js` — reads the client's classification ledger (`כרטסת קודי מיון`, .xlsx or .pdf via pdf.js text positions) into a chart; `ledger-codes-flow.js` — prepare/commit: writes the client chart and rewrites the codes of Excel-imported rows in open declarations by class name (copy `draft-table.before-codes-<time>.json` first; locked declarations are only reported); `ledger-codes-ui.js` — the dialog, opened from the first step of the Excel import wizard.
   - `ledger-rows.js` — reads every operation of the ledger (xlsx and pdf) with a check against the class totals; `ledger-reconcile.js` / `ledger-reconcile-flow.js` — compare them with the declarations and add the missing ones (copy first); `ledger-check-ui.js` — the dialog "בדיקה מול כרטסת…" in the menu "+ הוספת מסמכים".
+  - `income-report.js` — reads the periodic income report of the "morning" invoicing program (דיווח הכנסות תקופתי) from the text layer of its PDF (pdf.js text items via `readPdfPages`): period, totals (taxable, exempt, VAT, gross) and every document line by column position, summed per section (invoice +, credit note −, receipt ignored) and compared with the totals and the declared document counts; `buildIncomeRows` makes one income row (two if there is exempt income) with the report's own VAT; `hasIncomeRow` stops a second import into one declaration. No Gemini, no Telegram session.
+  - `month-distribution.js` — pure rules: `proposeMonth` (month of the document date, never earlier than the first month after the last locked one; no proposal for a missing or implausible date), `lockedThrough`, `deductionStatus` (VAT deduction within six months), `targetMonths`.
+  - `rows-move-flow.js` / `rows-move-ui.js` — "פיזור שורות לחודשים…" (menu "⋯"): `prepareMove` reads the saved table and proposes a month per row (Excel-imported rows `import-…` get none), `commitMove` copies the images, writes the target months (created when missing) and last the source table, with `draft-table.before-move-<time>.json` copies; the source images stay. The dialog is offered automatically after a PDF import, an income report import and "סיים העלאה" when some row belongs to another month.
   - Client properties (`workspace.json`): `vatPeriod` and `advancesPeriod`, each `monthly` or `bimonthly`, edited in the client dialogs (new client, "פרטי לקוח"), shown on the client card, used by the reports page as the default periods of the VAT and of the advances report. A client saved before that keeps its VAT period in `report-settings.json`; it is read from there until the client is saved again.
   - `excel-import.js` — parsed journal rows → draft-table rows (source amounts, recognition 100/100, no image).
   - `excel-import-store.js` — writes imported rows into a new or empty open declaration; optional close without an export folder (`finalExport = "excel-import"`, history appended once). Replaces a declaration that has rows only on request (the old table is first copied to `draft-table.before-import-<time>.json`); closed declarations are never touched.
@@ -269,6 +272,16 @@ What the dry run found and what was built for it:
 
 Order that works for a new client (also the answer to "what do I do with the bookkeeper's files"): 1. create the client and set its VAT and advances periods; 2. load the ledger codes; 3. import the journals month by month (types are suggested from the footer); 4. run "בדיקה מול כרטסת…"; 5. compare the VAT and profit-and-loss reports with the bookkeeper's PDFs; 6. only then lock the months.
 
+## Documents of several months and the income report (7 October 2026)
+
+Situation: a client brings printed invoices (photographed through Telegram) and the monthly income report as a PDF, for several months at once.
+
+- **Decision (owner):** everything the bookkeeper has already filed is locked in the app. A locked month never takes new rows, so a document dated in a filed month goes to the first open month after the last locked one. Lock only after the ledger check if its missing operations should still be added: locked declarations are only reported, never changed.
+- **Rule:** proposed month = max(month of the document date, month after the last locked one); no proposal for a missing date or one more than 24 months back / 2 months ahead. The deduction flag appears from six months after the document date (rule taken from non-official sources, to confirm with the bookkeeper). The user always confirms and can pick another open month per row.
+- **Income report:** page 1 has the totals, the next pages list the documents in right-aligned columns; the check "130 invoices − 3 credit notes = totals" was exact on a real report (the VAT total is the sum of the documents' VAT, not 18 % of the net, so it is never recomputed). Menu "+ הוספת מסמכים" → "דוח הכנסות (PDF)…" imports it without a session; the ordinary PDF import detects such a file first and does the same, so its 20 pages never reach Gemini. A scanned report still goes through Gemini page by page.
+- Verified in a real browser against a real report (served from outside the repository): the parse (136 documents, listing equals totals), the row (date = period end, net, VAT, gross), the duplicate refusal, the automatic offer after an import into the wrong month, the move with a created month and a copy of the old table.
+- **Backlog (not built):** (1) intake without a month: an inbox per client with a distribution step (stage 2 of the proposal); (2) a Telegram session stays open when another declaration is opened, so later photos land in the new month and the recognition of rows of the old table is lost: bind the session and the recognition to the declaration they started in, or warn; (3) a PDF needs a live Telegram session (QR) only to authorise the recognition route: authorise it by Windows Hello instead (Worker change); (4) the bot reads only compressed photos and no captions: a month hint in a caption or a `/month` command; (5) PDF page triage: pages without amounts (advertising, the tear-off slip that repeats the total) should not create rows; send the text layer together with the image; (6) the owner suspects that photos and PDF cannot be mixed in one month: the code has no such rule (both go to the open declaration within one session), what he met is not known, ask him for the steps; (7) warn about an identical income row in another month when importing (done only inside the move dialog).
+
 ## Confirmed state and remaining manual checks
 
 Completed:
@@ -291,7 +304,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.07.28 · 17:55 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.07.29 · 18:36 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -326,7 +339,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **317 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **358 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

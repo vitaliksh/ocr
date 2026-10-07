@@ -15,6 +15,8 @@ import {
 import { buildRivhitImport, draftExportManifest, validateRivhitImport } from "./rivhit-export.js";
 import { chartForClient, readChartOfAccounts, readClientChart } from "./chart-of-accounts.js";
 import { setupLedgerCheck } from "./ledger-check-ui.js";
+import { setupRowsMove } from "./rows-move-ui.js";
+import { buildIncomeRows, hasIncomeRow, readIncomeReportFile } from "./income-report.js";
 import { setupLedgerCodes } from "./ledger-codes-ui.js";
 import { confirmDialog, dialogResult } from "./confirm-dialog.js";
 import { NO_EXPORT_MARKER, declarationActions } from "./declaration-core.js";
@@ -54,6 +56,7 @@ const inactive = document.querySelector("#inactive"),
   finish = document.querySelector("#finish"),
   importPdf = document.querySelector("#import-pdf"),
   importPdfMenu = document.querySelector("#import-pdf-menu"),
+  importIncomeReportButton = document.querySelector("#import-income-report"),
   stop = document.querySelector("#stop-processing"),
   status = document.querySelector("#status"),
   connection = document.querySelector("#connection"),
@@ -298,6 +301,7 @@ function updateStartAvailability() {
   const actions = declarationActions({ dataRoot, declaration: currentDeclaration, workspaceCommitted: committedWorkspace });
   start.disabled = !actions.canStart;
   importPdfMenu.disabled = !actions.canStart;
+  importIncomeReportButton.disabled = !actions.canStart;
   closeDeclarationButton.disabled = !actions.canClose;
   createPdf.disabled = !actions.canClose;
   declarationBadge.hidden = !currentDeclaration;
@@ -603,6 +607,42 @@ const ledgerCheck = setupLedgerCheck({
   },
   onError: showError,
 });
+let movingMonth = null;
+const rowsMove = setupRowsMove({
+  button: document.querySelector("#move-rows"),
+  dialog: document.querySelector("#rows-move-dialog"),
+  getContext: () =>
+    committedWorkspace && currentDeclaration?.status === "open"
+      ? { client: committedWorkspace, month: currentDeclaration.month, isIncomeCode }
+      : null,
+  // The table is read from its file, so it must be saved first and must not change while the dialog is open.
+  beforeOpen: async () => {
+    if (pendingRecognitions) return `ממתינים לסיום עיבוד של ${pendingRecognitions} תמונות לפני פיזור השורות.`;
+    await saveCurrentDraft();
+    return null;
+  },
+  // Same as for the ledger check: the open table is detached while its file is rewritten and opened again afterwards.
+  onBeforeWrite: async () => {
+    movingMonth = currentDeclaration.month;
+    await saveCurrentDraft();
+    clearActiveDeclaration(currentDeclaration.declarationId);
+  },
+  onSaved: async () => {
+    await workspaceControls.refreshFromUserAction();
+    if (!movingMonth) return;
+    const month = movingMonth;
+    movingMonth = null;
+    const selected = await loadDeclaration(committedWorkspace.directory, month);
+    await activateDeclaration({ workspace: committedWorkspace, ...selected });
+  },
+  onError: showError,
+});
+function isIncomeCode(code) {
+  const account = chartForClient(chartAccounts, committedWorkspace?.config.clientId)[String(code)];
+  return (account?.type ?? (rivhitMapping[code] === "הכנסות" ? "income" : "expense")) === "income";
+}
+// After a batch of documents: offers the distribution dialog when some rows belong to another month.
+const offerDistribution = () => rowsMove.offer().catch(() => false);
 const transfer = setupTransfer({
   dialog: document.querySelector("#transfer-dialog"),
   openButton: document.querySelector("#open-transfer"),
@@ -1132,6 +1172,7 @@ finish.addEventListener("click", async () => {
     clearTimeout(timeout);
     reset();
   }
+  offerDistribution();
 });
 stop.addEventListener("click", () => {
   stopRequested = true;
@@ -1275,6 +1316,9 @@ async function importPdfFile(file) {
   importPdf.disabled = true;
   stopRequested = false;
   try {
+    // The periodic income report has a text layer that is read exactly; its pages must not go through Gemini.
+    const incomeReport = await readIncomeReportFile(file).catch(() => null);
+    if (incomeReport) return await importIncomeReportFile(file, incomeReport);
     await saveSourceImage(currentDeclarationDirectory, pdfSourceFileName(new Date(), sourceId), file);
     await renderPdfPages(file, {
       shouldStop: () => stopRequested,
@@ -1293,11 +1337,48 @@ async function importPdfFile(file) {
       },
     });
     status.textContent = stopRequested ? "ייבוא ה‑PDF נעצר. העמודים שכבר נוספו נשמרו בטיוטה." : "ייבוא ה‑PDF הושלם.";
+    offerDistribution();
   } finally {
     importPdf.disabled = false;
     queueDraftSave();
   }
 }
+// Adds the rows of a periodic income report read from its text layer (no Telegram session and no Gemini needed).
+async function importIncomeReportFile(file, report = null) {
+  if (!currentDeclarationDirectory || currentDeclaration?.status !== "open") throw new Error("יש לבחור הצהרה פתוחה.");
+  report ??= await readIncomeReportFile(file);
+  if (!report) throw new Error("הקובץ אינו דוח הכנסות תקופתי של חשבונית ירוקה (morning), או שאין בו שכבת טקסט.");
+  const rows = buildIncomeRows(report, await ensureIncomeClassification());
+  const existing = [...records.querySelectorAll("tr[data-document-id]")].map(rowSnapshot);
+  if (rows.some((row) => hasIncomeRow(existing, row))) throw new Error("דוח ההכנסות לתקופה זו כבר נמצא בהצהרה.");
+  await saveSourceImage(currentDeclarationDirectory, pdfSourceFileName(new Date(), crypto.randomUUID()), file);
+  for (const row of rows) restoreRow(row, null);
+  queueDraftSave();
+  status.textContent = rows[0].agentOpinion;
+  offerDistribution();
+}
+function chooseIncomeReport() {
+  if (!currentDeclarationDirectory || currentDeclaration?.status !== "open") return showError("יש לבחור הצהרה פתוחה.");
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/pdf,.pdf";
+  input.addEventListener(
+    "change",
+    async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        validatePdfFile(file);
+        await importIncomeReportFile(file);
+      } catch (error) {
+        showError(error.message);
+      }
+    },
+    { once: true },
+  );
+  input.click();
+}
+importIncomeReportButton.addEventListener("click", chooseIncomeReport);
 importPdf.addEventListener("click", choosePdfFile);
 // A PDF is processed through a connected Telegram session: with no session the menu item starts one and asks for the code.
 importPdfMenu.addEventListener("click", () => {
