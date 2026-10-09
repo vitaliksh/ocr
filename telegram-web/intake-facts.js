@@ -8,7 +8,7 @@
 //    months included.
 // 3. Only the year of the declaration month the row goes to is accepted ("previous-year" otherwise).
 // 4. A document for a period (annual insurance) is judged by the end of the period and goes to the month of receipt.
-import { deductionStatus, monthOfDate, nextMonth, proposeMonth } from "./month-distribution.js";
+import { deductionStatus, monthOfDate, monthsBetween, nextMonth, proposeMonth } from "./month-distribution.js";
 
 const pad = (number) => String(number).padStart(2, "0");
 const monthKey = (year, month) => (month >= 1 && month <= 12 ? `${year}-${pad(month)}` : null);
@@ -41,12 +41,21 @@ const receiptMonth = (receivedAt, today) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
 };
 
+// A period counts only when both ends are known and it spans at least three months: monthly and bimonthly bills
+// (telephone, electricity) are judged by their date like any other document, an annual insurance by its period.
+const MIN_PERIOD_MONTHS = 3;
+function periodMonths(periodFrom, periodTo) {
+  const from = monthOfAnyDate(periodFrom);
+  const to = monthOfAnyDate(periodTo);
+  return from && to && monthsBetween(from, to) >= MIN_PERIOD_MONTHS ? { from, to } : null;
+}
+
 // Which declaration month the document belongs to. A document for a period goes to the month of receipt, any other to
 // the month of its date; neither goes into a filed month, so both move to the first month after the last locked one.
 // reason: "date", "after-locked", "period-received", "no-date", "implausible" (month is null for the last two).
 export function intakeMonth({ date, periodFrom, periodTo, receivedAt, lockedThrough = null, today = new Date() }) {
   const docMonth = monthOfAnyDate(date);
-  if (monthOfAnyDate(periodFrom) || monthOfAnyDate(periodTo)) {
+  if (periodMonths(periodFrom, periodTo)) {
     const received = receiptMonth(receivedAt, today);
     const floor = lockedThrough ? nextMonth(lockedThrough) : null;
     const filed = floor && received < floor;
@@ -58,11 +67,10 @@ export function intakeMonth({ date, periodFrom, periodTo, receivedAt, lockedThro
 // status: "ok", "previous-year" (refused), "future-year" (to look at), "no-date". basis: "date" or "period".
 export function yearGate({ docMonth, periodFrom, periodTo, targetMonth }) {
   const allowedYear = Number(targetMonth.slice(0, 4));
-  const from = monthOfAnyDate(periodFrom);
-  const to = monthOfAnyDate(periodTo);
-  if (from || to) {
-    const start = Number((from ?? to).slice(0, 4));
-    const end = Number((to ?? from).slice(0, 4));
+  const period = periodMonths(periodFrom, periodTo);
+  if (period) {
+    const start = Number(period.from.slice(0, 4));
+    const end = Number(period.to.slice(0, 4));
     const status = end < allowedYear ? "previous-year" : start > allowedYear ? "future-year" : "ok";
     return { status, basis: "period", year: end, allowedYear };
   }

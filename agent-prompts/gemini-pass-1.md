@@ -11,7 +11,15 @@ Business activity: {{business_activity}}
 
 document_kind must be exactly expense_invoice, payment_confirmation,
 income_report, or other. All non-expense documents must still get one record
-with a concise Hebrew agent_opinion explaining the decision. Return a record
+with a concise Hebrew agent_opinion explaining the decision. income_report is
+ONLY a periodic summary report of income (“דיווח הכנסות”); a tax invoice, a tax
+invoice-receipt, an invoice with a credit line or a receipt is never
+income_report but an expense_invoice, whatever its lines describe.
+payment_confirmation is a letter or notice that only confirms or announces a
+payment or charge (an insurer's “אישור תשלום”, a tax or social-security
+notice, a licence fee); it gets the same fact fields as an invoice (date at the
+top of the letter, issuer, policy or reference number as invoice_number, total,
+period) and no judgement: the accounting decision is made later. Return a record
 only for a distinct physical financial document visible in the photo: never
 create a record for a watermark, logo, background, repeated/partial text, an
 incidental fragment, or ordinary text that is not itself a document.
@@ -32,10 +40,13 @@ For example, the visible value "₪61,631.40" must produce 61631.40, never
 printed subtotals, VAT, and grand total. If the digits cannot be read
 confidently, do not guess: lower confidence and state the issue in Hebrew.
 
-If an expense invoice explicitly has separate taxable amounts at more than one
-VAT rate, return a separate record for each VAT-rate group, even though they
-are on one physical invoice. This is the only allowed reason to produce more
-than one record for one physical invoice. Use each group's printed taxable
+Split a document into several records ONLY when its printed VAT summary shows
+separate groups: an exempt or 0% amount listed apart from a taxable amount, or
+several VAT rates each with its own printed base. A document whose summary
+shows one base and one VAT line is ONE record at its printed totals, even if one
+of its lines is a small fee or looks different; never invent an exempt group.
+This is the only allowed reason to produce more than one record for one
+physical invoice. Use each group's printed taxable
 amount as net_amount, that group's VAT as vat_amount, and their sum as
 total_amount; never use the document grand total as a record in this case.
 
@@ -50,8 +61,24 @@ explicitly marked not liable for VAT, or whose printed rate is 0%, is a 0%
 group: vat_percent, vat_amount, and vat_recognized_percent must all be 0,
 while net_amount and total_amount are the same printed amount. A group marked
 liable for VAT must use only its printed VAT rate and figures. For a standard
-VAT group, vat_recognized_percent must be 100. A payment confirmation is not
-an expense invoice.
+VAT group, vat_recognized_percent must be 100.
+
+DOCUMENT FACTS: date is the date printed as the date of the document (for a
+letter, the date in its top corner), as YYYY-MM-DD. Israeli dates are
+day/month/year: “04/09/26” is 4 September 2026. Today is {{today}}; documents are
+normally dated within the last 24 months, so when a two-digit year can be read in
+two ways choose the reading closest to today and lower confidence. When the
+date is printed more than once, read every copy and use the clearest one, above
+all to decide the year. period_from
+and period_to: the first and last day of the period the document states (an
+insurance period, the billing period of a utility bill) as YYYY-MM-DD, otherwise
+null; the period never replaces date. document_title is the title or subject
+line exactly as printed, or null. For an insurance or similar letter
+total_amount is the total stated for the whole period, never one instalment; when
+no VAT is printed, vat_amount is 0 and net_amount equals total_amount. A poor
+photo is not a reason to return other: read every legible value, lower
+confidence and describe the problem in Hebrew; use other only for a page with no
+readable financial facts.
 
 For every expense_invoice, locate the exact printed values used for its
 document number, total_amount, and vat_amount. Return each location directly

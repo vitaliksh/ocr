@@ -35,7 +35,7 @@ test("a document goes to the month of its date, a period document to the month o
   assert.deepEqual([filed.month, filed.docMonth, filed.reason], ["2026-09", "2026-03", "after-locked"]);
   const period = intakeMonth({ date: "01/07/25", periodFrom: "2025-07-01", periodTo: "2026-06-30", receivedAt: NOW, today });
   assert.deepEqual([period.month, period.reason], ["2026-09", "period-received"]);
-  const periodFiled = intakeMonth({ date: "01/07/25", periodTo: "2026-06", receivedAt: "2026-07-02T10:00:00.000Z", lockedThrough: "2026-08", today });
+  const periodFiled = intakeMonth({ date: "01/07/25", periodFrom: "2025-07", periodTo: "2026-06", receivedAt: "2026-07-02T10:00:00.000Z", lockedThrough: "2026-08", today });
   assert.deepEqual([periodFiled.month, periodFiled.reason], ["2026-09", "after-locked"]);
   assert.equal(intakeMonth({ date: "", today }).reason, "no-date");
 });
@@ -49,7 +49,16 @@ test("only the year of the declaration month is accepted; a period is judged by 
   assert.equal(gate({ docMonth: "2025-07", periodFrom: "2024-07-01", periodTo: "2025-06-30" }), "previous-year");
   assert.equal(gate({ docMonth: "2025-07", periodFrom: "2025-07-01", periodTo: "2026-06-30" }), "ok");
   assert.equal(gate({ docMonth: "2026-10", periodFrom: "2027-01-01", periodTo: "2027-12-31" }), "future-year");
-  assert.deepEqual(yearGate({ docMonth: "2025-07", periodTo: "2026-06", targetMonth: "2026-10" }), { status: "ok", basis: "period", year: 2026, allowedYear: 2026 });
+  assert.deepEqual(yearGate({ docMonth: "2025-07", periodFrom: "2025-07", periodTo: "2026-06", targetMonth: "2026-10" }), { status: "ok", basis: "period", year: 2026, allowedYear: 2026 });
+});
+
+test("a short period (a monthly or bimonthly bill) or a half-known one is ignored: the document goes by its date", () => {
+  const monthly = { date: "30/09/26", periodFrom: "2026-09-01", periodTo: "2026-09-30", receivedAt: "2026-10-04T10:00:00.000Z", today: new Date(2026, 9, 7) };
+  assert.deepEqual([intakeMonth(monthly).month, intakeMonth(monthly).reason], ["2026-09", "date"]);
+  assert.equal(yearGate({ docMonth: "2025-12", periodFrom: "2025-11-25", periodTo: "2026-01-25", targetMonth: "2026-01" }).basis, "date");
+  assert.equal(yearGate({ docMonth: "2026-03", periodTo: "2026-06-30", targetMonth: "2026-10" }).basis, "date");
+  const quarterAndMore = yearGate({ docMonth: "2026-01", periodFrom: "2026-01-01", periodTo: "2026-06-30", targetMonth: "2026-10" });
+  assert.equal(quarterAndMore.basis, "period");
 });
 
 test("the same reference, amount and supplier is a strong duplicate, also in a locked month", () => {

@@ -187,13 +187,46 @@ test("a Form 6111 override only replaces codes that already exist", async () => 
   assert.equal(records[1].rivhit_code, null);
 });
 
-test("non-expense documents lose accounting fields and are never exported", async () => {
-  mockGemini([invoice({ document_kind: "payment_confirmation" })]);
+test("a payment confirmation keeps the facts read from it but gets no classification and is never exported", async () => {
+  mockGemini([invoice({ document_kind: "payment_confirmation", period_from: "2026-10-01", period_to: "2027-09-30" })]);
   const [record] = (await (await recognize()).json()).records;
   assert.equal(record.document_kind, "payment_confirmation");
-  for (const field of ["supplier_name", "date", "net_amount", "form_6111_code", "rivhit_code", "total_amount"])
+  assert.deepEqual(
+    [record.supplier_name, record.date, record.invoice_number, record.total_amount, record.period_from, record.period_to],
+    ["Supplier", "2026-09-03", "42", 118, "2026-10-01", "2027-09-30"],
+  );
+  for (const field of ["form_6111_code", "rivhit_code", "classification_name", "recognized_percent", "vat_recognized_percent"])
     assert.equal(record[field], null, field);
   assert.equal(record.include, false);
+});
+
+test("an 'other' document loses its facts and its period", async () => {
+  mockGemini([invoice({ document_kind: "other", period_from: "2026-10-01", period_to: "2027-09-30", document_title: "x" })]);
+  const [record] = (await (await recognize()).json()).records;
+  for (const field of ["supplier_name", "date", "net_amount", "total_amount", "period_from", "period_to", "document_title"])
+    assert.equal(record[field], null, field);
+  assert.equal(record.include, false);
+});
+
+test("the period and the printed title are passed on; a period that is not YYYY-MM-DD is dropped", async () => {
+  mockGemini([
+    invoice({ period_from: "2026-10-01", period_to: "2027-09-30", document_title: "  אישור תשלום לפוליסה " }),
+    invoice({ period_from: "01/10/2026", period_to: "2027-13-40" }),
+    invoice(),
+  ]);
+  const records = (await (await recognize()).json()).records;
+  assert.deepEqual([records[0].period_from, records[0].period_to, records[0].document_title], ["2026-10-01", "2027-09-30", "אישור תשלום לפוליסה"]);
+  assert.deepEqual([records[1].period_from, records[1].period_to], [null, null]);
+  assert.deepEqual([records[2].period_from, records[2].period_to, records[2].document_title], [null, null, null]);
+});
+
+test("the prompt carries today's date and does not tell the model to judge a payment confirmation", async () => {
+  const calls = mockGemini([invoice()]);
+  await recognize([]);
+  const prompt = JSON.parse(calls[0].init.body).system_instruction.parts[0].text;
+  assert.match(prompt, new RegExp(`Today is ${new Date().toISOString().slice(0, 10)}`));
+  assert.doesNotMatch(prompt, /payment confirmation is not an expense invoice/i);
+  assert.match(prompt, /period_from and period_to/);
 });
 
 test("income reports keep their source facts but get no classification", async () => {

@@ -7,7 +7,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.3 · 14:23 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.4 · 14:52 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.09.3 · 14:23 IDT
+גרסת ממשק: 2026.10.09.4 · 14:52 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -303,7 +303,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.3 · 14:23 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.4 · 14:52 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -328,7 +328,17 @@ Architecture (simple on purpose; a rule book file, a learning agent, row snapsho
 - **Pass 2 ("שפר לפי היסטוריה") is removed** (it did not work in this version). The passkey enrolment and the Windows Hello grant stay: the new route uses them for authorisation. `history-ranker.js` stays.
 - **Testing the agents:** the owner keeps a separate Gemini test key in `cloudflare-worker/.dev.vars` (git-ignored, never read or printed by agents); a local script outside the repository calls the recognition and agent functions directly. Real documents may be sent to Gemini (or another AI LLM API) for this, nowhere else without asking (`AGENTS.md`).
 
-Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 (done) · 2 facts module (done, 18 tests) (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields, run on documents, deploy · 4 bookkeeper agent route and prompt, run, deploy · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
+Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 (done) · 2 facts module (done, 18 tests) (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields (done in source, see "OCR agent test on a real month"; deploy waits for the owner) · 4 bookkeeper agent route and prompt, run, deploy · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
+
+#### OCR agent test on a real month (9 October 2026)
+
+All 38 pages of one real client's September (photos and PDF pages) were run through the real `/recognize` route with the owner's test key (local script outside the repository, model `gemini-3.5-flash-lite`, the app default), before and after the prompt change; results stay outside the repository. What the old prompt got wrong and the new one fixes: a tax invoice of a supplier to the client read as `income_report` (the business activity text made the model invent a sale); an invoice with one VAT summary split into two records (a made-up exempt group); a utility bill total misread; insurance letters returned as empty rows. 27 of the 38 pages give the same date, total and VAT before and after; of the 11 that differ, 6 are letters that now keep their facts, 3 are the fixes above and 2 are badly blurred receipts. A second run of the new prompt agreed with the first on 35 of 38 pages (the differences: the two blurred receipts and one year flipped between 2026 and 2025).
+
+Known limit, not fixed by the prompt: on blurred receipts the model misreads the year or the whole date and still reports high confidence (a hint to read repeated dates, added afterwards, did not remove it; `gemini-3.5-flash` read one such date right and another wrong; `gemini-3.6-flash` returned an invalid answer for 30 of 38 pages in the script, not investigated). A wrong year turns into a "previous year" exclusion in stage 5, so that exclusion must be soft, explain itself and be re-checked when the user edits the date. The app default model stays `gemini-3.5-flash-lite`.
+
+Changes (Worker only, the frontend still ignores the new fields until stage 5): schema and normalisation get `period_from`, `period_to` (YYYY-MM-DD or null) and `document_title`; a `payment_confirmation` keeps the facts read from it (date, issuer, policy number as `invoice_number`, total, period) but no codes and `include = false`, so the bookkeeper agent can decide; the prompt: `income_report` only for a periodic income summary, split into several records only when the printed VAT summary has separate groups, today's date for two-digit years, no giving up on a poor photo, the facts rules above. Classification stays in this prompt until the agent button replaces it (stage 5): removing it earlier would leave rows without a code. The row does not store the period yet (stage 5).
+
+Decision made on the way (to confirm with Anna): a period counts as a "period document" only when it spans three months or more (insurance, not the monthly telephone or the bimonthly electricity bill); those go by their date.
 
 ### Open requirements (9 October 2026; items 1 and 2 are absorbed by stages 3–4 above)
 
@@ -377,7 +387,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **376 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **377 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
@@ -388,7 +398,7 @@ npm run check
 npx wrangler deploy
 ~~~
 
-Expected: **26 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
+Expected: **29 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
 
 After a browser-only change, push `main`, wait for Pages, force-refresh, and verify the visible build marker. After a Worker change, record the returned version in `cloudflare-worker/DEPLOYMENT.md`, commit/push source and docs, and manually test the changed production flow.
 

@@ -43,6 +43,9 @@ const GEMINI_SCHEMA = {
           net_amount: { type: "NUMBER", nullable: true },
           vat_amount: { type: "NUMBER", nullable: true },
           vat_percent: { type: "NUMBER", nullable: true },
+          period_from: { type: "STRING", nullable: true },
+          period_to: { type: "STRING", nullable: true },
+          document_title: { type: "STRING", nullable: true },
           document_number_box: { type: "ARRAY", nullable: true, minItems: 4, maxItems: 4, items: { type: "NUMBER" } },
           total_amount_box: { type: "ARRAY", nullable: true, minItems: 4, maxItems: 4, items: { type: "NUMBER" } },
           vat_amount_box: { type: "ARRAY", nullable: true, minItems: 4, maxItems: 4, items: { type: "NUMBER" } },
@@ -67,6 +70,9 @@ const GEMINI_SCHEMA = {
           "net_amount",
           "vat_amount",
           "vat_percent",
+          "period_from",
+          "period_to",
+          "document_title",
           "document_number_box",
           "total_amount_box",
           "vat_amount_box",
@@ -137,6 +143,13 @@ function base64Encode(buffer) {
 }
 function text(value) {
   return typeof value === "string" ? value.trim().slice(0, 500) || null : null;
+}
+// YYYY-MM-DD only; anything else is not a date the rules can use.
+function isoDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text(value) ?? "");
+  return match && Number(match[2]) >= 1 && Number(match[2]) <= 12 && Number(match[3]) >= 1 && Number(match[3]) <= 31
+    ? match[0]
+    : null;
 }
 function number(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -236,10 +249,14 @@ function normalizeRecord(raw, mapping = RIVHIT_MAPPING, customCodes = {}) {
     net_amount: number(raw?.net_amount),
     vat_amount: number(raw?.vat_amount),
     vat_percent: percentage(raw?.vat_percent),
+    period_from: isoDate(raw?.period_from),
+    period_to: isoDate(raw?.period_to),
+    document_title: text(raw?.document_title),
     highlight_regions: highlights(raw),
     include: Boolean(expense && mapped),
   };
-  if (!expense && !income)
+  // A payment confirmation keeps what was read from it: the bookkeeper agent decides what it is.
+  if (!expense && !income && kind !== "payment_confirmation")
     Object.assign(record, {
       date: null,
       supplier_name: null,
@@ -250,6 +267,9 @@ function normalizeRecord(raw, mapping = RIVHIT_MAPPING, customCodes = {}) {
       purpose: null,
       total_amount: null,
       currency: null,
+      period_from: null,
+      period_to: null,
+      document_title: null,
       form_6111_code: null,
       rivhit_code: null,
       classification_name: null,
@@ -258,6 +278,15 @@ function normalizeRecord(raw, mapping = RIVHIT_MAPPING, customCodes = {}) {
       net_amount: null,
       vat_amount: null,
       vat_percent: null,
+      include: false,
+    });
+  if (kind === "payment_confirmation")
+    Object.assign(record, {
+      form_6111_code: null,
+      rivhit_code: null,
+      classification_name: null,
+      recognized_percent: null,
+      vat_recognized_percent: null,
       include: false,
     });
   if (expense && !mapped) {
@@ -292,7 +321,8 @@ async function recognizeWithGemini(request, env) {
         ? `Return exactly ONE record: the document and VAT-rate group matching this existing journal record. Do not return other documents or VAT groups from the same image. Existing record (it may contain user edits): ${JSON.stringify(targetRecord)}`
         : "Return one record for EACH spatially separate receipt, invoice, or payment document visible in the image. A partially visible but readable receipt still counts as a separate document; never omit it merely because other documents share the same photo.") +
       " For every returned source-value box: cover only the printed value characters (and an attached currency sign when printed), not its label, table cell, surrounding whitespace, or another value. Make the box tight on all four sides in top, left, bottom, right order. Verify that its contents exactly match the corresponding returned field; otherwise return null for that box.";
-  const prompt = `Analyze this financial document image for an Israeli Rivhit journal. Business activity: ${activity}\n\n${scope}\n\ndocument_kind must be exactly expense_invoice, payment_confirmation, income_report, or other. A receipt is an expense_invoice when it documents a business purchase with a seller, date and amount even if the word “חשבונית” is absent; this includes fuel-station receipts. All non-expense documents must still get one record with a concise Hebrew agent_opinion explaining the decision. A full income report (for example “דיווח הכנסות” or “דיווח הכנסות תקופתי”) is income_report: extract its date, issuer, reference, purpose, gross, net and VAT values. Return a record only for a distinct physical financial document visible in the photo. For expense_invoice, choose one allowed full Form 6111 code; if no listed Form 6111 code fits, choose one allowed custom Rivhit code instead. Never invent either code. When using a Form 6111 code, set rivhit_code to null. When using a custom Rivhit code, set form_6111_code to null. confidence is one overall integer from 0 to 100. Monetary values must satisfy net_amount + vat_amount = total_amount after rounding.\n\nMONEY OCR — critical: Treat ₪, ש״ח, NIS, and a currency sign as decoration, never as a digit and never as the start of a number. Read the complete adjacent number token before removing a currency sign, including its first digit even in right-to-left text. Do not drop a leading digit merely because the sign touches or precedes it. Keep thousands separators only as formatting. For example, the visible value “₪61,631.40” must produce 61631.40, never 1631.40. Independently re-read every high-value total and reconcile it to printed subtotals, VAT, and grand total. If the digits cannot be read confidently, do not guess: lower confidence and state the issue in Hebrew.\n\nIf VAT is included in the printed total but is not printed separately, calculate it from the visible VAT rate and leave vat_amount_box null. vat_recognized_percent is the percent of VAT recognized for this row. First decide explicitly whether each printed amount is חייב במע״מ (VAT-taxable) or לא חייב במע״מ / exempt. Never treat an exempt amount as a taxable total and divide it by a VAT rate. A group explicitly marked not liable for VAT, or whose printed rate is 0%, is a 0% group: vat_percent, vat_amount, and vat_recognized_percent must all be 0, while net_amount and total_amount are the same printed amount. A group marked liable for VAT must use only its printed VAT rate and figures. If a single invoice has both a VAT-exempt (0%) line and a taxable line, ALWAYS return two records: one combined 0% record and one combined taxable record. Use each group’s net, VAT and gross only; both records retain the same document reference. Also split separate taxable VAT-rate groups. A printed Hebrew line such as “מוצרים חייבים ב- 18% מע״מ 194.28” means net_amount is exactly 194.28, never divide it by 1.18. A payment confirmation is not an expense invoice.\n\nFor expense_invoice and income_report, locate the exact printed values used for its document number, total_amount, and vat_amount. Return each location directly in document_number_box, total_amount_box, and vat_amount_box as [ymin, xmin, ymax, xmax], normalized from 0 to 1000. Use null only when that value is absent or calculated.\n\nAllowed Form 6111 → Rivhit mapping:\n${mappingPrompt(mapping)}\n\nAllowed custom Rivhit codes:\n${customCodesPrompt(customCodes)}`;
+  const today = new Date().toISOString().slice(0, 10);
+  const prompt = `Analyze this financial document image for an Israeli Rivhit journal. Business activity: ${activity}\n\n${scope}\n\ndocument_kind must be exactly expense_invoice, payment_confirmation, income_report, or other. A receipt is an expense_invoice when it documents a business purchase with a seller, date and amount even if the word “חשבונית” is absent; this includes fuel-station receipts. All non-expense documents must still get one record with a concise Hebrew agent_opinion explaining the decision. income_report is ONLY a periodic summary report of income (for example “דיווח הכנסות” or “דיווח הכנסות תקופתי”): extract its date, issuer, reference, purpose, gross, net and VAT values. A tax invoice, a tax invoice-receipt (חשבונית מס קבלה), an invoice that contains a credit line, or a receipt is never income_report: it is an expense_invoice whatever its lines describe, because the documents sent here are purchases of the business. payment_confirmation is a letter or notice that only confirms or announces a payment or a charge and is neither an invoice nor a receipt (an insurer’s “אישור תשלום”, a notice from a tax or social-security authority, a licence-fee confirmation). For payment_confirmation return the same fact fields as for an invoice (the date printed at the top of the letter, the issuer, the policy or reference number as invoice_number, the total amount, the period); the accounting decision is made later, so never leave them empty and do not judge them. Return a record only for a distinct physical financial document visible in the photo. For expense_invoice, choose one allowed full Form 6111 code; if no listed Form 6111 code fits, choose one allowed custom Rivhit code instead. Never invent either code. When using a Form 6111 code, set rivhit_code to null. When using a custom Rivhit code, set form_6111_code to null. confidence is one overall integer from 0 to 100. Monetary values must satisfy net_amount + vat_amount = total_amount after rounding.\n\nMONEY OCR — critical: Treat ₪, ש״ח, NIS, and a currency sign as decoration, never as a digit and never as the start of a number. Read the complete adjacent number token before removing a currency sign, including its first digit even in right-to-left text. Do not drop a leading digit merely because the sign touches or precedes it. Keep thousands separators only as formatting. For example, the visible value “₪61,631.40” must produce 61631.40, never 1631.40. Independently re-read every high-value total and reconcile it to printed subtotals, VAT, and grand total. If the digits cannot be read confidently, do not guess: lower confidence and state the issue in Hebrew.\n\nIf VAT is included in the printed total but is not printed separately, calculate it from the visible VAT rate and leave vat_amount_box null. vat_recognized_percent is the percent of VAT recognized for this row. First decide explicitly whether each printed amount is חייב במע״מ (VAT-taxable) or לא חייב במע״מ / exempt. Never treat an exempt amount as a taxable total and divide it by a VAT rate. A group explicitly marked not liable for VAT, or whose printed rate is 0%, is a 0% group: vat_percent, vat_amount, and vat_recognized_percent must all be 0, while net_amount and total_amount are the same printed amount. A group marked liable for VAT must use only its printed VAT rate and figures. Split a document into several records ONLY when its printed VAT summary shows separate groups: an exempt or 0% amount listed apart from a taxable amount, or several different VAT rates each with its own printed base. A document whose summary shows one base and one VAT line (for example “סה״כ 100.00, מע״מ 18.00% 18.00, סה״כ לתשלום 118.00”) is ONE record at its printed totals, even if one of its lines is a small fee or looks different; never invent an exempt group. When splitting, use each group’s net, VAT and gross only; the records retain the same document reference. A printed Hebrew line such as “מוצרים חייבים ב- 18% מע״מ 194.28” means net_amount is exactly 194.28, never divide it by 1.18.\n\nDOCUMENT FACTS: date is the date printed as the date of the document (for a letter, the date in its top corner), returned as YYYY-MM-DD. Israeli dates are day/month/year: “04/09/26” is 4 September 2026. Today is ${today}; documents are normally dated within the last 24 months, so when a two-digit year can be read in two ways choose the reading closest to today and lower confidence. When the date is printed more than once (at the top, in a footer, on a card-payment slip), read every copy and use the clearest one, above all to decide the year. period_from and period_to: when the document states the period it covers (an insurance period such as “תקופת הביטוח 01/10/2026 - 30/09/2027”, the billing period of a utility bill), return its first and last day as YYYY-MM-DD, otherwise null; the period never replaces date. document_title is the title or subject line exactly as printed (for example “חשבונית מס קבלה” or “אישור תשלום לפוליסה”), or null. For an insurance or similar letter total_amount is the total stated for the whole period, never one instalment; when no VAT is printed, vat_amount is 0 and net_amount equals total_amount. A poor photo is not a reason to return other: read every value that is legible, lower confidence and describe the problem in Hebrew; use other only for a page with no readable financial facts.\n\nFor expense_invoice and income_report, locate the exact printed values used for its document number, total_amount, and vat_amount. Return each location directly in document_number_box, total_amount_box, and vat_amount_box as [ymin, xmin, ymax, xmax], normalized from 0 to 1000. Use null only when that value is absent or calculated.\n\nAllowed Form 6111 → Rivhit mapping:\n${mappingPrompt(mapping)}\n\nAllowed custom Rivhit codes:\n${customCodesPrompt(customCodes)}`;
   const payload = JSON.stringify({
     system_instruction: { parts: [{ text: prompt }] },
     contents: [
