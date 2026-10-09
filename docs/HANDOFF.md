@@ -9,7 +9,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.4 · 14:52 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
-**Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
+**Production Worker:** `f977b54d-c6f2-4639-8b67-5655b52426ec` — backend version `2026.10.09.1 · 15:01 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
 
 ## Product and hard boundaries
@@ -48,7 +48,7 @@ The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
 גרסת ממשק: 2026.10.09.4 · 14:52 IDT
-גרסת שרת: 2026.09.19.4 · 12:44 IDT
+גרסת שרת: 2026.10.09.1 · 15:01 IDT
 ~~~
 
 The backend marker is fetched from `/health`. Force refresh with `Ctrl+F5` and verify both markers before testing a recent change.
@@ -303,7 +303,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.4 · 14:52 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.4 · 14:52 IDT` and backend `2026.10.09.1 · 15:01 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -328,7 +328,7 @@ Architecture (simple on purpose; a rule book file, a learning agent, row snapsho
 - **Pass 2 ("שפר לפי היסטוריה") is removed** (it did not work in this version). The passkey enrolment and the Windows Hello grant stay: the new route uses them for authorisation. `history-ranker.js` stays.
 - **Testing the agents:** the owner keeps a separate Gemini test key in `cloudflare-worker/.dev.vars` (git-ignored, never read or printed by agents); a local script outside the repository calls the recognition and agent functions directly. Real documents may be sent to Gemini (or another AI LLM API) for this, nowhere else without asking (`AGENTS.md`).
 
-Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 (done) · 2 facts module (done, 18 tests) (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields (done in source, see "OCR agent test on a real month"; deploy waits for the owner) · 4 bookkeeper agent route and prompt, run, deploy · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
+Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 (done) · 2 facts module (done, 18 tests) (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields (done and deployed on 9 Oct 2026, see "OCR agent test on a real month") · 4 bookkeeper agent route and prompt, run, deploy · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
 
 #### OCR agent test on a real month (9 October 2026)
 
