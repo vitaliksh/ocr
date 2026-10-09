@@ -7,7 +7,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.2 · 14:12 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.3 · 14:23 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.09.2 · 14:12 IDT
+גרסת ממשק: 2026.10.09.3 · 14:23 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -96,6 +96,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later age
   - `ledger-rows.js` — reads every operation of the ledger (xlsx and pdf) with a check against the class totals; `ledger-reconcile.js` / `ledger-reconcile-flow.js` — compare them with the declarations and add the missing ones (copy first); `ledger-check-ui.js` — the dialog "בדיקה מול כרטסת…" in the menu "+ הוספת מסמכים".
   - `income-report.js` — reads the periodic income report of the "morning" invoicing program (דיווח הכנסות תקופתי) from the text layer of its PDF (pdf.js text items via `readPdfPages`): period, totals (taxable, exempt, VAT, gross) and every document line by column position, summed per section (invoice +, credit note −, receipt ignored) and compared with the totals and the declared document counts; `buildIncomeRows` makes one income row (two if there is exempt income) with the report's own VAT; `hasIncomeRow` stops a second import into one declaration. No Gemini, no Telegram session.
   - `month-distribution.js` — pure rules: `proposeMonth` (month of the document date, never earlier than the first month after the last locked one; no proposal for a missing or implausible date), `lockedThrough`, `deductionStatus` (VAT deduction within six months), `targetMonths`.
+  - `intake-facts.js` / `intake-index.js` — the intake rules of the bookkeeper as code (stage 2 of the two-agent plan, not wired into the UI yet): `intakeMonth` (month of the date, month of receipt for a period document, never a filed month), `yearGate` (only the year of the declaration month; a period is judged by its end), `findDuplicates` (strong / likely / possible by reference, amount, supplier and date; the two halves of a mixed-VAT invoice are not duplicates of each other), `intakeFacts` (everything for one row, including what the code itself excludes: `previous-year`, `duplicate`); `loadIntakeContext` reads the active rows of every declaration, locked ones included.
   - `rows-move-flow.js` / `rows-move-ui.js` — "פיזור שורות לחודשים…" (menu "⋯"): `prepareMove` reads the saved table and proposes a month per row (Excel-imported rows `import-…` get none), `commitMove` copies the images, writes the target months (created when missing) and last the source table, with `draft-table.before-move-<time>.json` copies; the source images stay. The dialog is offered automatically after a PDF import, an income report import and "סיים העלאה" when some row belongs to another month.
   - Client properties (`workspace.json`): `vatPeriod` and `advancesPeriod`, each `monthly` or `bimonthly`, edited in the client dialogs (new client, "פרטי לקוח"), shown on the client card, used by the reports page as the default periods of the VAT and of the advances report. A client saved before that keeps its VAT period in `report-settings.json`; it is read from there until the client is saved again.
   - `excel-import.js` — parsed journal rows → draft-table rows (source amounts, recognition 100/100, no image).
@@ -302,7 +303,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.2 · 14:12 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.3 · 14:23 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -327,7 +328,7 @@ Architecture (simple on purpose; a rule book file, a learning agent, row snapsho
 - **Pass 2 ("שפר לפי היסטוריה") is removed** (it did not work in this version). The passkey enrolment and the Windows Hello grant stay: the new route uses them for authorisation. `history-ranker.js` stays.
 - **Testing the agents:** the owner keeps a separate Gemini test key in `cloudflare-worker/.dev.vars` (git-ignored, never read or printed by agents); a local script outside the repository calls the recognition and agent functions directly. Real documents may be sent to Gemini (or another AI LLM API) for this, nowhere else without asking (`AGENTS.md`).
 
-Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 · 2 facts module (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields, run on documents, deploy · 4 bookkeeper agent route and prompt, run, deploy · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
+Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 (done) · 2 facts module (done, 18 tests) (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields, run on documents, deploy · 4 bookkeeper agent route and prompt, run, deploy · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
 
 ### Open requirements (9 October 2026; items 1 and 2 are absorbed by stages 3–4 above)
 
@@ -376,7 +377,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **358 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **376 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

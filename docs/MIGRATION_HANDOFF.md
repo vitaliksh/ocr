@@ -166,7 +166,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.09.2 · 14:12 IDT`. Tests: **358** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.09.3 · 14:23 IDT`. Tests: **376** frontend,
   **26** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker lost the Pass 2 route (not yet deployed; deploy together with stage 3 of the agent plan).
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct, with the interface of that time):** real disk folder, import of the
