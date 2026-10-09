@@ -1,13 +1,13 @@
 # Handoff — ANNATERIA (formerly Rivhit document intake)
 
-**Updated:** 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
+**Updated:** 9 October 2026 (open requirements list at the start of "Next decisions"); 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
 the Rivhit TXT export is deprecated (code kept, hidden in the "⋯" menu). Read in this order: this file, `MIGRATION_HANDOFF.md`
 (Excel migration, reports, working agreements), `GUI_REDESIGN_PLAN.md` (what the new interface is and why).
 The Rivhit-intake sections below were last re-verified on 19 September 2026 and describe the legacy export.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.07.29 · 18:36 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.1 · 12:28 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.07.29 · 18:36 IDT
+גרסת ממשק: 2026.10.09.1 · 12:28 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -280,7 +280,7 @@ Situation: a client brings printed invoices (photographed through Telegram) and 
 - **Rule:** proposed month = max(month of the document date, month after the last locked one); no proposal for a missing date or one more than 24 months back / 2 months ahead. The deduction flag appears from six months after the document date (rule taken from non-official sources, to confirm with the bookkeeper). The user always confirms and can pick another open month per row.
 - **Income report:** page 1 has the totals, the next pages list the documents in right-aligned columns; the check "130 invoices − 3 credit notes = totals" was exact on a real report (the VAT total is the sum of the documents' VAT, not 18 % of the net, so it is never recomputed). Menu "+ הוספת מסמכים" → "דוח הכנסות (PDF)…" imports it without a session; the ordinary PDF import detects such a file first and does the same, so its 20 pages never reach Gemini. A scanned report still goes through Gemini page by page.
 - Verified in a real browser against a real report (served from outside the repository): the parse (136 documents, listing equals totals), the row (date = period end, net, VAT, gross), the duplicate refusal, the automatic offer after an import into the wrong month, the move with a created month and a copy of the old table.
-- **Backlog (not built):** (1) intake without a month: an inbox per client with a distribution step (stage 2 of the proposal); (2) a Telegram session stays open when another declaration is opened, so later photos land in the new month and the recognition of rows of the old table is lost: bind the session and the recognition to the declaration they started in, or warn; (3) a PDF needs a live Telegram session (QR) only to authorise the recognition route: authorise it by Windows Hello instead (Worker change); (4) the bot reads only compressed photos and no captions: a month hint in a caption or a `/month` command; (5) PDF page triage: pages without amounts (advertising, the tear-off slip that repeats the total) should not create rows; send the text layer together with the image; (6) the owner suspects that photos and PDF cannot be mixed in one month: the code has no such rule (both go to the open declaration within one session), what he met is not known, ask him for the steps; (7) warn about an identical income row in another month when importing (done only inside the move dialog).
+- **Backlog of 7 Oct (the current list is "Open requirements" under "Next decisions"):** (1) intake without a month: an inbox per client with a distribution step (stage 2 of the proposal); (2) a Telegram session stays open when another declaration is opened, so later photos land in the new month and the recognition of rows of the old table is lost: bind the session and the recognition to the declaration they started in, or warn; (3) a PDF needs a live Telegram session (QR) only to authorise the recognition route: authorise it by Windows Hello instead (Worker change); (4) the bot reads only compressed photos and no captions: a month hint in a caption or a `/month` command; (5) PDF page triage: pages without amounts (advertising, the tear-off slip that repeats the total) should not create rows; send the text layer together with the image; (6) the owner suspects that photos and PDF cannot be mixed in one month: the code has no such rule (both go to the open declaration within one session), what he met is not known, ask him for the steps; (7) warn about an identical income row in another month when importing (done only inside the move dialog).
 
 ## Confirmed state and remaining manual checks
 
@@ -304,13 +304,33 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.07.29 · 18:36 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.1 · 12:28 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
 5. The `test5` import was confirmed successful; repeat the same 186-field, VAT-rate, structural-flag and no-leak checks for future template or exporter changes.
 
 ## Next decisions
+
+### Open requirements (9 October 2026, start here in a fresh session)
+
+Not built yet, in the order the owner cares about. Real client names and amounts stay out of the repository.
+
+1. **Insurance payment-confirmation letters must become an expense row (owner requirement, confirmed 8 Oct).** A letter such as "אישור תשלום לפוליסה" (insurer's letter, annual premium paid once, or by instalments, VAT-exempt) is today read as `payment_confirmation`: the Worker nulls date, supplier and amounts and the row shows "אישור תשלום", all zeros, not for export. The owner says the letter is a valid expense document. Wanted: treat it as `expense_invoice`; date = the date printed in the top corner of the letter (its month decides the declaration); amount = the total premium, not one instalment; VAT 0 (net = gross); supplier = the insurer named in the text. Change: the prompt in `cloudflare-worker/src/index.js` (`recognizeWithGemini`; the line "A payment confirmation is not an expense invoice" needs an exception) and a Worker test; then `npx wrangler deploy` from `cloudflare-worker/`, record the returned version in `cloudflare-worker/DEPLOYMENT.md`. Gemini cannot be called from a session without the key: the owner re-runs the row ("עבד מחדש") on the published page and reports.
+2. **Give Gemini the client's own classification codes, with priority.** The app sends only the built-in Form 6111 map (plus root-local custom codes): `classificationMappingsForAgent` and `customClassificationCodesForAgent` in `app.js`; the client's chart from its ledger (`classification-codes.json`) is never sent. So Gemini picks the built-in code (insurance → Form 6111 3515 → Rivhit `818`), while a client's chart has its own (one test client: `206 ביטוח עסק`, `214 רכב רשוי וביטוח`, no `818`), and the row lands in another class than the bookkeeper's. Wanted: send the client's codes (the Worker accepts at most 200 three-digit codes that are not built-in codes, `customRivhitCodes`) and tell Gemini to prefer them over Form 6111 when the client has its own chart. Needs the prompt change and an `app.js` change (new parameters, no change of existing interfaces); do it together with item 1.
+3. **Owner's manual check of the 7–8 Oct work on the published page (Edge, Ctrl+Shift+R; marker `2026.10.07.29`).** The first attempt showed the old menu: a cached page. Steps are in the 7 Oct conversation: lock the filed months, create 09/2026, import the income report ("דוח הכנסות (PDF)…"; expect 136 documents, listing equal to the totals), open "⋯ → פיזור שורות לחודשים…", import the electricity and water PDFs through Telegram. Not yet reported back.
+4. **Lock the filed months of the two test clients (owner decision of 7 Oct).** Before locking, decide whether to run "בדיקה מול כרטסת…" so that the missing ledger operations (client A 7, client B 4) enter the profit-and-loss report: locked declarations are only reported, never changed, and adding them makes our VAT differ from the filed one. One client files two months together and has no declarations for some months; the proposal rule treats every month up to the last locked one as filed.
+5. **Stage 2 of month distribution: intake without a month.** An inbox per client (`<client>/inbox/`, ignored by the reports until distributed) with the same proposal and confirmation dialog, so a batch of photos does not have to be started inside one declaration.
+6. **Telegram session bound to a declaration.** The session stays open when another declaration is opened: later photos land in the new month and the recognition of rows of the old table is lost (`receiveDocument`, `activateDeclaration`, `enqueueRecognition` in `app.js` use the global current declaration). Capture the declaration directory when a document or a recognition is queued, or warn / close the session on switching.
+7. **PDF without a Telegram QR.** `choosePdfFile` needs a live session only because the recognition route authorises by session token; authorise it by the Windows Hello grant instead (Worker change).
+8. **Month hint from Telegram.** The bot reads only compressed photos and no captions; a month in the caption or a `/month` command would pre-assign the batch.
+9. **PDF page triage.** Pages without amounts (advertising, the tear-off slip that repeats the total) should not create rows; for PDFs with a text layer send the text together with the image (removes the dropped-first-digit class of errors). A scanned income report still goes page by page through Gemini: offer "summary page only".
+10. **Photos and PDF in one month.** The owner believes this is not possible; the code has no such rule (both go to the open declaration inside one session; Excel import into a non-empty declaration needs "replace"). Ask him for the exact steps before changing anything.
+11. **Duplicate warning across months** for an imported income report (today only the move dialog warns about an identical row in another month).
+12. **Payment confirmations in general.** Besides item 1, a typed "אישור תשלום" that can be turned into an expense row with a "document needed" mark was proposed, not decided.
+13. Questions for the bookkeeper, not code: why the journal export misses operations; whether VAT deduction within six months of the document date is the rule she applies (the source used was not official); for a water bill, which date counts when the invoice is a tax invoice only after payment.
+
+Older open items follow.
 
 Next phase (Excel migration, reports, GUI): see [`MIGRATION_HANDOFF.md`](MIGRATION_HANDOFF.md).
 
