@@ -75,14 +75,12 @@ Pass 1 sends a temporary document image, business activity and approved mapping
 to Gemini. It returns source facts, classification, confidence, explanation and
 source-value boxes.
 
-Pass 2 is implemented. It sends the current draft row and 1–8 locally ranked,
-text-only closed-history records. It never sends images, raw monetary values or
-other prohibited source information from history. It may adjust classification,
-recognition percentages, confidence, review state and opinion. It must not
-change date, supplier, supplier ID, document references, allocation number, raw
-net/VAT/gross amounts or currency. History is guidance, never proof.
+The history-based Pass 2 ("שפר לפי היסטוריה") was removed on 9 October 2026. A
+text-only bookkeeper agent behind a new button replaces it (plan and boundaries:
+`docs/HANDOFF.md`, "Two-agent redesign"). It must not change OCR facts (date,
+supplier, supplier ID, references, allocation number, gross, currency).
 
-## Passkey authorization for pass 2
+## Passkey authorization for the AI agents
 
 Telegram is required only once, to authorize enrolment of a PC's platform
 authenticator from **חיבור המחשב לשיפור AI**. That action needs a selected data
@@ -95,7 +93,7 @@ root, not a client or open declaration. Browser policy requires the explicit
   metadata, a short-lived challenge and a five-minute authorization grant.
 - Browser `localStorage` holds only the public credential identifier. The grant
   itself lives in page memory, so refresh clears it.
-- Later **שפר לפי היסטוריה** calls require Windows Hello only—no QR code,
+- Later agent calls (the bookkeeper agent, once built) require Windows Hello only—no QR code,
   Telegram session or bot message.
 - WebAuthn is bound to `https://vitaliksh.github.io` with RP ID
   `vitaliksh.github.io`; arbitrary local origins cannot perform this flow.
@@ -110,7 +108,7 @@ unit tests.
 - `telegram-web/` — static browser application. `app.js` owns upload, table,
   declaration and passkey flows; `workspace.js` owns the workspace logic behind the sidebar;
   `declaration-core.js` and `declaration-store.js` own lifecycle and local
-  persistence; `history-ranker.js` selects safe pass-2 history; `rivhit-export.js`
+  persistence; `history-ranker.js` selects text-only history (unused since Pass 2 was removed); `rivhit-export.js`
   produces the CP1255 186-column TXT (deprecated); `pdf-report.js` produces the legacy PDF.
   The interface modules (shell, sidebar, clients views, journal columns and toolbar,
   reports page, dialogs) are listed in `docs/HANDOFF.md`, "Repository map".

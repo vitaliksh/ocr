@@ -193,7 +193,7 @@ td .photo-button {
 }
 
 /* Re-running recognition needs the source image; rows imported from Excel have none */
-#journal-table tr[data-image-file=""] .retry:not(.history-refine) {
+#journal-table tr[data-image-file=""] .retry {
   display: none;
 }
 

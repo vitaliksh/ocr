@@ -7,7 +7,6 @@ import {
   finalizeDeclaration,
   reopenLockedDeclaration,
   loadDeclaration,
-  readClosedHistory,
   readSourceImage,
   saveDraft,
   saveSourceImage,
@@ -27,7 +26,6 @@ import { setupJournalToolbar } from "./journal-toolbar.js";
 import { summarise } from "./journal-summary.js";
 import { readUiSettings, saveUiSettings } from "./ui-settings.js";
 import { setupExcelImport } from "./excel-import-ui.js";
-import { relevantHistory } from "./history-ranker.js";
 import { setupReports } from "./reports-ui.js";
 import { setupBackup } from "./backup-ui.js";
 import { setupTransfer } from "./transfer-ui.js";
@@ -1643,54 +1641,6 @@ async function authorizePasskey() {
   passkeyGrant = { credentialId, token: result.token, expiresAt: result.expiresAt };
   return passkeyGrant;
 }
-async function refineWithHistory(row) {
-  if (!committedWorkspace || !currentDeclaration || currentDeclaration.status !== "open")
-    return showError("יש לבחור הצהרה פתוחה לפני שיפור לפי היסטוריה.");
-  const history = relevantHistory(rowSnapshot(row), await readClosedHistory(committedWorkspace.directory));
-  if (!history.length) {
-    addHistoryButton(row);
-    return showError("אין היסטוריה סגורה ורלוונטית לשורה זו.");
-  }
-  try {
-    const grant = await authorizePasskey();
-    const response = await fetch(apiUrl("/v1/passkeys/refine-history"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Passkey-Credential-Id": grant.credentialId,
-          "X-Passkey-Token": grant.token,
-          "X-Gemini-Model": model.value,
-          "X-Form-6111-Mapping": encodeURIComponent(JSON.stringify(classificationMappingsForAgent())),
-          "X-Custom-Rivhit-Codes": encodeURIComponent(JSON.stringify(customClassificationCodesForAgent())),
-        },
-        body: JSON.stringify({ draft: rowSnapshot(row), history }),
-      }),
-      result = await response.json();
-    if (!response.ok) throw new Error(result.error || "השיפור נכשל.");
-    if (result.rivhit_code) row.cells[1].querySelector("select").value = result.rivhit_code;
-    if (result.vat_recognized_percent !== null)
-      row.cells[11].querySelector("select").value = String(result.vat_recognized_percent);
-    if (result.recognized_percent !== null)
-      row.cells[12].querySelector("select").value = String(result.recognized_percent);
-    applyBusinessRule(row);
-    row.cells[14].textContent = result.agent_opinion;
-    row.cells[15].textContent = String(result.confidence) + "%";
-    setStatus(row, result.review_state === "ready" ? "מוכן לייצוא" : "נדרש עיון", result.review_state);
-    addHistoryButton(row);
-    queueDraftSave();
-  } catch (error) {
-    showError("לא ניתן לשפר לפי היסטוריה: " + error.message);
-  }
-}
-function addHistoryButton(row) {
-  if (row.cells[16].querySelector(".history-refine")) return;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "retry history-refine";
-  button.textContent = "שפר לפי היסטוריה";
-  button.addEventListener("click", () => refineWithHistory(row));
-  row.cells[16].append(document.createElement("br"), button);
-}
 async function ensureIncomeClassification() {
   const existing = Object.entries(rivhitMapping).find(([, label]) => label === "הכנסות")?.[0];
   if (existing) return existing;
@@ -1751,7 +1701,6 @@ async function applyRecord(row, record) {
   );
   updateDuplicateState(row);
   addRerunButton(row);
-  addHistoryButton(row);
   queueDraftSave();
 }
 function cellValue(cell) {
@@ -1842,7 +1791,6 @@ function restoreRow(saved, blob) {
     );
   };
   addRerunButton(row);
-  addHistoryButton(row);
 }
 records.addEventListener("input", (event) => {
   const cell = event.target.closest?.("td"),

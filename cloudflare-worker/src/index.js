@@ -361,85 +361,6 @@ async function recognizeWithGemini(request, env) {
   }
 }
 
-const PASS2_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    form_6111_code: { type: "STRING", nullable: true },
-    rivhit_code: { type: "STRING", nullable: true },
-    recognized_percent: { type: "NUMBER" },
-    vat_recognized_percent: { type: "NUMBER" },
-    confidence: { type: "NUMBER" },
-    review_state: { type: "STRING" },
-    agent_opinion: { type: "STRING" },
-  },
-  required: [
-    "form_6111_code",
-    "rivhit_code",
-    "recognized_percent",
-    "vat_recognized_percent",
-    "confidence",
-    "review_state",
-    "agent_opinion",
-  ],
-};
-async function refineWithHistory(request, env) {
-  if (!env.GEMINI_API_KEY) return json({ error: "Gemini is not configured." }, 503);
-  let input;
-  try {
-    input = await request.json();
-  } catch {
-    return json({ error: "Invalid history-refinement request." }, 400);
-  }
-  const draft = input?.draft,
-    history = Array.isArray(input?.history) ? input.history.slice(0, 8) : null;
-  if (!draft || !history || !history.length)
-    return json({ error: "A draft row and 1–8 history records are required." }, 400);
-  const selectedModel = request.headers.get("x-gemini-model") || env.GEMINI_MODEL || "gemini-3.5-flash-lite",
-    mapping = form6111Mapping(request),
-    customCodes = customRivhitCodes(request);
-  if (!GEMINI_MODELS.has(selectedModel)) return json({ error: "Unsupported Gemini model." }, 400);
-  const prompt = `You are Gemini pass 2 for an Israeli Rivhit expense journal. Improve accounting judgement using a draft row and closed-history guidance. Never change, reinterpret, infer, or return any document source fact: date, supplier, supplier ID, document reference, allocation number, raw net, VAT, gross, or currency. History is guidance, not proof. Return only the allowed fields in the response schema. form_6111_code must be one of the approved mappings below or null. rivhit_code must be one of the approved custom codes below or null. Return only one of them, preferring a Form 6111 code when it fits. review_state must be ready or review. Give a concise Hebrew agent_opinion.\n\nDraft row:\n${JSON.stringify(draft)}\n\nRelevant closed history (text-only):\n${JSON.stringify(history)}\n\nApproved Form 6111 mapping:\n${mappingPrompt(mapping)}\n\nApproved custom Rivhit codes:\n${customCodesPrompt(customCodes)}`;
-  const payload = JSON.stringify({
-    system_instruction: { parts: [{ text: prompt }] },
-    contents: [{ role: "user", parts: [{ text: "Refine this draft accounting judgement." }] }],
-    generationConfig: { response_mime_type: "application/json", response_schema: PASS2_SCHEMA, temperature: 0 },
-  });
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-      body: payload,
-    },
-  );
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
-  if (!response.ok) return json({ error: "Gemini could not refine this row." }, 502);
-  try {
-    const raw = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || ""),
-      formCode = text(raw.form_6111_code),
-      formMapped = formCode ? mapping[formCode] : null,
-      rivhitCode = text(raw.rivhit_code),
-      customMapped =
-        !formMapped && rivhitCode && customCodes[rivhitCode] ? [rivhitCode, customCodes[rivhitCode]] : null,
-      mapped = formMapped || customMapped;
-    return json({
-      rivhit_code: mapped?.[0] || null,
-      recognized_percent: percentage(raw.recognized_percent),
-      vat_recognized_percent: percentage(raw.vat_recognized_percent),
-      confidence: percentage(raw.confidence),
-      review_state: raw.review_state === "ready" ? "ready" : "review",
-      agent_opinion: text(raw.agent_opinion) || "לא נמסר הסבר מהסוכן.",
-    });
-  } catch {
-    return json({ error: "Gemini returned an invalid refinement." }, 502);
-  }
-}
-
 function sessionStub(env, sessionId) {
   return env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(sessionId));
 }
@@ -586,15 +507,6 @@ export default {
         return new Response(authorization.body, { status: authorization.status, headers });
       }
       const result = await recognizeWithGemini(request, env),
-        headers = new Headers(result.headers);
-      for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value);
-      return new Response(result.body, { status: result.status, headers });
-    }
-    if (url.pathname === "/v1/passkeys/refine-history") {
-      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
-      const authorization = await passkeyAuthorized(request, env);
-      if (!authorization) return json({ error: "Windows Hello authorization is required." }, 401, cors(request, env));
-      const result = await refineWithHistory(request, env),
         headers = new Headers(result.headers);
       for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value);
       return new Response(result.body, { status: result.status, headers });

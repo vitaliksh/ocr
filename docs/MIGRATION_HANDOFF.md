@@ -60,8 +60,8 @@ Rivhit's printed journal "ספר תקבולים תשלומים – יומן קל
 1. **Parsing is deterministic** (no Gemini). One-off import wizard.
 2. **Client and declaration are chosen by the user.** Excel has no client name or ID. The header month is only a
    suggestion.
-3. **Import as open declaration by default**, with a "close immediately" option for old months (closed history feeds
-   Pass 2).
+3. **Import as open declaration by default**, with a "close immediately" option for old months (closed history is kept for the
+   AI agents).
 4. **Store imported amounts as source values with expense 100 % and VAT 100 %.** Do **not** run the business rules
    (`applyBusinessRule`, codes 806/807/812, home-utility 25 %) on imported rows, or the VAT is reduced twice.
 5. **Chart of accounts** (new concept; since 6 Oct per client, see "Dry run" at the end): code, name, type. Types observed in the data:
@@ -166,8 +166,8 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.09.1 · 12:28 IDT`. Tests: **358** frontend,
-  **30** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker was not touched.
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.09.2 · 14:12 IDT`. Tests: **358** frontend,
+  **26** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker lost the Pass 2 route (not yet deployed; deploy together with stage 3 of the agent plan).
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct, with the interface of that time):** real disk folder, import of the
   sample files, the new-declaration dialog, the reports, the viewer window and saving PDFs; later stages 1–6 of the redesign

@@ -81,7 +81,6 @@ test("unknown paths are 404 and wrong methods are 405", async () => {
   assert.equal((await call("/nope", { method: "GET" })).status, 404);
   assert.equal((await call(`/v1/sessions/${SESSION}/events`)).status, 405);
   assert.equal((await call(`/v1/sessions/${SESSION}/recognize`, { method: "GET" })).status, 405);
-  assert.equal((await call("/v1/passkeys/refine-history", { method: "GET" })).status, 405);
 });
 
 test("session creation returns opaque credentials and a Telegram deep link", async () => {
@@ -246,82 +245,4 @@ test("Gemini client errors and malformed output become 502 with a safe message",
   assert.equal((await recognize()).status, 502);
   mockGemini([], { raw: JSON.stringify({ nothing: true }) });
   assert.equal((await recognize()).status, 502);
-});
-
-test("refine-history requires a valid passkey authorisation", async () => {
-  const deny = makeEnv({ DEVICE_REGISTRY: stub(async () => new Response("{}", { status: 401 })) });
-  const headers = { "x-passkey-credential-id": "id", "x-passkey-token": "token" };
-  assert.equal((await call("/v1/passkeys/refine-history")).status, 401);
-  assert.equal((await call("/v1/passkeys/refine-history", { headers, env: deny })).status, 401);
-});
-
-test("refine-history validates its input", async () => {
-  mockGemini([]);
-  const headers = { "x-passkey-credential-id": "id", "x-passkey-token": "token" };
-  assert.equal((await call("/v1/passkeys/refine-history", { headers, body: "{bad" })).status, 400);
-  assert.equal((await call("/v1/passkeys/refine-history", { headers, body: JSON.stringify({ draft: {} }) })).status, 400);
-  assert.equal(
-    (await call("/v1/passkeys/refine-history", { headers, body: JSON.stringify({ draft: {}, history: [] }) })).status,
-    400,
-  );
-  assert.equal(
-    (
-      await call("/v1/passkeys/refine-history", {
-        headers: { ...headers, "x-gemini-model": "nope" },
-        body: JSON.stringify({ draft: {}, history: [{}] }),
-      })
-    ).status,
-    400,
-  );
-});
-
-test("refine-history returns only judgement fields, never source facts", async () => {
-  globalThis.fetch = async () =>
-    Response.json({
-      candidates: [
-        {
-          content: {
-            parts: [
-              {
-                text: JSON.stringify({
-                  form_6111_code: FORM_CODE, rivhit_code: null, recognized_percent: 250, vat_recognized_percent: 66.67,
-                  confidence: 70, review_state: "ready", agent_opinion: "history agrees",
-                  supplier_name: "Injected", net_amount: 1,
-                }),
-              },
-            ],
-          },
-        },
-      ],
-    });
-  const response = await call("/v1/passkeys/refine-history", {
-    headers: { "x-passkey-credential-id": "id", "x-passkey-token": "token" },
-    body: JSON.stringify({ draft: { supplier: "S" }, history: [{ supplier: "S" }] }),
-  });
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
-    rivhit_code: RIVHIT_CODE, recognized_percent: 100, vat_recognized_percent: 66.67, confidence: 70,
-    review_state: "ready", agent_opinion: "history agrees",
-  });
-});
-
-test("refine-history falls back to review for unknown states and unmapped codes", async () => {
-  globalThis.fetch = async () =>
-    Response.json({
-      candidates: [
-        {
-          content: {
-            parts: [{ text: JSON.stringify({ form_6111_code: "9999", rivhit_code: "555", review_state: "maybe" }) }],
-          },
-        },
-      ],
-    });
-  const body = await (
-    await call("/v1/passkeys/refine-history", {
-      headers: { "x-passkey-credential-id": "id", "x-passkey-token": "token" },
-      body: JSON.stringify({ draft: {}, history: [{}] }),
-    })
-  ).json();
-  assert.equal(body.rivhit_code, null);
-  assert.equal(body.review_state, "review");
 });

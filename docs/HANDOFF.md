@@ -7,7 +7,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.1 · 12:28 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.2 · 14:12 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `86b109ae-2a27-4805-8d88-d58f0b2d7ab4` — backend version `2026.09.19.4 · 12:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -22,7 +22,7 @@ This is a local-first browser application that keeps a bookkeeper's clients and 
 4. The bookkeeper reviews and edits every row.
 5. Reports (VAT, advances, profit and loss, ledger) are computed from all declarations of the client and shown as a page, a child window and Rivhit-style PDFs saved in `<client>/reports/`. The old PDF + Rivhit TXT export of an open declaration is deprecated and sits in the "⋯" menu.
 6. Closing appends text-only closed history exactly once, then locks the table (no export since 3 Oct: `finalExport = "no-export"`; the Rivhit TXT export is deprecated and needs no template for upload or closing).
-7. Gemini Pass 2 improves accounting judgement from relevant local closed history, but never source facts.
+7. A second, text-only bookkeeper agent will apply the accounting rules to the recognised rows (planned, see "Two-agent redesign"; the history-based Pass 2 was removed on 9 October 2026).
 
 Never add cloud persistence for client workspaces, declarations, draft tables, source images, PDFs, TXT files, exports, or history. Those remain in the selected local folder. R2 only holds temporary Telegram images until the browser saves and ACKs them.
 
@@ -37,7 +37,7 @@ The intended test root is `D:\ocr_test` (not `D:\ocr\_test`). `D:\ocr_test` cont
 | Component | Location | Purpose |
 | --- | --- | --- |
 | Browser UI | https://vitaliksh.github.io/ocr/ | Local files, workspaces, journal, exports, PDF import, Windows Hello |
-| Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram, temporary R2, Gemini Pass 1/2, passkeys |
+| Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram, temporary R2, Gemini Pass 1, passkeys |
 | Telegram bot | `@Vitalikshbot` | iPhone intake and one-time computer enrollment |
 | Branch | `main` | GitHub Pages source; current relevant commit `2067553` |
 | Production Worker | `959f6607-7d76-4d1d-bdc2-c5e8879f94e8` | `/health` reports backend version; OCR currency-token guard enabled |
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.09.1 · 12:28 IDT
+גרסת ממשק: 2026.10.09.2 · 14:12 IDT
 גרסת שרת: 2026.09.19.4 · 12:44 IDT
 ~~~
 
@@ -64,9 +64,9 @@ Never print, commit, request, or store in browser storage:
 
 They are Worker secrets. Sessions and grants are opaque values and must not be logged.
 
-### Windows Hello / Pass 2
+### Windows Hello (authorisation of the AI agents)
 
-Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **שפר לפי היסטוריה** uses Windows Hello only—no Telegram or QR.
+Telegram is needed once for **חיבור המחשב לשיפור AI**. Later agent calls (the bookkeeper agent, once built) use Windows Hello only—no Telegram or QR.
 
 - Private passkey material stays in the platform authenticator.
 - `DEVICE_REGISTRY` contains public material, counter, transport metadata, short-lived challenge, and a five-minute grant only.
@@ -81,7 +81,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - Views (GUI redesign stage 3): `clients-view.js` (pure view models `clientSummary`, `filterClients`, `declarationGroups` and DOM rendering of the clients home and the client card; uses `root.ownerDocument` only), `clients-home.js` (`createClientsHome`: shows exactly one of `#clients-view`, `#client-view`, `#reports-view`, `#journal-view`, sets `body[data-view]`, draws the breadcrumb `#breadcrumb`; `app.js` calls `showJournal` from `activateDeclaration` and `showHome` from `switchDataRoot`), `clients.css`. `workspace.js` exposes `getClients`, `openDeclaration`, `newDeclaration`, `editClient` and an `onClientsChanged` callback. Top-bar actions that work on the open declaration have the class `journal-only` and exist only in the journal view (reports and Excel import use the last opened declaration's client).
   - Dialogs (GUI redesign stage 6): `dialogs.css` is the single template for every `dialog.workspace-dialog` (quiet header with a close icon, labels above fields, footer with the primary action first, a reserved line for `[role="alert"]` results so a dialog keeps its size, `.plate-*` status plates). The Excel import dialog is a four-step wizard (file, check, declaration, done) with a fixed size: `dialog[data-step]` decides which `[data-panel]` and which `.dialog-actions [data-for]` buttons are shown; `excel-import-ui.js` drives it (`setStep`), the import itself (`excel-import-flow.js`) is unchanged. After the import the dialog stays open on the "done" step with the result next to the close button.
   - Look and shell (GUI redesign, `GUI_REDESIGN_PLAN.md`): `tokens.css` (all colours, fonts, spacing, shadows; the only file with hex colours, enforced by `test/styles.test.mjs`), `base.css` (buttons, fields, badges, status plates, `[hidden]`), `shell.css` (top bar, scrolling `main.workspace`, status bar, `details.menu` menus), `shell.js` (menu behaviour and the info/error kind of `#status`; not loaded by the test harness), `fonts/` (self-hosted Heebo and Frank Ruhl Libre woff2 with their OFL licences). The other sheets are `photo.css` (photo window), `dialogs.css`, `journal.css`, `clients.css`, `sidebar.css`, `reports.css`; `shell.css` is always last. `ui-polish.js` adds Enter = primary action in dialogs, focus on open, tooltips for icon buttons and `data-open-menu` buttons.
-  - `app.js` — UI, queues, journal, exports, Pass 2, custom-code request headers.
+  - `app.js` — UI, queues, journal, exports, custom-code request headers.
   - `month-format.js` — months are stored as `YYYY-MM` and typed/shown as `MM/YYYY` (`parseMonthText` also accepts `M/YYYY`, `MM.YYYY`, `MM-YYYY`); all month inputs are text fields with that placeholder (native `type="month"` follows the browser language and cannot show MM/YYYY).
   - `confirm-dialog.js` — in-page `confirmDialog` and `dialogResult` (used by `app.js` and `workspace.js` instead of `window.confirm`/`prompt`, which some embedded browsers decline silently; results do not depend on the dialog `close` event).
   - `workspace.js` — File System Access root/client/declaration logic behind the sidebar; `sidebar-clients.js` renders the client list, `sidebar.js` collapses/resizes the sidebar (width and state in `localStorage` key `annateria-sidebar-v1`) and opens the settings dialog.
@@ -108,7 +108,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later **�
   - `reports-pdf.js` — Rivhit-style A4 pages: pure `layoutReport` (draw operations) and a canvas renderer wrapped into a PDF by `jpegPagesToPdf`.
   - `report-viewer.js` — child window with Close / Save a copy as / Save buttons.
   - `reports-ui.js` — the reports page (`#reports-view`, since 3 Oct a page of the app, not a dialog; `setupReports` returns `open({ client, kind })` and calls `onOpen` to reveal the view): report kind, period (default: the client's VAT period for the VAT report, its advances period for the advances report, year to date for the others; both come from the client properties and are shown read-only), advance percent, "הצגה" (child window), "שמירת כל המסמכים" (PDFs into `<client>/reports/`).
-  - `history-ranker.js` — local, text-only Pass 2 history selection.
+  - `history-ranker.js` — local, text-only history selection (no caller since Pass 2 was removed).
   - Backup (`BACKUP_SPEC.md`): `backup-store.js` (encrypted, write-once, hash-addressed copy into a user-picked folder: create, list, verify, restore, retention list; pure of DOM), `backup-state.js` (`common/backup-state.json`: last success per slot `cloud`/`usb`, `includeImages`; `backupLevel` decides the plate: cloud older than 2 days or flash older than 35 days = red), `backup-handles.js` (IndexedDB keys `backup-folder-cloud`, `backup-folder-usb`, `backup-key`), `transfer-store.js` / `transfer-ui.js` (the `.annateria` transfer file, see `BACKUP_SPEC.md`), `backup-ui.js` (`#backup-dialog`, the "גיבוי" sidebar item with a status dot, recovery code, copy now, verify, restore; `runAuto("start" | "lock")` is called by `app.js` after a data root is opened and after a declaration is locked), `backup.css`.
 - `cloudflare-worker/`
   - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
@@ -242,7 +242,7 @@ When **הוספת קוד מיון חדש…** succeeds:
 
 1. `saveCustomRivhitMapping` immediately writes it to `<root>/common/custom-rivhit-mapping.json`.
 2. Browser memory updates the selector and export mapping immediately.
-3. Future Pass 1 and Pass 2 requests send `X-Custom-Rivhit-Codes` with the current root-local custom map.
+3. Future Pass 1 requests send `X-Custom-Rivhit-Codes` with the current root-local custom map.
 4. Worker validates at most 200 safe three-digit non-built-in codes and includes them in the Gemini prompt.
 5. Worker accepts a direct custom code only if it is in that supplied list; invented codes are discarded.
 
@@ -250,11 +250,9 @@ When **הוספת קוד מיון חדש…** succeeds:
 
 For an expense invoice, Gemini must prefer a fitting approved Form 6111 code. If none fits, it may select a supplied local custom code. The schema carries both `form_6111_code` and `rivhit_code`; exactly one should be non-null, and Worker normalisation validates either result.
 
-### Pass 2
+### Pass 2 (removed)
 
-Pass 2 receives only the active draft row and 1–8 relevant closed-history records, all text-only. The ranker prefers supplier ID/name, then classification/description, and excludes images/raw monetary values from history context.
-
-Pass 2 may change classification, recognition percentages, confidence, review state, and agent opinion. It must not alter date, supplier, supplier ID, references, allocation number, raw net/VAT/gross, or currency. It receives the same Form 6111 and custom-code context as Pass 1.
+The history-based Pass 2 (button "שפר לפי היסטוריה", Worker route `/v1/passkeys/refine-history`) was removed on 9 October 2026 because it did not work in this version. Its replacement is the bookkeeper agent described under "Two-agent redesign". Closed history (`history.jsonl`) is still written on lock.
 
 ## Dry run with two real clients (5–7 October 2026)
 
@@ -304,7 +302,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.1 · 12:28 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.2 · 14:12 IDT` and backend `2026.09.19.4 · 12:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -389,7 +387,7 @@ npm run check
 npx wrangler deploy
 ~~~
 
-Expected: **30 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
+Expected: **26 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
 
 After a browser-only change, push `main`, wait for Pages, force-refresh, and verify the visible build marker. After a Worker change, record the returned version in `cloudflare-worker/DEPLOYMENT.md`, commit/push source and docs, and manually test the changed production flow.
 
