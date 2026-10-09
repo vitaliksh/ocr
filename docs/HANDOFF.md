@@ -312,7 +312,26 @@ Recommended short production check:
 
 ## Next decisions
 
-### Open requirements (9 October 2026, start here in a fresh session)
+### Two-agent redesign and the bookkeeper's rules (decided 9 October 2026, work in progress: start here)
+
+Rules from the bookkeeper (Anna), confirmed by the owner:
+
+1. Invoices of the whole current year are accepted at any time (an invoice for March that arrives in October).
+2. Every received invoice is checked for a duplicate from the month of its date up to the current month, locked months included.
+3. Only the current year is accepted; "current year" = calendar year of the declaration month the row goes to (not of today's date, so December documents processed in January still work).
+4. An invoice for a period (annual insurance) is judged by the end of the period: period 24–25 in 2026 is refused, 25–26 is accepted, duplicates still checked. Ordinary invoices go to the month of their date, period invoices to the month of receipt. Refusal is soft: the row is kept, excluded from the reports, with the reason, and the user can include it.
+
+Architecture (simple on purpose; a rule book file, a learning agent, row snapshots and per-client rules were considered and dropped):
+
+- **Agent 1 (OCR, Worker, vision):** extraction only: facts, the period (`period_from`, `period_to`) and the document type as printed. No classification, no judgement. Keeps the MONEY OCR guard and the split of mixed VAT groups.
+- **Agent 2 (bookkeeper, new button "עיבוד חשבונאי" next to the filter and the column chooser, Worker, text only):** gets the rows as text, the facts computed by code (year of the declaration month, duplicate candidates with month and status, period), the client's chart of accounts, Form 6111 and the root-local custom codes; returns patches with a reason. Rules of Anna live as text in its Worker prompt (a new rule = prompt edit + `wrangler deploy`). Exclusion by year or duplicate is applied by code from the facts, not left to the model. It may change classification, recognition percentages, the net/VAT split of a VAT-free document, exclusion and the month; it must not change OCR facts (date, supplier, supplier ID, references, allocation number, gross, currency). Insurance payment-confirmation letters become expense rows here (OCR returns them as printed).
+- **Editing:** an open month is always editable, except rows with fresh OCR that wait for agent 2 (new optional row flag). The journal shows a badge on such rows and a bar with the button and a count; a click on a blocked cell says why; if processing fails the rows unlock by themselves with a red plate, the button stays for a retry; rows from Excel, ledger and everything saved before are never blocked; any row can be deleted; locking a month with waiting rows is refused with a message. Before processing the table is copied to `draft-table.before-agent-<time>.json`. Documents arriving in batches: the button works only on the waiting rows.
+- **Pass 2 ("שפר לפי היסטוריה") is removed** (it did not work in this version). The passkey enrolment and the Windows Hello grant stay: the new route uses them for authorisation. `history-ranker.js` stays.
+- **Testing the agents:** the owner keeps a separate Gemini test key in `cloudflare-worker/.dev.vars` (git-ignored, never read or printed by agents); a local script outside the repository calls the recognition and agent functions directly. Real documents may be sent to Gemini (or another AI LLM API) for this, nowhere else without asking (`AGENTS.md`).
+
+Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 · 2 facts module (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields, run on documents, deploy · 4 bookkeeper agent route and prompt, run, deploy · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
+
+### Open requirements (9 October 2026; items 1 and 2 are absorbed by stages 3–4 above)
 
 Not built yet, in the order the owner cares about. Real client names and amounts stay out of the repository.
 
