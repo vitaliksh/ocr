@@ -167,3 +167,22 @@ test("warnings do not exclude: a possible duplicate, a future year, a missing da
   const late = intakeFacts({ row: row("x", "02/02/26", 118), month: "2026-09", position: 0 }, { lockedThrough: "2026-08", today });
   assert.deepEqual([late.deduction, late.exclude], ["late", null]);
 });
+
+test("yearly letters of one insurer are different documents when their full references differ, a truncated row is matched by its last digits", () => {
+  const letter = (id, reference, extra = {}) => ({ ...row(id, "07/09/26", 941, { reference: "7507" }), reference, ...extra });
+  const last = entryFromRow(letter("old", "25/001/673/1017507"), { month: "2026-08", status: "closed" });
+  const next = entryFromRow(letter("new", "26/001/673/1017507"), { month: "2026-09", position: 1 });
+  assert.equal(findDuplicates([last], next).level, null);
+  const again = entryFromRow(letter("again", "26/001/673/1017507"), { month: "2026-09", position: 2 });
+  assert.equal(findDuplicates([next], again).level, "strong");
+  const truncated = entry("saved", "07/09/26", 941, "2026-08", { reference: "7507" }, "closed");
+  assert.equal(findDuplicates([truncated], next).level, "strong");
+});
+
+test("the source amounts of a row, not the recognised table amounts, are compared", () => {
+  const home = (id, shown) => ({ ...row(id, "26/08/26", shown), rawNet: 1047.55, rawVat: 188.56 });
+  const saved = entryFromRow(home("a", 309.03), { month: "2026-08", status: "closed" });
+  const fresh = entryFromRow({ ...home("b", 1236.11) }, { month: "2026-09", position: 1 });
+  assert.equal(saved.gross, 1236.11);
+  assert.equal(findDuplicates([saved], fresh).level, "strong");
+});

@@ -1,7 +1,8 @@
 // Moving rows of an open declaration to other months, with their source images, without any DOM:
 // prepare (read the saved table, propose a month per row) and commit (write the target months, then the source).
 import { createDeclaration, listDeclarations, loadDeclaration, readSourceImage, saveDraft, saveSourceImage } from "./declaration-store.js";
-import { deductionStatus, lockedThrough, proposeMonth, targetMonths } from "./month-distribution.js";
+import { isPeriodDocument, intakeMonth } from "./intake-facts.js";
+import { deductionStatus, lockedThrough, targetMonths } from "./month-distribution.js";
 
 // Rows imported from Excel (or added from the ledger) were placed by the bookkeeper's own journals; they get no proposal.
 const isIntakeRow = (row) => !String(row.documentId ?? "").startsWith("import-");
@@ -27,7 +28,11 @@ export async function prepareMove({ client, month, today = new Date() }) {
   const lines = source.draft.rows.map((row, index) => {
     const values = row.values ?? [];
     const intake = isIntakeRow(row);
-    const proposal = intake ? proposeMonth(values[0], { lockedThrough: locked, today }) : { month: null, docMonth: null, reason: "none" };
+    // A document for a period (annual insurance) goes to the month of receipt and has no VAT deduction window of its own.
+    const period = isPeriodDocument(row.periodFrom, row.periodTo);
+    const proposal = intake
+      ? intakeMonth({ date: values[0], periodFrom: row.periodFrom, periodTo: row.periodTo, receivedAt: row.receivedAt, lockedThrough: locked, today })
+      : { month: null, docMonth: null, reason: "none" };
     return {
       index,
       documentId: row.documentId ?? "",
@@ -41,7 +46,7 @@ export async function prepareMove({ client, month, today = new Date() }) {
       signature: signature(row),
       current: month,
       proposed: proposal.month,
-      docMonth: proposal.docMonth,
+      docMonth: period ? null : proposal.docMonth,
       reason: proposal.reason,
     };
   });

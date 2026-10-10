@@ -29,6 +29,7 @@ import { setupExcelImport } from "./excel-import-ui.js";
 import { setupReports } from "./reports-ui.js";
 import { setupBackup } from "./backup-ui.js";
 import { setupTransfer } from "./transfer-ui.js";
+import { setupBookkeeper } from "./bookkeeper-ui.js";
 import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
 import {
   readCustomRivhitMapping,
@@ -635,6 +636,91 @@ const rowsMove = setupRowsMove({
   },
   onError: showError,
 });
+// The bookkeeper agent: rows with fresh OCR wait for the button "עיבוד חשבונאי" (bookkeeper-ui.js, bookkeeper-flow.js).
+let bookkeeper = null;
+async function callBookkeeper(body) {
+  const grant = await authorizePasskey();
+  const response = await fetch(apiUrl("/v1/bookkeeper/process"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Passkey-Credential-Id": grant.credentialId,
+        "X-Passkey-Token": grant.token,
+        "X-Gemini-Model": model.value,
+        "X-Form-6111-Mapping": encodeURIComponent(JSON.stringify(classificationMappingsForAgent())),
+        "X-Custom-Rivhit-Codes": encodeURIComponent(JSON.stringify(customClassificationCodesForAgent())),
+      },
+      body: JSON.stringify(body),
+    }),
+    result = await response.json();
+  if (!response.ok) throw new Error(result.error || "העיבוד החשבונאי נכשל.");
+  return result;
+}
+// Writes what the agent and the intake rules decided into the row. The recognition percentages stay with applyBusinessRule.
+function applyBookkeeperPlan(row, plan) {
+  if (plan.rivhitCode && rivhitMapping[plan.rivhitCode]) {
+    row.cells[1].replaceChildren(classificationSelect(plan.rivhitCode));
+    applyBusinessRule(row);
+  }
+  row.dataset.autoExclude = plan.exclude;
+  row.dataset.wouldInclude = plan.wouldInclude ? "true" : "";
+  if (["strong", "likely"].includes(plan.facts.duplicates.level)) row.dataset.duplicate = "true";
+  const opinion = row.cells[14].textContent.trim();
+  row.cells[14].textContent = opinion && opinion !== "—" ? `${plan.reason} | ${opinion}` : plan.reason;
+  setExportIncluded(row, plan.include);
+  if (plan.statusText) setStatus(row, plan.statusText, "review");
+  else setStatus(row, row.highlights.length ? "מוכן לייצוא" : "מוכן, חסרים סימונים", row.highlights.length ? "ready" : "review");
+  addRerunButton(row);
+}
+// A corrected date or reference may lift the exclusion (or bring it back); the user's own decision is never overridden.
+function applyBookkeeperRecheck(row, facts) {
+  const exclude = facts.exclude ?? "";
+  row.dataset.autoExclude = exclude;
+  if (exclude) {
+    setExportIncluded(row, false);
+    setStatus(row, exclude === "duplicate" ? "כפילות — נדרש עיון" : "שנה קודמת — לבדוק תאריך", "review");
+  } else if (row.dataset.wouldInclude) {
+    setExportIncluded(row, true);
+    setStatus(row, row.highlights.length ? "מוכן לייצוא" : "מוכן, חסרים סימונים", row.highlights.length ? "ready" : "review");
+  }
+  addRerunButton(row);
+  queueDraftSave();
+}
+const tableRows = () => [...records.querySelectorAll("tr[data-document-id]")];
+bookkeeper = setupBookkeeper({
+  records,
+  button: document.querySelector("#run-bookkeeper"),
+  plate: document.querySelector("#bookkeeper-plate"),
+  isTableLocked: () => tableLocked,
+  getContext: () =>
+    committedWorkspace && currentDeclaration?.status === "open"
+      ? {
+          client: committedWorkspace,
+          month: currentDeclaration.month,
+          reserved: builtInMapping,
+          snapshots: () => tableRows().map(rowSnapshot),
+          call: callBookkeeper,
+          // The table is read from its file for the copy, so it is saved first; images still being read must finish.
+          beforeRun: async () => {
+            if (pendingRecognitions) return `ממתינים לסיום עיבוד של ${pendingRecognitions} תמונות לפני העיבוד החשבונאי.`;
+            await saveCurrentDraft();
+            return null;
+          },
+          onChange: queueDraftSave,
+        }
+      : null,
+  applyPlan: applyBookkeeperPlan,
+  applyRecheck: applyBookkeeperRecheck,
+  afterRun: (plans) => {
+    if (plans.some((plan) => plan.facts.moves)) offerDistribution();
+  },
+});
+// The table shows only the last four digits of a reference: a typed reference replaces the full one read by OCR.
+records.addEventListener("input", (event) => {
+  const cell = event.target.closest?.("td"),
+    row = cell?.parentElement;
+  if (row?.dataset.documentId && [...row.cells].indexOf(cell) === 6) delete row.dataset.fullReference;
+});
 function isIncomeCode(code) {
   const account = chartForClient(chartAccounts, committedWorkspace?.config.clientId)[String(code)];
   return (account?.type ?? (rivhitMapping[code] === "הכנסות" ? "income" : "expense")) === "income";
@@ -800,6 +886,8 @@ function setTableLocked(locked) {
   records.classList.toggle("table-locked", locked);
   for (const cell of records.querySelectorAll(".editable")) cell.contentEditable = locked ? "false" : "true";
   for (const control of records.querySelectorAll("select,input,.delete,.retry,.field-swap")) control.disabled = locked;
+  bookkeeper?.syncAll();
+  bookkeeper?.refresh();
 }
 function refreshRows() {
   const rows = [...records.querySelectorAll("tr[data-document-id]")];
@@ -1657,6 +1745,13 @@ async function applyRecord(row, record) {
   row.dataset.vatPercent = String(record.vat_percent ?? (Number(record.vat_amount) ? 18 : 0));
   row.dataset.documentKind = record.document_kind || "other";
   row.dataset.form6111Code = record.form_6111_code || "";
+  row.dataset.fullReference = record.transaction_number || record.invoice_number || "";
+  row.dataset.documentTitle = record.document_title || "";
+  row.dataset.periodFrom = record.period_from || "";
+  row.dataset.periodTo = record.period_to || "";
+  row.dataset.autoExclude = "";
+  row.dataset.wouldInclude = "";
+  row.dataset.processing = record.document_kind === "income_report" ? "" : "pending";
   row.highlights = Array.isArray(record.highlight_regions) ? record.highlight_regions : [];
   const values = [
     displayDate(record.date),
@@ -1725,6 +1820,14 @@ function rowSnapshot(row) {
     rawVat: row.dataset.rawVat || "0",
     vatPercent: row.dataset.vatPercent || "0",
     form6111Code: row.dataset.form6111Code || "",
+    documentKind: row.dataset.documentKind || "",
+    reference: row.dataset.fullReference || "",
+    documentTitle: row.dataset.documentTitle || "",
+    periodFrom: row.dataset.periodFrom || "",
+    periodTo: row.dataset.periodTo || "",
+    processing: row.dataset.processing || "",
+    autoExclude: row.dataset.autoExclude || "",
+    wouldInclude: row.dataset.wouldInclude || "",
     highlights: row.highlights || [],
     active: Boolean(row.cells[17].querySelector("input")?.checked),
     agentOpinion: row.cells[14].textContent.trim(),
@@ -1750,6 +1853,8 @@ function restoreRow(saved, blob) {
   row.dataset.rawVat = String(saved.rawVat || 0);
   row.dataset.vatPercent = String(saved.vatPercent ?? (Number(saved.rawVat) ? 18 : 0));
   row.dataset.form6111Code = saved.form6111Code || "";
+  for (const [key, field] of [["documentKind", "documentKind"], ["fullReference", "reference"], ["documentTitle", "documentTitle"], ["periodFrom", "periodFrom"], ["periodTo", "periodTo"], ["processing", "processing"], ["autoExclude", "autoExclude"], ["wouldInclude", "wouldInclude"]])
+    if (saved[field]) row.dataset[key] = saved[field];
   row.highlights = Array.isArray(saved.highlights) ? saved.highlights : [];
   row.replaceChild(editableCell(values[1]), row.cells[1]);
   row.replaceChild(editableCell(displayDate(values[0])), row.cells[2]);
@@ -1891,6 +1996,7 @@ closeDeclarationButton.addEventListener("click", async () => {
       .map((row, index) => ({ ...snapshots[index], imageBlob: row.documentImage }))
       .filter((row) => row.active);
   if (!reportRows.length) return showError("יש לסמן לפחות שורה פעילה לפני נעילת ההצהרה.");
+  if (bookkeeper?.waitingCount()) return showError('יש שורות שממתינות לעיבוד חשבונאי. יש להפעיל "עיבוד חשבונאי" לפני הנעילה.');
   const closeMessage = "לנעול את ההצהרה? הטבלה תינעל והשורות יצטרפו להיסטוריה. אפשר לפתוח מחדש עם ציון סיבה.";
   if (!(await confirmDialog(closeMessage, { title: "נעילת הצהרה", confirmLabel: "נעילה" }))) return;
   closeDeclarationButton.disabled = true;

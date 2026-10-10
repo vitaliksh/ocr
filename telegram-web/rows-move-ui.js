@@ -41,6 +41,7 @@ export function setupRowsMove({ button = null, dialog, getContext, beforeOpen, o
   const note = (line, target) => {
     const parts = [];
     if (line.reason === "after-locked") parts.push(`התאריך בחודש שכבר הוגש (עד ${formatMonth(prepared.lockedThrough)} נעול); הוצע החודש הראשון שאחריו`);
+    if (line.reason === "period-received") parts.push("מסמך לתקופה — נרשם בחודש הקבלה");
     if (line.reason === "no-date") parts.push("אין תאריך קריא — לא הוצע חודש");
     if (line.reason === "implausible") parts.push("התאריך חשוד — לא הוצע חודש");
     const deduction = context.isIncomeCode?.(line.code) ? "ok" : prepared.deduction(line, target);

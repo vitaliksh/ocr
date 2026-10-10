@@ -144,3 +144,12 @@ test("prepare tells which target months already hold a row with the same date, c
   assert.equal(prepared.similar(prepared.lines[0], "2026-11"), false);
   assert.equal(prepared.similar(prepared.lines[1], "2026-10"), false);
 });
+
+test("a document for a period of a year is proposed for the month of receipt and has no VAT deduction window of its own", async () => {
+  const policy = { ...photoRow("ins", "07/09/25", 941, "", 0), periodFrom: "2025-10-01", periodTo: "2026-09-30", receivedAt: "2026-10-05T10:00:00.000Z" };
+  const { c } = await setup({ rows: [policy, photoRow("plain", "07/09/25", 941, "", 0)] });
+  const prepared = await prepareMove({ client: c, month: "2026-09", today });
+  assert.deepEqual(prepared.lines.map((line) => [line.proposed, line.reason, line.docMonth]), [["2026-10", "period-received", null], ["2026-09", "after-locked", "2025-09"]]);
+  assert.equal(prepared.deduction(prepared.lines[0], "2026-10"), "ok");
+  assert.equal(prepared.deduction({ ...prepared.lines[1], vat: 1 }, "2026-10"), "late");
+});

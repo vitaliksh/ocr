@@ -50,6 +50,8 @@ function periodMonths(periodFrom, periodTo) {
   return from && to && monthsBetween(from, to) >= MIN_PERIOD_MONTHS ? { from, to } : null;
 }
 
+export const isPeriodDocument = (periodFrom, periodTo) => Boolean(periodMonths(periodFrom, periodTo));
+
 // Which declaration month the document belongs to. A document for a period goes to the month of receipt, any other to
 // the month of its date; neither goes into a filed month, so both move to the first month after the last locked one.
 // reason: "date", "after-locked", "period-received", "no-date", "implausible" (month is null for the last two).
@@ -100,9 +102,15 @@ const nameTokens = (value) =>
     .map((token) => (token.length > 3 && token.startsWith("ה") ? token.slice(1) : token))
     .filter((token) => token.length >= 2 && !NAME_STOP.has(token));
 
-// A row as the duplicate search sees it. `row` is in the draft-table format.
+// A row as the duplicate search sees it. `row` is in the draft-table format. The table shows only the last four digits of
+// a reference; a row that kept the full printed one (`row.reference`) is compared in full, so that the yearly letters of
+// one insurer (same last digits, same amount) are not taken for one document. The amounts are the source amounts when the
+// row has them (the table amounts depend on the recognition percentages).
 export function entryFromRow(row, { month, status = "open", position = 0 }) {
   const values = row.values ?? [];
+  const full = String(row.reference ?? "").trim();
+  const reference = normalReference(full || values[REFERENCE]);
+  const source = Math.abs((Number(row.rawNet) || 0) + (Number(row.rawVat) || 0));
   return {
     month,
     status,
@@ -111,14 +119,21 @@ export function entryFromRow(row, { month, status = "open", position = 0 }) {
     date: dateKey(values[DATE]),
     supplier: nameTokens(values[SUPPLIER] || values[2]),
     supplierId: supplierDigits(values[SUPPLIER_ID]),
-    reference: normalReference(values[REFERENCE]),
-    gross: Math.abs(Number(values[GROSS]) || 0),
+    reference,
+    fullReference: Boolean(full),
+    referenceTail: reference.replace(/\D/g, "").slice(-4),
+    gross: source > 0 ? source : Math.abs(Number(values[GROSS]) || 0),
   };
 }
 
 const sameSupplier = (left, right) =>
   (left.supplierId && right.supplierId && left.supplierId === right.supplierId) ||
   left.supplier.some((token) => token.length >= 3 && right.supplier.includes(token));
+// Two full references must be equal; when one side is only the last four digits, those digits decide.
+const sameReference = (left, right) =>
+  Boolean(left.reference) &&
+  (left.reference === right.reference ||
+    (!(left.fullReference && right.fullReference) && Boolean(left.referenceTail) && left.referenceTail === right.referenceTail));
 const differentSupplierIds = (left, right) =>
   left.supplierId && right.supplierId && left.supplierId !== right.supplierId;
 
@@ -131,7 +146,7 @@ function similarity(candidate, entry) {
   if (!candidate.gross || Math.abs(candidate.gross - entry.gross) >= 0.005) return null;
   if (differentSupplierIds(candidate, entry)) return null;
   const sameDate = Boolean(candidate.date) && candidate.date === entry.date;
-  if (candidate.reference && candidate.reference === entry.reference) {
+  if (sameReference(candidate, entry)) {
     if (sameSupplier(candidate, entry)) return "strong";
     return sameDate && candidate.reference.length >= 3 ? "likely" : null;
   }

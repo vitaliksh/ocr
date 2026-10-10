@@ -378,3 +378,40 @@ td .photo-button {
 .summary-item.muted strong {
   color: var(--text-muted);
 }
+
+/* A row with fresh OCR waits for the bookkeeper agent and cannot be edited until it has run: its status line says so
+   (the saved status stays untouched) and the plate above the table explains and carries the button. */
+.bookkeeper-plate {
+  margin: var(--s2) 0;
+  transition: box-shadow .2s;
+}
+
+.bookkeeper-plate.flash {
+  box-shadow: 0 0 0 3px var(--warning-border);
+}
+
+#journal-table tr.waiting-agent td {
+  background: var(--surface-muted);
+}
+
+#journal-table tr.waiting-agent td.state {
+  font-size: 0;
+}
+
+#journal-table tr.waiting-agent td.state::before {
+  content: "ממתין לעיבוד חשבונאי";
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--warning);
+}
+
+#journal-table tr.waiting-agent td.state .retry {
+  font-size: var(--fs-sm);
+}
+
+#journal-table tr[data-processing="failed"] td.state::after {
+  content: "העיבוד נכשל — אפשר לערוך ידנית";
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--error);
+}
