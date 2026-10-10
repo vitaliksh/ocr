@@ -9,9 +9,9 @@ redeploy the Cloudflare component. It is safe to keep in Git.
 | --- | --- |
 | Worker name | `rivhit-telegram-transfer` |
 | Public URL | `https://rivhit-telegram-transfer.vitaliksh.workers.dev` |
-| Cloudflare version ID | `f977b54d-c6f2-4639-8b67-5655b52426ec` (9 Oct 2026, backend `2026.10.09.1 · 15:01 IDT`; previous: `86b109ae-2a27-4805-8d88-d58f0b2d7ab4`, usable for a rollback) |
-| Source commit | `004f09c` (`Bump the backend version for the OCR agent release`; OCR agent with period and title fields, Pass 2 route removed) |
-| Git tag | `cloudflare-production-2026-10-09` (annotated) |
+| Cloudflare version ID | `b1bd722a-2021-400a-b503-7ea2f33e3104` (10 Oct 2026, backend `2026.10.10.1 · 18:44 IDT`; previous: `f977b54d-c6f2-4639-8b67-5655b52426ec`, usable for a rollback) |
+| Source commit | `223a5e1` (`Add the button 'עיבוד חשבונאי'…`; the bookkeeper agent route `POST /v1/bookkeeper/process` on top of the OCR agent release) |
+| Git tag | `cloudflare-production-2026-10-10` (annotated; `cloudflare-production-2026-10-09` is the OCR agent release before it) |
 | Durable Objects | `UPLOAD_SESSION` / `UploadSession`; `DEVICE_REGISTRY` / `DeviceRegistry` |
 | R2 bucket | `rivhit-temporary-photos` |
 
@@ -44,7 +44,7 @@ node node_modules\wrangler\bin\wrangler.js deployments list
 To inspect the exact recorded production source locally, use:
 
 ```powershell
-git switch --detach 004f09c
+git switch --detach 223a5e1
 ```
 
 Do not deploy from that detached checkout. Return to `main`, review the
