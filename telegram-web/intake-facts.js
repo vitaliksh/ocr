@@ -170,7 +170,9 @@ export function intakeFacts(candidate, { entries = [], lockedThrough = null, tod
   const targetMonth = where.month ?? candidate.month;
   const year = yearGate({ docMonth: where.docMonth, periodFrom, periodTo, targetMonth });
   const own = entryFromRow(candidate.row, { month: candidate.month, position: candidate.position });
-  const first = [where.docMonth, targetMonth].filter(Boolean).sort()[0];
+  // The search starts at the earliest of the document month, the target month and the month the row sits in now:
+  // a copy in the open table is a duplicate even when the document belongs to a later month.
+  const first = [where.docMonth, targetMonth, candidate.month].filter(Boolean).sort()[0];
   const fromMonth = where.docMonth ? first : `${targetMonth.slice(0, 4)}-01`;
   const duplicates = findDuplicates(entries, own, { fromMonth });
   const duplicate = ["strong", "likely"].includes(duplicates.level);

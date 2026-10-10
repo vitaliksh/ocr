@@ -9,7 +9,6 @@ Dynamic values are shown as placeholders: `{{business_activity}}`,
 immediately before calling Gemini. The response JSON schema and server-side validation stay
 in the Worker and are part of the contract too.
 
-There is currently one deployed AI pass (OCR). The history-based Pass 2 was
-removed on 9 October 2026. The planned text-only bookkeeper agent (see
-`docs/HANDOFF.md`, "Two-agent redesign") must receive its own prompt and the
-field-mutation rules of `AGENTS.md` when it is added.
+The deployed AI passes are the OCR pass (`gemini-pass-1.md`) and, from stage 4 of the two-agent plan, the text-only bookkeeper agent (`bookkeeper-agent.md`). The history-based Pass 2 was
+removed on 9 October 2026. The bookkeeper agent follows the field-mutation rules
+of `AGENTS.md` (see `docs/HANDOFF.md`, "Two-agent redesign").

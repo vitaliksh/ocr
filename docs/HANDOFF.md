@@ -7,7 +7,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.09.4 · 14:52 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.10.1 · 18:15 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `f977b54d-c6f2-4639-8b67-5655b52426ec` — backend version `2026.10.09.1 · 15:01 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.09.4 · 14:52 IDT
+גרסת ממשק: 2026.10.10.1 · 18:15 IDT
 גרסת שרת: 2026.10.09.1 · 15:01 IDT
 ~~~
 
@@ -112,7 +112,8 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later age
   - `history-ranker.js` — local, text-only history selection (no caller since Pass 2 was removed).
   - Backup (`BACKUP_SPEC.md`): `backup-store.js` (encrypted, write-once, hash-addressed copy into a user-picked folder: create, list, verify, restore, retention list; pure of DOM), `backup-state.js` (`common/backup-state.json`: last success per slot `cloud`/`usb`, `includeImages`; `backupLevel` decides the plate: cloud older than 2 days or flash older than 35 days = red), `backup-handles.js` (IndexedDB keys `backup-folder-cloud`, `backup-folder-usb`, `backup-key`), `transfer-store.js` / `transfer-ui.js` (the `.annateria` transfer file, see `BACKUP_SPEC.md`), `backup-ui.js` (`#backup-dialog`, the "גיבוי" sidebar item with a status dot, recovery code, copy now, verify, restore; `runAuto("start" | "lock")` is called by `app.js` after a data root is opened and after a declaration is locked), `backup.css`.
 - `cloudflare-worker/`
-  - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects.
+  - `src/index.js` — routes, Gemini prompts/normalisation, CORS, Durable Objects; the route `POST /v1/bookkeeper/process` (Windows Hello) calls the text-only bookkeeper agent.
+  - `src/bookkeeper.js` — the bookkeeper agent: input validation and cutting, the prompt, the allowed codes (the client's own chart wins, otherwise the built-in map), normalisation of the answer. Contract and rendered prompt: `agent-prompts/bookkeeper-agent.md`.
   - `src/rivhit-mapping.js` — approved Form 6111 map.
   - `wrangler.toml`, `DEPLOYMENT.md` — Worker bindings/deployment record.
 - `docs/RIVHIT_IMPORT_SPEC.md` — TXT contract.
@@ -303,7 +304,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.09.4 · 14:52 IDT` and backend `2026.10.09.1 · 15:01 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.10.1 · 18:15 IDT` and backend `2026.10.09.1 · 15:01 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -328,7 +329,7 @@ Architecture (simple on purpose; a rule book file, a learning agent, row snapsho
 - **Pass 2 ("שפר לפי היסטוריה") is removed** (it did not work in this version). The passkey enrolment and the Windows Hello grant stay: the new route uses them for authorisation. `history-ranker.js` stays.
 - **Testing the agents:** the owner keeps a separate Gemini test key in `cloudflare-worker/.dev.vars` (git-ignored, never read or printed by agents); a local script outside the repository calls the recognition and agent functions directly. Real documents may be sent to Gemini (or another AI LLM API) for this, nowhere else without asking (`AGENTS.md`).
 
-Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 (done) · 2 facts module (done, 18 tests) (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields (done and deployed on 9 Oct 2026, see "OCR agent test on a real month") · 4 bookkeeper agent route and prompt, run, deploy · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
+Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 (done) · 2 facts module (done, 18 tests) (year, period, duplicates, month) with tests · 3 OCR agent prompt and fields (done and deployed on 9 Oct 2026, see "OCR agent test on a real month") · 4 bookkeeper agent route and prompt (done in source, see "Bookkeeper agent test on a real month") · 5 the button, row flag, bar and unlock, real-browser run · 6 owner's check on the published page, docs, marker.
 
 #### OCR agent test on a real month (9 October 2026)
 
@@ -339,6 +340,16 @@ Known limit, not fixed by the prompt: on blurred receipts the model misreads the
 Changes (Worker only, the frontend still ignores the new fields until stage 5): schema and normalisation get `period_from`, `period_to` (YYYY-MM-DD or null) and `document_title`; a `payment_confirmation` keeps the facts read from it (date, issuer, policy number as `invoice_number`, total, period) but no codes and `include = false`, so the bookkeeper agent can decide; the prompt: `income_report` only for a periodic income summary, split into several records only when the printed VAT summary has separate groups, today's date for two-digit years, no giving up on a poor photo, the facts rules above. Classification stays in this prompt until the agent button replaces it (stage 5): removing it earlier would leave rows without a code. The row does not store the period yet (stage 5).
 
 Decision made on the way (to confirm with Anna): a period counts as a "period document" only when it spans three months or more (insurance, not the monthly telephone or the bimonthly electricity bill); those go by their date.
+
+#### Bookkeeper agent test on a real month (10 October 2026)
+
+The agent (`cloudflare-worker/src/bookkeeper.js`, route `POST /v1/bookkeeper/process`) was run with the owner's test key on the 38 recognised pages of one real client's September: the rows come from the new OCR run, the accounts from the client's own chart, the facts from `intake-facts.js` (other declarations plus the rows of the open table itself). Results stay outside the repository. What it did: insurance policies and insurer letters became expenses on the client's business-insurance account (206 in that chart, not the built-in "ביטוחים"); a tax-authority payment and a National Insurance payment became `not_expense` with `needs_review`; a driving-licence fee and one unreadable page became `unclear`; fuel, electricity, accounting, office and consumables went to the client's accounts of that name; weak fits (internet and software charged to a general maintenance account) are marked for review. The software facts caught the real duplicates (the same invoice photographed three times, a policy letter and its renewal page for one premium, an invoice sent twice) and the two receipts whose misread year looked like a previous year. Two repeated runs differ in the account of about 5 of 38 rows (office vs maintenance, equipment vs maintenance): the user reviews every row anyway.
+
+Contract and boundaries: the agent returns, per row, `decision` (`expense`, `not_expense`, `unclear`), `rivhit_code` (only from the allowed list, only for an expense), `needs_review` and a Hebrew reason; it never changes OCR facts or recognition percentages (the browser's `applyBusinessRule` keeps owning them, so VAT is not reduced twice); exclusion for a previous year or a duplicate is applied by the browser from the facts, not by the model. Stage 5 must send only the waiting rows (no income reports), at most 80 per request.
+
+Found on the way and fixed in `intake-facts.js`: the duplicate search skipped the rows of the open table when the document belongs to a later month (the window started at the target month); it now starts at the earliest of the document month, the target month and the month the row sits in.
+
+Rules in the prompt that are common practice and not confirmed by the bookkeeper (to confirm with Anna): tax-authority and National Insurance payments are not expenses; a licence fee, a fine or a donation is unclear.
 
 ### Open requirements (9 October 2026; items 1 and 2 are absorbed by stages 3–4 above)
 
@@ -387,7 +398,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **377 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **378 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
@@ -398,7 +409,7 @@ npm run check
 npx wrangler deploy
 ~~~
 
-Expected: **29 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
+Expected: **34 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
 
 After a browser-only change, push `main`, wait for Pages, force-refresh, and verify the visible build marker. After a Worker change, record the returned version in `cloudflare-worker/DEPLOYMENT.md`, commit/push source and docs, and manually test the changed production flow.
 

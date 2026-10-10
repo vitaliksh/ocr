@@ -1,4 +1,11 @@
 import { RIVHIT_MAPPING } from "./rivhit-mapping.js";
+import {
+  BOOKKEEPER_SCHEMA,
+  allowedCodes,
+  bookkeeperPrompt,
+  normalizeBookkeeperAnswer,
+  parseBookkeeperInput,
+} from "./bookkeeper.js";
 import * as webauthn from "@simplewebauthn/server";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
@@ -391,6 +398,62 @@ async function recognizeWithGemini(request, env) {
   }
 }
 
+// Text-only bookkeeper agent: decides expense or not and the account of the client for rows that OCR has read.
+async function bookkeeperProcess(request, env) {
+  if (!env.GEMINI_API_KEY) return json({ error: "Gemini is not configured." }, 503);
+  let input;
+  try {
+    input = await request.json();
+  } catch {
+    return json({ error: "Invalid bookkeeper request." }, 400);
+  }
+  const parsed = parseBookkeeperInput(input);
+  if (parsed.error) return json({ error: parsed.error }, 400);
+  const selectedModel = request.headers.get("x-gemini-model") || env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+  if (!GEMINI_MODELS.has(selectedModel)) return json({ error: "Unsupported Gemini model." }, 400);
+  const { chart, rows } = parsed.value,
+    codes = allowedCodes(chart, form6111Mapping(request), customRivhitCodes(request)),
+    payload = JSON.stringify({
+      system_instruction: { parts: [{ text: bookkeeperPrompt(parsed.value, codes, chart.length > 0) }] },
+      contents: [{ role: "user", parts: [{ text: JSON.stringify(rows) }] }],
+      generationConfig: { response_mime_type: "application/json", response_schema: BOOKKEEPER_SCHEMA, temperature: 0 },
+    });
+  let response, data;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+        body: payload,
+      },
+    );
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+    if (response.ok || (response.status !== 429 && response.status < 500) || attempt === 3) break;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(16000, 2000 * 2 ** attempt)));
+  }
+  if (!response.ok) {
+    console.error("Gemini bookkeeper request failed", response.status, data?.error?.message);
+    const error =
+      response.status === 429
+        ? "Gemini מוגבל זמנית. נסה שוב בעוד דקה או בחר מודל אחר."
+        : response.status >= 500
+          ? "Gemini אינו זמין זמנית. נסה שוב."
+          : "Gemini דחה את בקשת העיבוד החשבונאי.";
+    return json({ error }, 502);
+  }
+  try {
+    const raw = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || "");
+    return json({ results: normalizeBookkeeperAnswer(raw, rows, codes) });
+  } catch {
+    return json({ error: "Gemini returned an invalid bookkeeper result." }, 502);
+  }
+}
+
 function sessionStub(env, sessionId) {
   return env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(sessionId));
 }
@@ -537,6 +600,15 @@ export default {
         return new Response(authorization.body, { status: authorization.status, headers });
       }
       const result = await recognizeWithGemini(request, env),
+        headers = new Headers(result.headers);
+      for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value);
+      return new Response(result.body, { status: result.status, headers });
+    }
+    if (url.pathname === "/v1/bookkeeper/process") {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
+      const authorization = await passkeyAuthorized(request, env);
+      if (!authorization) return json({ error: "Windows Hello authorization is required." }, 401, cors(request, env));
+      const result = await bookkeeperProcess(request, env),
         headers = new Headers(result.headers);
       for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value);
       return new Response(result.body, { status: result.status, headers });

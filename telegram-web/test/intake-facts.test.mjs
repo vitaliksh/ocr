@@ -131,6 +131,12 @@ test("October: an invoice for March is accepted into March when it is open, and 
   assert.equal(fresh.deduction, "ok");
 });
 
+test("a copy in the open table is found although the document is dated in a later month", () => {
+  const entries = [entry("a", "01/10/26", 76.7, "2026-09", {}, "open", 0)];
+  const facts = intakeFacts({ row: row("b", "01/10/26", 76.7), month: "2026-09", position: 1 }, { entries, today: new Date(2026, 9, 10) });
+  assert.deepEqual([facts.targetMonth, facts.duplicates.level, facts.exclude], ["2026-10", "strong", "duplicate"]);
+});
+
 test("a document of the previous year is excluded, also after the filed months push it forward", () => {
   const facts = intakeFacts({ row: row("old", "20/12/25", 118), month: "2026-09", position: 0 }, { lockedThrough: "2026-08", today });
   assert.deepEqual([facts.targetMonth, facts.year.status, facts.exclude], ["2026-09", "previous-year", "previous-year"]);

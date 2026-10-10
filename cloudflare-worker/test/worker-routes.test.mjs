@@ -279,3 +279,88 @@ test("Gemini client errors and malformed output become 502 with a safe message",
   mockGemini([], { raw: JSON.stringify({ nothing: true }) });
   assert.equal((await recognize()).status, 502);
 });
+
+const PASSKEY = { "x-passkey-credential-id": "id", "x-passkey-token": "token" };
+const bookkeeper = (body, { headers = {}, env, method } = {}) =>
+  call("/v1/bookkeeper/process", { env, method, headers: { ...PASSKEY, ...headers }, body: typeof body === "string" ? body : JSON.stringify(body) });
+const bkRow = (n, extra = {}) => ({ n, document_kind: "expense_invoice", supplier_name: "Supplier", date: "03/09/2026", total: 118, net: 100, vat: 18, ...extra });
+const CHART = [
+  { code: "204", name: "חשמל", type: "expense" },
+  { code: "206", name: "ביטוח עסק", type: "outsideVatBase" },
+  { code: "110", name: "הכנסה חייבת", type: "income" },
+];
+const bkAnswer = (results) => mockGemini([], { raw: JSON.stringify({ results }) });
+
+test("the bookkeeper route needs a passkey authorisation and a POST", async () => {
+  const deny = makeEnv({ DEVICE_REGISTRY: stub(async () => new Response("{}", { status: 401 })) });
+  assert.equal((await call("/v1/bookkeeper/process")).status, 401);
+  assert.equal((await bookkeeper({ rows: [bkRow(1)] }, { env: deny })).status, 401);
+  assert.equal((await call("/v1/bookkeeper/process", { method: "GET" })).status, 405);
+});
+
+test("the bookkeeper route validates its input", async () => {
+  mockGemini([]);
+  assert.equal((await bookkeeper("{bad")).status, 400);
+  assert.equal((await bookkeeper({})).status, 400);
+  assert.equal((await bookkeeper({ rows: [] })).status, 400);
+  assert.equal((await bookkeeper({ rows: Array.from({ length: 81 }, (_, index) => bkRow(index + 1)) })).status, 400);
+  assert.equal((await bookkeeper({ rows: [bkRow(1), bkRow(1)] })).status, 400);
+  assert.equal((await bookkeeper({ rows: [bkRow(1)] }, { headers: { "x-gemini-model": "nope" } })).status, 400);
+  assert.equal((await bookkeeper({ rows: [bkRow(1)] }, { env: makeEnv({ GEMINI_API_KEY: "" }) })).status, 503);
+});
+
+test("the bookkeeper answer is matched to the rows and only codes of the client's chart survive", async () => {
+  bkAnswer([
+    { n: 1, decision: "expense", rivhit_code: "204", needs_review: false, reason: "חשמל" },
+    { n: 2, decision: "expense", rivhit_code: "110", needs_review: false, reason: "חשבון הכנסה" },
+    { n: 3, decision: "expense", rivhit_code: "818", needs_review: false, reason: "קוד כללי" },
+    { n: 4, decision: "not_expense", rivhit_code: "204", needs_review: false, reason: "תשלום מס" },
+    { n: 5, decision: "poem", rivhit_code: "204", needs_review: false, reason: "" },
+    { n: 99, decision: "expense", rivhit_code: "204", needs_review: false, reason: "no such row" },
+  ]);
+  const response = await bookkeeper({ chart: CHART, rows: [1, 2, 3, 4, 5, 6].map((n) => bkRow(n)) });
+  assert.equal(response.status, 200);
+  const { results } = await response.json();
+  assert.deepEqual(results.map((result) => result.n), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(results.map((result) => [result.decision, result.rivhit_code, result.needs_review]), [
+    ["expense", "204", false],
+    ["expense", null, true],
+    ["expense", null, true],
+    ["not_expense", null, true],
+    ["unclear", null, true],
+    ["unclear", null, true],
+  ]);
+  assert.equal(results[0].reason, "חשמל");
+  assert.equal(results[4].reason, "לא נמסר הסבר מהסוכן.");
+  assert.match(results[5].reason, /לא החזיר תשובה/);
+});
+
+test("without a chart the built-in codes are allowed; a payload that is not JSON gives a 502", async () => {
+  bkAnswer([{ n: 1, decision: "expense", rivhit_code: RIVHIT_CODE, needs_review: false, reason: "x" }]);
+  const [first] = (await (await bookkeeper({ rows: [bkRow(1)] })).json()).results;
+  assert.equal(first.rivhit_code, RIVHIT_CODE);
+  mockGemini([], { raw: "not json" });
+  assert.equal((await bookkeeper({ rows: [bkRow(1)] })).status, 502);
+  mockGemini([], { status: 400 });
+  assert.equal((await bookkeeper({ rows: [bkRow(1)] })).status, 502);
+});
+
+test("the bookkeeper prompt carries the client's accounts, the rules and the software facts, and no recognition percentages", async () => {
+  const calls = mockGemini([], { raw: JSON.stringify({ results: [] }) });
+  await bookkeeper({
+    chart: CHART,
+    client: { activity: "pilates", kind: "home" },
+    declarationMonth: "2026-09",
+    rows: [bkRow(1, { facts: { exclude: "duplicate", duplicate: "strong", year: "ok", deduction: "late", junk: 1 } })],
+  });
+  const body = JSON.parse(calls[0].init.body);
+  const prompt = body.system_instruction.parts[0].text;
+  assert.match(prompt, /- 206 ביטוח עסק \(outsideVatBase\)/);
+  assert.doesNotMatch(prompt, /- 110 /);
+  assert.match(prompt, /insurance policy, a policy renewal/);
+  assert.match(prompt, /Never decide recognition percentages/);
+  assert.match(prompt, /Client activity: pilates/);
+  const rows = JSON.parse(body.contents[0].parts[0].text);
+  assert.deepEqual(rows[0].facts, { duplicate: "strong", exclude: "duplicate", deduction: "late" });
+  assert.equal(body.generationConfig.temperature, 0);
+});
