@@ -604,6 +604,25 @@ export default {
       for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value);
       return new Response(result.body, { status: result.status, headers });
     }
+    // The same agent, authorised by the Telegram session like the recognition route: no Windows Hello prompt, so the
+    // browser can run it by itself right after the recognition.
+    const bookkeeperSession = url.pathname.match(/^\/v1\/sessions\/([A-Za-z0-9_-]{30,})\/bookkeeper$/);
+    if (bookkeeperSession) {
+      if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
+      const authorization = await sessionStub(env, bookkeeperSession[1]).fetch("https://session/client/ai-authorize", {
+        method: "POST",
+        headers: { "X-Upload-Token": request.headers.get("X-Upload-Token") || "" },
+      });
+      if (!authorization.ok) {
+        const headers = new Headers(authorization.headers);
+        for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value);
+        return new Response(authorization.body, { status: authorization.status, headers });
+      }
+      const result = await bookkeeperProcess(request, env),
+        headers = new Headers(result.headers);
+      for (const [key, value] of Object.entries(cors(request, env))) headers.set(key, value);
+      return new Response(result.body, { status: result.status, headers });
+    }
     if (url.pathname === "/v1/bookkeeper/process") {
       if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, cors(request, env));
       const authorization = await passkeyAuthorized(request, env);

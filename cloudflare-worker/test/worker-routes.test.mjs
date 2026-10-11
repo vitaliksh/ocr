@@ -364,3 +364,45 @@ test("the bookkeeper prompt carries the client's accounts, the rules and the sof
   assert.deepEqual(rows[0].facts, { duplicate: "strong", exclude: "duplicate", deduction: "late" });
   assert.equal(body.generationConfig.temperature, 0);
 });
+
+const bookkeeperCall = (env, { method = "POST", body = { rows: [{ n: 1, supplier_name: "Acme", total: 118, net: 100, vat: 18, date: "2026-09-03" }] }, headers = {} } = {}) =>
+  call(`/v1/sessions/${SESSION}/bookkeeper`, { method, env, body: JSON.stringify(body), headers: { "content-type": "application/json", "x-upload-token": "t".repeat(32), ...headers } });
+
+test("the session bookkeeper route needs the session authorisation, passes its refusal through with CORS and sends nothing to Gemini", async () => {
+  const gemini = mockGemini([]);
+  const env = makeEnv({ UPLOAD_SESSION: stub(async () => Response.json({ error: "AI access is unauthorized." }, { status: 403 })) });
+  const response = await bookkeeperCall(env);
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("access-control-allow-origin"), ORIGIN);
+  assert.equal(gemini.length, 0);
+  assert.equal((await bookkeeperCall(makeEnv(), { method: "GET" })).status, 405);
+});
+
+test("the session bookkeeper route forwards the session token to the authorisation and then answers like the Windows Hello route", async () => {
+  const seen = [];
+  const env = makeEnv({
+    UPLOAD_SESSION: stub(async (id, url, init) => {
+      seen.push([id, url, init.headers["X-Upload-Token"]]);
+      return Response.json({ ok: true });
+    }),
+  });
+  const gemini = mockGemini(null, { raw: JSON.stringify({ results: [{ n: 1, decision: "expense", rivhit_code: null, needs_review: false, reason: "ok" }] }) });
+  const response = await bookkeeperCall(env);
+  assert.deepEqual(seen, [[SESSION, "https://session/client/ai-authorize", "t".repeat(32)]]);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("access-control-allow-origin"), ORIGIN);
+  assert.equal(gemini.length, 1);
+  assert.ok(Array.isArray((await response.json()).results));
+});
+
+test("the session bookkeeper route still validates the request after the authorisation", async () => {
+  const gemini = mockGemini([]);
+  assert.equal((await bookkeeperCall(makeEnv(), { body: { rows: [] } })).status, 400);
+  assert.equal((await bookkeeperCall(makeEnv({ GEMINI_API_KEY: "" }))).status, 503);
+  assert.equal(gemini.length, 0);
+});
+
+test("the Windows Hello bookkeeper route is unchanged: no passkey grant, no answer", async () => {
+  const response = await call("/v1/bookkeeper/process", { body: JSON.stringify({ rows: [{ n: 1 }] }) });
+  assert.equal(response.status, 401);
+});

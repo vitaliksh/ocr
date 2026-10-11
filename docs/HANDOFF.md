@@ -7,7 +7,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.11.1 · 18:02 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.11.2 · 18:35 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `b1bd722a-2021-400a-b503-7ea2f33e3104` — backend version `2026.10.10.1 · 18:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,8 +47,8 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.11.1 · 18:02 IDT
-גרסת שרת: 2026.10.10.1 · 18:44 IDT
+גרסת ממשק: 2026.10.11.2 · 18:35 IDT
+גרסת שרת: 2026.10.11.1 · 18:35 IDT
 ~~~
 
 The backend marker is fetched from `/health`. Force refresh with `Ctrl+F5` and verify both markers before testing a recent change.
@@ -66,7 +66,7 @@ They are Worker secrets. Sessions and grants are opaque values and must not be l
 
 ### Windows Hello (authorisation of the AI agents)
 
-Telegram is needed once for **חיבור המחשב לשיפור AI**. Later agent calls (the bookkeeper agent, once built) use Windows Hello only—no Telegram or QR.
+Telegram is needed once for **חיבור המחשב לשיפור AI**. The bookkeeper agent is authorised in two ways (11 Oct 2026): by the open Telegram upload session (`POST /v1/sessions/{id}/bookkeeper`, the same `ai-authorize` check as the recognition route: the session must belong to the allowed Telegram user), which needs no prompt, or, without a session or when the Worker refuses it, by Windows Hello (`POST /v1/bookkeeper/process`, unchanged).
 
 - Private passkey material stays in the platform authenticator.
 - `DEVICE_REGISTRY` contains public material, counter, transport metadata, short-lived challenge, and a five-minute grant only.
@@ -306,7 +306,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.11.1 · 18:02 IDT` and backend `2026.10.10.1 · 18:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.11.2 · 18:35 IDT` and backend `2026.10.11.1 · 18:35 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -350,6 +350,15 @@ Stages: 0 decisions and `AGENTS.md` (done) · 1 remove Pass 2 (done) · 2 facts 
 Built as described under "Editing" above, in `bookkeeper-flow.js` and `bookkeeper-ui.js` (see the repository map). Checked in a real browser (Chrome engine of the desktop app, an origin-private folder as data root, `fetch` and the passkey calls stubbed because the real Worker needs Windows Hello): the plate and the locks appear for waiting rows, a failed run opens the rows with a red plate, a successful one applies the plans, excludes a copy by the code and offers the distribution dialog, which proposes the month of receipt for an insurance policy ("מסמך לתקופה — נרשם בחודש הקבלה"). Not checked: the real Windows Hello prompt and the real Gemini answer through the page: that is the owner's check.
 
 Changes to existing functions (for the record): `setTableLocked` (re-applies the locks and refreshes the plate), `applyRecord` (stores the full reference, title, period and sets the row to wait; an income report does not wait), `rowSnapshot` and `restoreRow` (the new optional fields), the lock handler of the declaration (refuses with waiting rows), `prepareMove` in `rows-move-flow.js` (a period document is proposed for the month of receipt and has no VAT deduction window; any other row as before), `entryFromRow` in `intake-facts.js` (full reference and source amounts). Every "עבד מחדש" of a row makes it wait for the agent again.
+
+#### Automatic run and "all rows" (11 October 2026)
+
+The two steps are one for the user (owner's complaint: hunting for the button and the Windows Hello prompt was not acceptable):
+
+- **The agent starts by itself** when a table has waiting rows and the recognition of the upload is over: `setupBookkeeper` (`autoState`, `autoDelayMs` = 3 s after the last change of the table; "busy" while `pendingRecognitions` is above zero, "off" without an open upload session, so a page that was reloaded with waiting rows never starts a run or a prompt by itself). The rows are locked only for those seconds. A failed run sets the rows to `failed` and stays quiet (they are not "waiting", so nothing starts again); the button remains for a retry. Rows that an answer does not cover are set to `failed` too (no loop).
+- **Authorisation:** `callBookkeeper` uses the open session (`X-Upload-Token`) and falls back to Windows Hello on 401, 403 and 404 (expired session, not yet deployed Worker). Worker route and tests: `cloudflare-worker/src/index.js`, `test/worker-routes.test.mjs`.
+- **"עיבוד חשבונאי לכל השורות…"** (menu "⋯"): `runAll` asks first, then gives every active row that is not from Excel or the ledger (`import-…`) and not an income report to the agent again (the table is copied first; manual decisions on the account and the export tick are replaced). For old rows and rows without a photo, no new recognition and no session needed (Windows Hello applies then).
+- Checked in a real browser with a stubbed `fetch`: the run started by itself with the session token and no passkey, the "all rows" dialog and call, the fallback to Hello after a 403 (red plate, rows editable, no second call). Not checked: the real Worker route with a real Telegram session (needs the deployed Worker) and the real Gemini answer.
 
 Known limits: the agent does not touch the recognition percentages (the browser's rules keep owning them); a row already processed is not sent again unless it is recognised again or marked failed; the Excel and ledger rows never wait; the copy of the table before a run is never deleted automatically.
 
@@ -426,7 +435,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **432 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **439 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
@@ -437,7 +446,7 @@ npm run check
 npx wrangler deploy
 ~~~
 
-Expected: **34 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
+Expected: **38 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
 
 After a browser-only change, push `main`, wait for Pages, force-refresh, and verify the visible build marker. After a Worker change, record the returned version in `cloudflare-worker/DEPLOYMENT.md`, commit/push source and docs, and manually test the changed production flow.
 

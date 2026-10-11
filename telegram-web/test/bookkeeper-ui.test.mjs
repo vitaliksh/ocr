@@ -38,7 +38,7 @@ function makeRow(doc, id, { processing = "", date = "12/09/26" } = {}) {
   return row;
 }
 
-async function setup({ rows, open = true, call, beforeRun, locked = false } = {}) {
+async function setup({ rows, open = true, call, beforeRun, locked = false, autoState, confirmAll } = {}) {
   const { window } = new JSDOM(html, { url: "https://vitaliksh.github.io/ocr/" });
   const doc = window.document;
   const records = doc.querySelector("#records");
@@ -69,6 +69,9 @@ async function setup({ rows, open = true, call, beforeRun, locked = false } = {}
     applyRecheck: (row, facts) => log.rechecked.push([row.dataset.documentId, facts.exclude]),
     afterRun: (plans) => log.after.push(plans.length),
     now: () => new Date(2026, 9, 10),
+    autoState,
+    autoDelayMs: 5,
+    confirmAll,
   });
   await settle();
   return { window, doc, records, bookkeeper, log, state, button: doc.querySelector("#run-bookkeeper"), plate: doc.querySelector("#bookkeeper-plate"), rowOf: (id) => records.querySelector(`tr[data-document-id="${id}"]`) };
@@ -190,4 +193,89 @@ test("a corrected date asks for the facts again; including a row by hand ends th
   checkbox.checked = true;
   checkbox.dispatchEvent(new row.ownerDocument.defaultView.Event("change", { bubbles: true }));
   assert.equal(row.dataset.autoExclude, undefined);
+});
+
+test("the run starts by itself when the recognition is over, and not before", async () => {
+  const state = { value: "busy" };
+  const { log, rowOf, plate } = await setup({ autoState: () => state.value });
+  await settle();
+  assert.equal(log.calls.length, 0, "busy: it keeps waiting");
+  assert.equal(rowOf("a").dataset.processing, PENDING);
+  assert.match(plate.textContent, /העיבוד יתחיל מעצמו/);
+  state.value = "ready";
+  await settle();
+  await settle();
+  assert.equal(log.calls.length, 1);
+  assert.deepEqual(log.applied.map(([id]) => id), ["a", "b"]);
+  assert.equal(rowOf("a").dataset.processing, "");
+  assert.match(plate.textContent, /העיבוד החשבונאי הושלם/);
+});
+
+test("without an upload session there is no automatic run: the rows wait for the button", async () => {
+  const { log, rowOf, button } = await setup();
+  await settle();
+  await settle();
+  assert.equal(log.calls.length, 0);
+  assert.equal(rowOf("a").dataset.processing, PENDING);
+  assert.equal(button.hidden, false);
+});
+
+test("a failed automatic run does not start again by itself", async () => {
+  const { log, rowOf, plate } = await setup({ autoState: () => "ready", call: async () => { throw new Error("no grant"); } });
+  await settle();
+  await settle();
+  await settle();
+  assert.equal(log.calls.length, 1, "one attempt, no second one");
+  assert.equal(rowOf("a").dataset.processing, FAILED);
+  assert.match(plate.textContent, /no grant/);
+});
+
+test("an answer that covers only some rows leaves none of them waiting, so it cannot start a loop", async () => {
+  const { log, rowOf } = await setup({ autoState: () => "ready", call: async (body) => ({ results: [{ n: body.rows[0].n, decision: "expense", rivhit_code: "204", needs_review: false, reason: "ok" }] }) });
+  await settle();
+  await settle();
+  await settle();
+  assert.equal(log.calls.length, 1);
+  assert.notEqual(rowOf("a").dataset.processing, PENDING);
+  assert.notEqual(rowOf("b").dataset.processing, PENDING);
+});
+
+test("runAll asks first, sends only active rows that are not from Excel or income reports, and the run unlocks them", async () => {
+  const asked = [];
+  const { doc, log, rowOf, bookkeeper } = await setup({
+    rows: [["a", {}], ["b", {}], ["import-1-x", {}], ["off", {}], ["inc", {}]],
+    confirmAll: async (count) => (asked.push(count), true),
+  });
+  rowOf("off").cells[17].querySelector("input").checked = false;
+  rowOf("inc").dataset.documentKind = "income_report";
+  await bookkeeper.runAll();
+  await settle();
+  await settle();
+  assert.deepEqual(asked, [2]);
+  assert.equal(log.calls.length, 1);
+  assert.deepEqual(log.applied.map(([id]) => id), ["a", "b"]);
+  assert.deepEqual(["a", "b", "import-1-x", "off", "inc"].map((id) => rowOf(id).dataset.processing || ""), ["", "", "", "", ""]);
+  assert.ok(doc);
+});
+
+test("runAll does nothing when the user declines, when the table is locked or when no row qualifies", async () => {
+  const declined = await setup({ rows: [["a", {}]], confirmAll: async () => false });
+  await declined.bookkeeper.runAll();
+  assert.equal(declined.log.calls.length, 0);
+  assert.equal(declined.rowOf("a").dataset.processing || "", "");
+  const locked = await setup({ rows: [["a", {}]], locked: true });
+  await locked.bookkeeper.runAll();
+  assert.match(locked.plate.textContent, /נעולה/);
+  assert.equal(locked.log.calls.length, 0);
+  const none = await setup({ rows: [["import-1-x", {}]] });
+  await none.bookkeeper.runAll();
+  assert.match(none.plate.textContent, /אין שורות פעילות/);
+});
+
+test("runAll puts the rows back when the run is refused (images still being read)", async () => {
+  const { bookkeeper, rowOf, plate, log } = await setup({ rows: [["a", {}]], beforeRun: async () => "ממתינים לסיום עיבוד של 2 תמונות לפני העיבוד החשבונאי." });
+  await bookkeeper.runAll();
+  assert.match(plate.textContent, /ממתינים לסיום עיבוד/);
+  assert.equal(rowOf("a").dataset.processing || "", "");
+  assert.equal(log.calls.length, 0);
 });

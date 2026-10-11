@@ -657,20 +657,29 @@ const rowsMove = setupRowsMove({
 let bookkeeper = null;
 let pcnJournal = null;
 async function callBookkeeper(body) {
-  const grant = await authorizePasskey();
-  const response = await fetch(apiUrl("/v1/bookkeeper/process"), {
+  const send = (path, authorization) =>
+    fetch(apiUrl(path), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Passkey-Credential-Id": grant.credentialId,
-        "X-Passkey-Token": grant.token,
+        ...authorization,
         "X-Gemini-Model": model.value,
         "X-Form-6111-Mapping": encodeURIComponent(JSON.stringify(classificationMappingsForAgent())),
         "X-Custom-Rivhit-Codes": encodeURIComponent(JSON.stringify(customClassificationCodesForAgent())),
       },
       body: JSON.stringify(body),
-    }),
-    result = await response.json();
+    });
+  // The open Telegram upload session authorises the agent without a prompt; without one, or when the Worker does not
+  // accept it (expired, not yet deployed), Windows Hello does.
+  let response = session ? await send(`/v1/sessions/${session.sessionId}/bookkeeper`, { "X-Upload-Token": session.clientToken }) : null;
+  if (!response || [401, 403, 404].includes(response.status)) {
+    const grant = await authorizePasskey();
+    response = await send("/v1/bookkeeper/process", {
+      "X-Passkey-Credential-Id": grant.credentialId,
+      "X-Passkey-Token": grant.token,
+    });
+  }
+  const result = await response.json();
   if (!response.ok) throw new Error(result.error || "העיבוד החשבונאי נכשל.");
   return result;
 }
@@ -732,7 +741,16 @@ bookkeeper = setupBookkeeper({
   afterRun: (plans) => {
     if (plans.some((plan) => plan.facts.moves)) offerDistribution();
   },
+  // The agent starts by itself once the recognition of an upload is over (only while its upload session is open).
+  autoState: () => (!session ? "off" : pendingRecognitions ? "busy" : "ready"),
+  confirmAll: (count) =>
+    confirmDialog(
+      `לעבד מחדש ${count} שורות פעילות? הסוכן יקבע מחדש את קוד המיון ואת סימון הייצוא שלהן; שינויים ידניים בהם יוחלפו. ` +
+        "העתק של הטבלה נשמר לפני העיבוד.",
+      { title: "עיבוד חשבונאי", confirmLabel: "עיבוד" },
+    ),
 });
+document.querySelector("#run-bookkeeper-all").addEventListener("click", () => bookkeeper.runAll());
 // Clients with a PCN duty: yellow rows and a tick for invoices above the allocation ceiling (pcn-review.js).
 pcnJournal = setupPcnReview({
   records,

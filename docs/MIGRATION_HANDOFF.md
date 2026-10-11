@@ -166,7 +166,7 @@ static server that sends `text/javascript` for `.mjs` (Python's `http.server` do
 
 ## Status and what is left
 
-- `main` contains everything above. Frontend marker at this handoff: `2026.10.11.1 · 18:02 IDT`. Tests: **432** frontend,
+- `main` contains everything above. Frontend marker at this handoff: `2026.10.11.2 · 18:35 IDT`. Tests: **439** frontend,
   **34** Worker. `npm test` and `npm run check` in `telegram-web/` are green; the Worker lost the Pass 2 route and got the new OCR prompt (deployed 9 Oct 2026, see `cloudflare-worker/DEPLOYMENT.md`).
 - `CLAUDE.md` stays untracked (owner's file): never `git add -A` without checking `git status`.
 - **Verified by Vitalik on the published page (3 Oct, with the interface of that time):** real disk folder, import of the

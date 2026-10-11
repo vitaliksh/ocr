@@ -10,7 +10,7 @@ redeploy the Cloudflare component. It is safe to keep in Git.
 | Worker name | `rivhit-telegram-transfer` |
 | Public URL | `https://rivhit-telegram-transfer.vitaliksh.workers.dev` |
 | Cloudflare version ID | `b1bd722a-2021-400a-b503-7ea2f33e3104` (10 Oct 2026, backend `2026.10.10.1 · 18:44 IDT`; previous: `f977b54d-c6f2-4639-8b67-5655b52426ec`, usable for a rollback) |
-| Source commit | `223a5e1` (`Add the button 'עיבוד חשבונאי'…`; the bookkeeper agent route `POST /v1/bookkeeper/process` on top of the OCR agent release) |
+| Source commit (before the session route of 11 Oct 2026, see below) | `223a5e1` (`Add the button 'עיבוד חשבונאי'…`; the bookkeeper agent route `POST /v1/bookkeeper/process` on top of the OCR agent release) |
 | Git tag | `cloudflare-production-2026-10-10` (annotated; `cloudflare-production-2026-10-09` is the OCR agent release before it) |
 | Durable Objects | `UPLOAD_SESSION` / `UploadSession`; `DEVICE_REGISTRY` / `DeviceRegistry` |
 | R2 bucket | `rivhit-temporary-photos` |
