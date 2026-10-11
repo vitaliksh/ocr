@@ -1,13 +1,13 @@
 # Handoff — ANNATERIA (formerly Rivhit document intake)
 
-**Updated:** 11 October 2026 (owner's first use of the button, the Edge passkey PIN, handing a month to Anna: see "Owner's first use" under "Two-agent redesign"); 10 October 2026 (the two-agent redesign is built: OCR agent, bookkeeper agent and the button "עיבוד חשבונאי", see "Two-agent redesign" under "Next decisions"); 9 October 2026 (open requirements list); 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
+**Updated:** 11 October 2026 (PCN clients: the tax profile of a client and the review of invoices above the allocation ceiling, see "PCN clients" under "Next decisions"); 11 October 2026 (owner's first use of the button, the Edge passkey PIN, handing a month to Anna: see "Owner's first use" under "Two-agent redesign"); 10 October 2026 (the two-agent redesign is built: OCR agent, bookkeeper agent and the button "עיבוד חשבונאי", see "Two-agent redesign" under "Next decisions"); 9 October 2026 (open requirements list); 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
 the Rivhit TXT export is deprecated (code kept, hidden in the "⋯" menu). Read in this order: this file, `MIGRATION_HANDOFF.md`
 (Excel migration, reports, working agreements), `GUI_REDESIGN_PLAN.md` (what the new interface is and why).
 The Rivhit-intake sections below were last re-verified on 19 September 2026 and describe the legacy export.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.10.2 · 18:44 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.11.1 · 18:02 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `b1bd722a-2021-400a-b503-7ea2f33e3104` — backend version `2026.10.10.1 · 18:44 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.10.2 · 18:44 IDT
+גרסת ממשק: 2026.10.11.1 · 18:02 IDT
 גרסת שרת: 2026.10.10.1 · 18:44 IDT
 ~~~
 
@@ -99,7 +99,8 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. Later age
   - `bookkeeper-flow.js` / `bookkeeper-ui.js` — the button "עיבוד חשבונאי" (next to "סינון" in the journal heading) and the plate under it. A row with fresh OCR gets `data-processing="pending"` (saved as `processing`) and is locked (contentEditable off, controls disabled, except photo, status/re-run and delete) until the agent has run; a click on a blocked cell explains why (`bookkeeper-ui.js`, plate + flash). The run (`runBookkeeper` in the flow): `beforeRun` saves the table, `backupTable` copies it to `draft-table.before-agent-<time>.json`, the facts of `intake-facts.js` are computed for every waiting row (other declarations plus the rows of the open table), the request goes out in batches of 40 (`callBookkeeper` in `app.js`: Windows Hello grant, model and code headers), every answer becomes a plan (`buildPlan`) that `applyBookkeeperPlan` writes into the row: the account from the client's chart, the reason in front of the OCR opinion, `include`, status; an exclusion made by the code (`previous-year`, `duplicate`) is kept in `autoExclude` and `wouldInclude`, so that a corrected date or reference (`focusout`) lifts it again (`applyBookkeeperRecheck`) and a row the user includes by hand is never excluded again. A failed run sets `processing="failed"`: the rows open for manual editing, the plate is red with the reason and the button stays. Locking a month with waiting rows is refused. Row fields added to the draft table (all optional, old tables read as before): `documentKind`, `reference` (the full printed reference; the table cell keeps the last four digits), `documentTitle`, `periodFrom`, `periodTo`, `processing`, `autoExclude`, `wouldInclude`.
   - `intake-facts.js` / `intake-index.js` — the intake rules of the bookkeeper as code (stage 2 of the two-agent plan, not wired into the UI yet): `intakeMonth` (month of the date, month of receipt for a period document, never a filed month), `yearGate` (only the year of the declaration month; a period is judged by its end), `findDuplicates` (strong / likely / possible by reference, amount, supplier and date; the two halves of a mixed-VAT invoice are not duplicates of each other), `intakeFacts` (everything for one row, including what the code itself excludes: `previous-year`, `duplicate`); `loadIntakeContext` reads the active rows of every declaration, locked ones included.
   - `rows-move-flow.js` / `rows-move-ui.js` — "פיזור שורות לחודשים…" (menu "⋯"): `prepareMove` reads the saved table and proposes a month per row (Excel-imported rows `import-…` get none), `commitMove` copies the images, writes the target months (created when missing) and last the source table, with `draft-table.before-move-<time>.json` copies; the source images stay. The dialog is offered automatically after a PDF import, an income report import and "סיים העלאה" when some row belongs to another month.
-  - Client properties (`workspace.json`): `vatPeriod` and `advancesPeriod`, each `monthly` or `bimonthly`, edited in the client dialogs (new client, "פרטי לקוח"), shown on the client card, used by the reports page as the default periods of the VAT and of the advances report. A client saved before that keeps its VAT period in `report-settings.json`; it is read from there until the client is saved again.
+  - PCN clients (11 Oct 2026): `pcn-review.js` (pure rules: `allocationThreshold` by invoice date, `pcnReview`, `approvalKey`, `pcnSummary`) and `pcn-review-ui.js` (yellow rows, the tick "נבדק" in the status cell, the red mark on a missing allocation number, `#pcn-plate`, the lock refusal `lockProblem`); `journal-columns.js` got `setForced` (a column shown whatever the user chose, never saved). Details under "PCN clients" in "Next decisions".
+  - Client properties (`workspace.json`): `vatId`, `incomeTaxFileId`, `pcnRequired` (optional, `normalizeClientTaxProfile` in `workspace-core.js`; they also travel in the `.annateria` transfer file), and `vatPeriod` and `advancesPeriod`, each `monthly` or `bimonthly`, edited in the client dialogs (new client, "פרטי לקוח"), shown on the client card, used by the reports page as the default periods of the VAT and of the advances report. A client saved before that keeps its VAT period in `report-settings.json`; it is read from there until the client is saved again.
   - `excel-import.js` — parsed journal rows → draft-table rows (source amounts, recognition 100/100, no image).
   - `excel-import-store.js` — writes imported rows into a new or empty open declaration; optional close without an export folder (`finalExport = "excel-import"`, history appended once). Replaces a declaration that has rows only on request (the old table is first copied to `draft-table.before-import-<time>.json`); closed declarations are never touched.
   - `excel-import-flow.js` — wizard steps without DOM: `prepareImport` (read, parse, match names, totals; imports against the client's own chart when it has one, `chartScope`; `suggested` = class types that make the footer add up, kept only if `recheckImport` confirms them) and `commitImport` (extend and save the chart first — the client chart or the root chart —, then write rows).
@@ -158,7 +159,7 @@ non-extractable backup key). Per data root: `common/ui-settings.json` (hidden jo
 │  ├─ ui-settings.json           (hidden journal columns, typed folder path)
 │  └─ backup-state.json          (when each backup slot last succeeded)
 └─ clients/<client>/
-   ├─ workspace.json             (client name, activity, kind, vatPeriod and advancesPeriod: monthly|bimonthly)
+   ├─ workspace.json             (client name, activity, kind, vatPeriod and advancesPeriod: monthly|bimonthly, optional vatId, incomeTaxFileId, pcnRequired)
    ├─ classification-codes.json  (the client's own Rivhit codes, loaded from its ledger; replaces the shared chart for this client)
    ├─ history.jsonl              (rows of locked declarations; removed on reopen, written again on lock)
    ├─ report-settings.json       (advance percent; legacy VAT period)
@@ -305,13 +306,25 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.10.2 · 18:44 IDT` and backend `2026.10.10.1 · 18:44 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.11.1 · 18:02 IDT` and backend `2026.10.10.1 · 18:44 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
 5. The `test5` import was confirmed successful; repeat the same 186-field, VAT-rate, structural-flag and no-leak checks for future template or exporter changes.
 
 ## Next decisions
+
+### PCN clients (Anna's review, 11 October 2026)
+
+Anna's rules (owner decisions of 11 Oct, recommended options taken): a client can be marked "חייב ביצירת קובץ PCN" (`pcnRequired`). For such a client every invoice above the allocation-number ceiling must be checked by the bookkeeper and must have an allocation number.
+
+- **Client fields** (new-client dialog, "פרטי לקוח", client card): name, `vatId` (עוסק מורשה), `incomeTaxFileId` (מספר מס הכנסה), `pcnRequired`, VAT period, advances period, advance percent, activity, home or office. New: the first three and the percent in the dialogs; the percent stays in `report-settings.json` (the dialog reads and writes it through `readReportSettings` / `saveReportSettings`, the reports page still edits it too). The numbers get a soft hint (nine digits; the VAT number also the check digit of the Israeli ID), never a block. They are local data like the rest: they are not sent to the Worker or the agents.
+- **Ceiling** (gov.il "בקשה למספר הקצאה לחשבונית מס", read 11 Oct 2026): the amount before VAT of an invoice above which the buyer needs an allocation number to deduct VAT: 20,000 in 2025, 10,000 from 1 Jan 2026, 5,000 from 1 Jun 2026. `allocationThreshold(date)` follows the invoice date (an invoice of March that arrives in October still has 10,000); no readable date gives 5,000; dates before 2025 are not covered (no rule). Strictly above. The amount is the source net (`rawNet`), not the recognised one; the rows of one invoice (mixed VAT: same supplier and reference) are summed.
+- **Rule for a PCN client**: a row above the ceiling is yellow (`data-pcn="review"`) until the bookkeeper ticks "נבדק" in the status cell (`pcnApproved` in the row stores a key of date, source amounts, allocation number, supplier and reference, so any change of those lapses the approval by itself; recognition percentages do not). Above the ceiling with VAT and no allocation number on any record of the invoice: the allocation cell is red. A document without VAT (insurance, foreign, exempt) still needs the tick, but not the number. A number that is not nine digits only gets a tooltip (the nine-digit format comes from a vendor help page, not an official source). The allocation column is shown while such a client is open. The plate `#pcn-plate` counts the rows left; locking a month is refused while any row is not approved or lacks its number (like rows waiting for the agent). Excel and ledger rows (`import-…`), income reports and inactive rows are outside the rule.
+- **Not built**: the PCN874 file itself (needs the current official layout from gov.il: the 2010 and 2011 documents found do not have the allocation field; the client fields above are what its header needs); the tax ID on the report PDFs; the OCR prompt does not know about the ceiling.
+- **To confirm with Anna**: that a document without VAT needs no allocation number; that the old ceilings apply to old invoices of the year; that one tick per row (not per invoice) is fine for split invoices.
+- Changes to existing functions (for the record): `normalizeWorkspaceConfig` (passes the tax profile through), `setupWorkspaceControls` (new optional parameters `newProfileInputs`, `profileInputs`), `setupJournalColumns` (`setForced`), `rowSnapshot` / `restoreRow` (`pcnApproved`), the lock handler, `setTableLocked`, `updateWorkspace`, `clearActiveClient` (refresh of the review), `collectClient` in `transfer-store.js` (profile in the transfer metadata), `renderClientCard` (three facts). The transfer metadata still lacks the VAT and advances periods (as before).
+- Checked in a real browser (Chrome engine of the desktop app, origin-private folder as data root): creating a client with the profile, the card, the edit dialog (load, bad percent refused, save, clearing a number), the journal with seven synthetic rows (yellow, tick saved in `draft-table.json`, split invoice as one, March invoice under 10,000, lock refused and then done, boxes disabled after the lock, switching the duty off removes everything).
 
 ### Two-agent redesign and the bookkeeper's rules (decided 9 October 2026, work in progress: start here)
 
@@ -396,7 +409,7 @@ After the dry run (7 Oct):
 - The client edit dialog still lacks the advance percent (it stays on the reports page); moving it to the client properties would finish the idea.
 
 1. **Backups and transfer files** — built and pushed (3–4 Oct, `BACKUP_SPEC.md`): encrypted copies into a Google Drive folder and a USB drive with a status dot, restore, and the `.annateria` transfer file for a month or a whole client. Verified by Vitalik: Drive copy, restore into an empty folder, transfer export/import. Left: the rollout on the real PC (checklist in `BACKUP_SPEC.md`), then optionally the manual clean-up of old snapshots (nothing is deleted automatically; the data are small). Until the first real copies exist the local folder is the only copy of the client data.
-2. Store the client tax ID (עוסק מורשה) so the report PDFs can show it (data-model change; the client card has room for it).
+2. The client tax ID (עוסק מורשה) is stored since 11 Oct (`vatId`, see "PCN clients"); the report PDFs do not print it yet.
 3. The AI assistant dock (reserved empty row in the shell grid; the journal rows can be selected for it later).
 4. Remove the Rivhit export code (`rivhit-export.js`, the template handling, `invoices.pdf` path) once the client confirms it is not needed.
 5. Resolve whether the two `827` income reports overlap and which accounting date belongs in the second row (legacy question).
@@ -413,7 +426,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **404 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **432 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

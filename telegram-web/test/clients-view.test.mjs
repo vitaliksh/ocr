@@ -102,3 +102,18 @@ test("the client card shows the VAT and the advances period separately, from the
   assert.ok(facts.some((fact) => /דיווח מע״מ.*דו‑חודשי/.test(fact)), facts.join("|"));
   assert.ok(facts.some((fact) => /דיווח מקדמות.*חד‑חודשי/.test(fact)), facts.join("|"));
 });
+
+test("the client card shows the tax profile; a client without one shows dashes and no PCN duty", () => {
+  const container = root();
+  const handlers = { onOpenDeclaration() {}, onNewDeclaration() {}, onEdit() {}, onToggleArchived() {}, countRows: async () => 0 };
+  const withProfile = client("Alpha", [declaration("2026-03")]);
+  withProfile.config = { ...withProfile.config, vatId: "123456782", incomeTaxFileId: "987654321", pcnRequired: true };
+  renderClientCard(container, { client: withProfile, settings: null, showingArchived: false }, handlers);
+  const facts = () => [...container.querySelectorAll(".fact")].map((fact) => fact.textContent);
+  assert.ok(facts().some((fact) => /מספר עוסק מורשה.*123456782/.test(fact)), facts().join("|"));
+  assert.ok(facts().some((fact) => /מספר מס הכנסה.*987654321/.test(fact)), facts().join("|"));
+  assert.ok(facts().some((fact) => /קובץ PCN.*חובה/.test(fact)), facts().join("|"));
+  renderClientCard(container, { client: client("Beta", [declaration("2026-03")]), settings: null, showingArchived: false }, handlers);
+  assert.ok(facts().some((fact) => /מספר עוסק מורשה.*—/.test(fact)), facts().join("|"));
+  assert.ok(facts().some((fact) => /קובץ PCN.*לא נדרש/.test(fact)), facts().join("|"));
+});

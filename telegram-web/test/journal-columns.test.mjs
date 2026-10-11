@@ -146,6 +146,25 @@ test("setHidden without persist applies silently (used when a data root is loade
   assert.equal(changes.length, 0);
 });
 
+test("a forced column is shown whatever the user chose, is never saved and goes back when released", () => {
+  const { table, columns, changes, document } = journal();
+  const col = () => table.querySelectorAll("colgroup col")[columnIndex("allocation")];
+  assert.equal(col().style.visibility, "collapse");
+  columns.setForced(["allocation"]);
+  assert.equal(col().style.visibility, "");
+  assert.ok(parseFloat(col().style.width) > 0);
+  assert.equal(columns.getHidden().includes("allocation"), true, "the user choice is untouched");
+  assert.equal(changes.length, 0);
+  const box = [...document.querySelectorAll("#columns-menu .columns-option")].find((label) => label.textContent === "מספר הקצאה")?.querySelector("input");
+  assert.ok(box, "chooser has the allocation option");
+  assert.equal(box.checked, true);
+  assert.equal(box.disabled, true);
+  columns.setForced([]);
+  assert.equal(col().style.visibility, "collapse");
+  assert.equal(box.disabled, false);
+  assert.equal(box.checked, false);
+});
+
 test("hidden cells are emptied so zero-width columns cannot make rows tall", () => {
   const css = hiddenCss(["supplierId"], "#t");
   assert.match(css, /#t th:nth-child\(6\), #t td:nth-child\(6\) \{ padding: 0; border: 0; overflow: hidden; font-size: 0; line-height: 0; box-shadow: none; \}/);

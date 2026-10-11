@@ -142,6 +142,16 @@ test("createClient writes a valid workspace, avoids existing folder names and re
   await assert.rejects(createClient(root, { clientName: "x", businessActivity: "x", businessKind: "castle" }), { code: "TRANSFER_BAD_CLIENT" });
 });
 
+test("the tax profile (numbers, PCN duty) travels with the client and survives createClient", async () => {
+  const key = await newKey();
+  const profile = { vatId: "123456782", incomeTaxFileId: "987654321", pcnRequired: true };
+  const bytes = await encodeTransfer(key, await collectClient({ clientDirectory: await sample(), config: { ...config, ...profile }, now: at(5) }));
+  const { meta } = await decodeTransfer(key, bytes);
+  assert.deepEqual(meta.client, { clientName: "Synthetic", businessActivity: "consulting", businessKind: "office", ...profile });
+  const created = await createClient(binaryDirectory("data"), meta.client);
+  assert.deepEqual([created.config.vatId, created.config.incomeTaxFileId, created.config.pcnRequired], ["123456782", "987654321", true]);
+});
+
 test("imagesSize adds up the image files of the chosen months", async () => {
   const client = await sample();
   assert.equal(await imagesSize(client), 3000 + 500 + 3000);

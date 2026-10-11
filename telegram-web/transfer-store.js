@@ -6,7 +6,7 @@
 import { sealBytes, unsealBytes } from "./backup-store.js";
 import { createDraftTable, normalizeDeclaration } from "./declaration-core.js";
 import { createDeclaration, getDeclarationDirectory, listDeclarations, loadDeclaration, readClosedHistory, readSourceImage, saveDraft, saveSourceImage } from "./declaration-store.js";
-import { normalizeWorkspaceConfig } from "./workspace-core.js";
+import { normalizeClientTaxProfile, normalizeWorkspaceConfig } from "./workspace-core.js";
 
 export const TRANSFER_FORMAT = 2;
 export const TRANSFER_EXTENSION = ".annateria";
@@ -75,7 +75,7 @@ export async function collectClient({ clientDirectory, config, months = null, in
     collected.push({ month: declaration.month, declaration, rows: draft.rows, history: closed ? history.filter((entry) => entry.declarationId === declaration.declarationId) : [], images });
   }
   if (!collected.length) throw transferError("TRANSFER_EMPTY");
-  const client = { clientName: config.clientName, businessActivity: config.businessActivity, businessKind: config.businessKind };
+  const client = { clientName: config.clientName, businessActivity: config.businessActivity, businessKind: config.businessKind, ...normalizeClientTaxProfile(config) };
   return { kind: months?.length === 1 ? "month" : "client", createdAt: now, client, months: collected, missingImages };
 }
 

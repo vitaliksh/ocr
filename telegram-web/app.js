@@ -30,6 +30,7 @@ import { setupReports } from "./reports-ui.js";
 import { setupBackup } from "./backup-ui.js";
 import { setupTransfer } from "./transfer-ui.js";
 import { setupBookkeeper } from "./bookkeeper-ui.js";
+import { setupPcnReview } from "./pcn-review-ui.js";
 import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
 import {
   readCustomRivhitMapping,
@@ -365,6 +366,7 @@ function updateWorkspace(selected) {
     businessActivity.value = selected.config.businessActivity;
     businessKind.value = selected.config.businessKind;
     applyBusinessRules();
+    pcnJournal?.refresh();
   }
 }
 function clearActiveClient(clientId) {
@@ -375,6 +377,7 @@ function clearActiveClient(clientId) {
     currentClient.textContent = "לא נבחרה הצהרה";
     journalTitle.textContent = "לקוח והצהרה לא נבחרו";
     updateStartAvailability();
+    pcnJournal?.refresh();
   }
 }
 function clearActiveDeclaration(declarationId) {
@@ -492,6 +495,20 @@ const workspaceControls = setupWorkspaceControls({
   advancesPeriodInput: document.querySelector("#client-advances-period"),
   clientVatPeriodInput: document.querySelector("#new-client-vat-period"),
   clientAdvancesPeriodInput: document.querySelector("#new-client-advances-period"),
+  newProfileInputs: {
+    vatId: document.querySelector("#new-client-vat-id"),
+    incomeTaxFileId: document.querySelector("#new-client-income-tax-id"),
+    advancePercent: document.querySelector("#new-client-advance-percent"),
+    pcn: document.querySelector("#new-client-pcn"),
+    hint: document.querySelector("#new-client-tax-hint"),
+  },
+  profileInputs: {
+    vatId: document.querySelector("#client-vat-id"),
+    incomeTaxFileId: document.querySelector("#client-income-tax-id"),
+    advancePercent: document.querySelector("#client-advance-percent"),
+    pcn: document.querySelector("#client-pcn"),
+    hint: document.querySelector("#client-tax-hint"),
+  },
   summary: workspaceSummary,
   templateSummary: document.querySelector("#template-summary"),
   onDataRoot: switchDataRoot,
@@ -638,6 +655,7 @@ const rowsMove = setupRowsMove({
 });
 // The bookkeeper agent: rows with fresh OCR wait for the button "עיבוד חשבונאי" (bookkeeper-ui.js, bookkeeper-flow.js).
 let bookkeeper = null;
+let pcnJournal = null;
 async function callBookkeeper(body) {
   const grant = await authorizePasskey();
   const response = await fetch(apiUrl("/v1/bookkeeper/process"), {
@@ -714,6 +732,16 @@ bookkeeper = setupBookkeeper({
   afterRun: (plans) => {
     if (plans.some((plan) => plan.facts.moves)) offerDistribution();
   },
+});
+// Clients with a PCN duty: yellow rows and a tick for invoices above the allocation ceiling (pcn-review.js).
+pcnJournal = setupPcnReview({
+  records,
+  plate: document.querySelector("#pcn-plate"),
+  columns: journalColumns,
+  snapshot: rowSnapshot,
+  isTableLocked: () => tableLocked,
+  onChange: queueDraftSave,
+  getContext: () => (committedWorkspace ? { pcnRequired: Boolean(committedWorkspace.config.pcnRequired) } : null),
 });
 // The table shows only the last four digits of a reference: a typed reference replaces the full one read by OCR.
 records.addEventListener("input", (event) => {
@@ -888,6 +916,7 @@ function setTableLocked(locked) {
   for (const control of records.querySelectorAll("select,input,.delete,.retry,.field-swap")) control.disabled = locked;
   bookkeeper?.syncAll();
   bookkeeper?.refresh();
+  pcnJournal?.refresh();
 }
 function refreshRows() {
   const rows = [...records.querySelectorAll("tr[data-document-id]")];
@@ -1828,6 +1857,7 @@ function rowSnapshot(row) {
     processing: row.dataset.processing || "",
     autoExclude: row.dataset.autoExclude || "",
     wouldInclude: row.dataset.wouldInclude || "",
+    pcnApproved: row.dataset.pcnApproved || "",
     highlights: row.highlights || [],
     active: Boolean(row.cells[17].querySelector("input")?.checked),
     agentOpinion: row.cells[14].textContent.trim(),
@@ -1853,7 +1883,7 @@ function restoreRow(saved, blob) {
   row.dataset.rawVat = String(saved.rawVat || 0);
   row.dataset.vatPercent = String(saved.vatPercent ?? (Number(saved.rawVat) ? 18 : 0));
   row.dataset.form6111Code = saved.form6111Code || "";
-  for (const [key, field] of [["documentKind", "documentKind"], ["fullReference", "reference"], ["documentTitle", "documentTitle"], ["periodFrom", "periodFrom"], ["periodTo", "periodTo"], ["processing", "processing"], ["autoExclude", "autoExclude"], ["wouldInclude", "wouldInclude"]])
+  for (const [key, field] of [["documentKind", "documentKind"], ["fullReference", "reference"], ["documentTitle", "documentTitle"], ["periodFrom", "periodFrom"], ["periodTo", "periodTo"], ["processing", "processing"], ["autoExclude", "autoExclude"], ["wouldInclude", "wouldInclude"], ["pcnApproved", "pcnApproved"]])
     if (saved[field]) row.dataset[key] = saved[field];
   row.highlights = Array.isArray(saved.highlights) ? saved.highlights : [];
   row.replaceChild(editableCell(values[1]), row.cells[1]);
@@ -1997,6 +2027,8 @@ closeDeclarationButton.addEventListener("click", async () => {
       .filter((row) => row.active);
   if (!reportRows.length) return showError("יש לסמן לפחות שורה פעילה לפני נעילת ההצהרה.");
   if (bookkeeper?.waitingCount()) return showError('יש שורות שממתינות לעיבוד חשבונאי. יש להפעיל "עיבוד חשבונאי" לפני הנעילה.');
+  const pcnProblem = pcnJournal?.lockProblem();
+  if (pcnProblem) return showError(pcnProblem);
   const closeMessage = "לנעול את ההצהרה? הטבלה תינעל והשורות יצטרפו להיסטוריה. אפשר לפתוח מחדש עם ציון סיבה.";
   if (!(await confirmDialog(closeMessage, { title: "נעילת הצהרה", confirmLabel: "נעילה" }))) return;
   closeDeclarationButton.disabled = true;

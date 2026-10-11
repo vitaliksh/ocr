@@ -23,6 +23,9 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
   }
   const labels = headers.map((header) => header.textContent.trim());
   let hidden = [...PRESET_HIDDEN.minimum];
+  // Columns shown regardless of the user's choice (the allocation number of a PCN client); never saved.
+  let forced = [];
+  const effective = () => hidden.filter((key) => !forced.includes(key));
   let weights = readWeights(storage);
 
   const colgroup = doc.createElement("colgroup");
@@ -35,9 +38,9 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
 
   // A hidden column keeps its cells (app.js addresses them by index) and is collapsed through its <col>.
   const apply = () => {
-    style.textContent = hiddenCss(hidden, `#${table.id}`);
-    columnPercents(hidden, { weights }).forEach((percent, index) => {
-      const isHidden = hidden.includes(COLUMNS[index].key);
+    style.textContent = hiddenCss(effective(), `#${table.id}`);
+    columnPercents(effective(), { weights }).forEach((percent, index) => {
+      const isHidden = effective().includes(COLUMNS[index].key);
       cols[index].style.width = `${percent}%`;
       cols[index].style.visibility = isHidden ? "collapse" : "";
     });
@@ -66,8 +69,8 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
     header.append(handle);
     handle.addEventListener("click", (event) => event.stopPropagation());
     handle.addEventListener("pointerdown", (event) => {
-      if (hidden.includes(COLUMNS[index].key)) return;
-      const next = COLUMNS.findIndex((column, position) => position > index && !hidden.includes(column.key));
+      if (effective().includes(COLUMNS[index].key)) return;
+      const next = COLUMNS.findIndex((column, position) => position > index && !effective().includes(column.key));
       if (next < 0) return;
       event.preventDefault();
       event.stopPropagation();
@@ -80,7 +83,7 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
         const widths = [...initial];
         widths[index] += change;
         widths[next] -= change;
-        weights = weightsFromWidths(hidden, widths, weights);
+        weights = weightsFromWidths(effective(), widths, weights);
         apply();
       };
       const stop = () => {
@@ -136,9 +139,12 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
     panel.append(presets);
   }
   function syncChooser() {
-    for (const [key, box] of boxes) box.checked = !hidden.includes(key);
+    for (const [key, box] of boxes) {
+      box.checked = !effective().includes(key);
+      box.disabled = isLocked(key) || forced.includes(key);
+    }
     const count = menu?.querySelector("summary");
-    if (count) count.dataset.hidden = String(hidden.length);
+    if (count) count.dataset.hidden = String(effective().length);
   }
 
   function setHidden(list, { persist = true } = {}) {
@@ -151,5 +157,10 @@ export function setupJournalColumns({ table, menu, storage = globalThis.localSto
   apply();
   if (typeof ResizeObserver === "function") new ResizeObserver(apply).observe(table);
 
-  return { setHidden, getHidden: () => [...hidden], apply, isLocked };
+  function setForced(list) {
+    forced = [...list];
+    apply();
+  }
+
+  return { setHidden, getHidden: () => [...hidden], setForced, apply, isLocked };
 }
