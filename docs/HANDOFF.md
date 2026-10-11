@@ -1,13 +1,13 @@
 # Handoff — ANNATERIA (formerly Rivhit document intake)
 
-**Updated:** 11 October 2026 (PCN clients: the tax profile of a client and the review of invoices above the allocation ceiling, see "PCN clients" under "Next decisions"); 11 October 2026 (owner's first use of the button, the Edge passkey PIN, handing a month to Anna: see "Owner's first use" under "Two-agent redesign"); 10 October 2026 (the two-agent redesign is built: OCR agent, bookkeeper agent and the button "עיבוד חשבונאי", see "Two-agent redesign" under "Next decisions"); 9 October 2026 (open requirements list); 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
+**Updated:** 11 October 2026 (a month restored from a backup without images opened empty and then lost its table: fixed, see "Restore of a backup without images" under "Next decisions"); 11 October 2026 (PCN clients: the tax profile of a client and the review of invoices above the allocation ceiling, see "PCN clients" under "Next decisions"); 11 October 2026 (owner's first use of the button, the Edge passkey PIN, handing a month to Anna: see "Owner's first use" under "Two-agent redesign"); 10 October 2026 (the two-agent redesign is built: OCR agent, bookkeeper agent and the button "עיבוד חשבונאי", see "Two-agent redesign" under "Next decisions"); 9 October 2026 (open requirements list); 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
 the Rivhit TXT export is deprecated (code kept, hidden in the "⋯" menu). Read in this order: this file, `MIGRATION_HANDOFF.md`
 (Excel migration, reports, working agreements), `GUI_REDESIGN_PLAN.md` (what the new interface is and why).
 The Rivhit-intake sections below were last re-verified on 19 September 2026 and describe the legacy export.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.11.2 · 18:35 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.11.3 · 19:22 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `af952b07-bd8d-47dd-b65b-7c4cca19d2a5` — backend version `2026.10.11.1 · 18:35 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.11.2 · 18:35 IDT
+גרסת ממשק: 2026.10.11.3 · 19:22 IDT
 גרסת שרת: 2026.10.11.1 · 18:35 IDT
 ~~~
 
@@ -306,13 +306,21 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.11.2 · 18:35 IDT` and backend `2026.10.11.1 · 18:35 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.11.3 · 19:22 IDT` and backend `2026.10.11.1 · 18:35 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
 5. The `test5` import was confirmed successful; repeat the same 186-field, VAT-rate, structural-flag and no-leak checks for future template or exporter changes.
 
 ## Next decisions
+
+### Restore of a backup without images (11 October 2026)
+
+Found by the owner moving his data to the bookkeeper's PC: backup to a USB drive (images off, the default), restore into an empty folder, switch the data root to it: every client was there, locked months had their rows, **open months (Telegram or PDF rows) were empty**.
+
+- **Cause (reproduced by `test/app-missing-images.test.mjs`):** `activateDeclaration` read the image of every row and threw on the first missing one (`לא ניתן לשחזר תמונה …`), after it had already cleared the table and set the month as the current declaration. The table stayed empty. Locked months were fine because they came from Excel (rows without `imageFile`). Worse: the next `saveCurrentDraft` (opening another month, any autosave) wrote that **empty table over the month's `draft-table.json`**, so a restored root that had two or more such months opened lost the earlier ones. The backup itself, written once and never overwritten, was not touched.
+- **Fix:** a missing image file (`NotFoundError`) opens the row without a photo (the row keeps `imageFile`, so copying the images back later works); any other failure while building the table now clears `currentDeclaration` so nothing can save the half-built table. Rows without a photo cannot be re-run through Gemini (existing message). `rows-move-flow.js` still refuses to move a row whose image is missing, with a message, before writing anything.
+- **For the owner:** a root restored and opened with the old version may have emptied open months: restore again into a new empty folder with the new version, and tick "images" in the backup dialog when the photos matter. Not built: a button that switches the data root to the restored folder right after "שחזור מגיבוי" (today: settings, "החלפת תיקיית נתונים", pick the folder).
 
 ### PCN clients (Anna's review, 11 October 2026)
 
@@ -435,7 +443,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **439 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **441 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

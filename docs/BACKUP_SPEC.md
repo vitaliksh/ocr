@@ -136,6 +136,7 @@ dropped as impractical). `transfer-store.js` (no DOM) and `transfer-ui.js` (`#tr
 
 ## Known limits
 
+- Before 11 October 2026 an open month restored without its images opened empty and could lose its table (fixed, see HANDOFF).
 - Images and legacy exports are not in the copy by default (paper originals exist); rows restored from a copy have no photo, and rows
   without a photo cannot be re-run through Gemini. A checkbox includes them (heavy).
 - The transfer file is an **add-only merge**: an edit of an existing row on one PC does not reach the other; rows are matched by

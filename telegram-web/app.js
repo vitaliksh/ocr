@@ -343,9 +343,19 @@ async function activateDeclaration(selected) {
   );
   for (const saved of selected.draft?.rows || []) {
     try {
-      restoreRow(saved, saved.imageFile ? await readSourceImage(selected.directory, saved.imageFile) : null);
+      // A copy restored without images (the default of the backup) has no image files: the row opens without a photo.
+      const blob = saved.imageFile
+        ? await readSourceImage(selected.directory, saved.imageFile).catch((error) => {
+            if (error.name === "NotFoundError") return null;
+            throw error;
+          })
+        : null;
+      restoreRow(saved, blob);
       imageCount = Math.max(imageCount, Number(saved.imageIndex) || 0);
     } catch (error) {
+      // The table is half built: no later save may write it over the file of this month.
+      currentDeclaration = null;
+      currentDeclarationDirectory = null;
       throw new Error(`לא ניתן לשחזר תמונה ${saved.imageFile || ""}: ${error.message}`);
     }
   }
