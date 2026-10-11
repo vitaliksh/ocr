@@ -9,7 +9,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Latest browser source:** `main` (see `git log`); frontend marker `2026.10.11.2 · 18:35 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
-**Production Worker:** `b1bd722a-2021-400a-b503-7ea2f33e3104` — backend version `2026.10.10.1 · 18:44 IDT`
+**Production Worker:** `af952b07-bd8d-47dd-b65b-7c4cca19d2a5` — backend version `2026.10.11.1 · 18:35 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
 
 ## Product and hard boundaries
