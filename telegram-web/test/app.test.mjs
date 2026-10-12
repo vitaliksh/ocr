@@ -285,3 +285,74 @@ test("a corrected date lifts the exclusion and the row is included again; a user
   assert.equal(app.rowSnapshot(row).active, false);
   assert.equal(app.rowSnapshot(row).statusText, "כפילות — נדרש עיון");
 });
+
+test("a click in a text cell edits it; only the other cells of the row open the photo window", async () => {
+  const { app, window } = await loadApp();
+  const opened = [];
+  window.open = () => (opened.push(1), null);
+  const row = await addRecord(app);
+  row.cells[2].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  row.cells[3].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.equal(opened.length, 0);
+  row.cells[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  assert.equal(opened.length, 1);
+});
+
+test("editing VAT keeps the total, moves the rest to net and follows the rate", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app);
+  row.cells[10].querySelector("input").value = "10.00";
+  app.manualAmountChanged(row, 10);
+  assert.deepEqual([row.dataset.rawNet, row.dataset.rawVat, row.dataset.vatPercent], ["108.00", "10.00", "9.26"]);
+  assert.deepEqual(amounts(app, row), ["118.00", "108.00", "10.00"]);
+  row.cells[10].querySelector("input").value = "0";
+  app.manualAmountChanged(row, 10);
+  assert.deepEqual(amounts(app, row), ["118.00", "118.00", "0.00"]);
+});
+
+test("a VAT above the total or an empty VAT field is refused and the displayed value is restored", async () => {
+  const { app } = await loadApp();
+  const row = await addRecord(app);
+  for (const typed of ["119", "", "-1"]) {
+    row.cells[10].querySelector("input").value = typed;
+    app.manualAmountChanged(row, 10);
+    assert.deepEqual([row.dataset.rawNet, row.dataset.rawVat], ["100", "18"], typed);
+    assert.deepEqual(amounts(app, row), ["118.00", "100.00", "18.00"], typed);
+  }
+});
+
+test("the VAT field survives a save and restore", async () => {
+  const { app, rows } = await loadApp();
+  const row = await addRecord(app);
+  row.cells[10].querySelector("input").value = "10.00";
+  app.manualAmountChanged(row, 10);
+  app.restoreRow(plain(app.rowSnapshot(row)), new Blob(["x"]));
+  const restored = rows().at(-1);
+  assert.ok(restored.cells[10].querySelector("input"));
+  assert.deepEqual(amounts(app, restored), ["118.00", "108.00", "10.00"]);
+});
+
+test("a home client's electricity, water, sewage and property tax are recognised at 25% whatever the code", async () => {
+  const { app } = await loadApp({ businessKind: "home" });
+  for (const purpose of ["חשבון חשמל", "חשבון מים וביוב", "ארנונה לתקופה 07-08"]) {
+    const row = await addRecord(app, { rivhit_code: "802", purpose });
+    assert.deepEqual(amounts(app, row), ["29.50", "25.00", "4.50"], purpose);
+    assert.deepEqual(snapshotValues(app, row).slice(10), ["25", "25"], purpose);
+  }
+  const other = await addRecord(app, { rivhit_code: "802", purpose: "מצלמות אבטחה" });
+  assert.deepEqual(amounts(app, other), ["118.00", "100.00", "18.00"]);
+});
+
+test("a utility bill at an office client stays at 100%", async () => {
+  const { app } = await loadApp({ businessKind: "office" });
+  const row = await addRecord(app, { rivhit_code: "802", purpose: "חשבון חשמל" });
+  assert.deepEqual(amounts(app, row), ["118.00", "100.00", "18.00"]);
+});
+
+test("a partial recognition is written under the VAT amount, a full one is not", async () => {
+  const { app } = await loadApp({ businessKind: "home" });
+  const utility = await addRecord(app, { rivhit_code: "802", purpose: "חשבון חשמל" });
+  assert.equal(utility.cells[10].dataset.recognised, "הוכר 25%");
+  const plain = await addRecord(app, { rivhit_code: "802", purpose: "נייר" });
+  assert.equal(plain.cells[10].dataset.recognised, undefined);
+});

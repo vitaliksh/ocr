@@ -1,13 +1,13 @@
 # Handoff — ANNATERIA (formerly Rivhit document intake)
 
-**Updated:** 11 October 2026 (a month restored from a backup without images opened empty and then lost its table: fixed, see "Restore of a backup without images" under "Next decisions"); 11 October 2026 (PCN clients: the tax profile of a client and the review of invoices above the allocation ceiling, see "PCN clients" under "Next decisions"); 11 October 2026 (owner's first use of the button, the Edge passkey PIN, handing a month to Anna: see "Owner's first use" under "Two-agent redesign"); 10 October 2026 (the two-agent redesign is built: OCR agent, bookkeeper agent and the button "עיבוד חשבונאי", see "Two-agent redesign" under "Next decisions"); 9 October 2026 (open requirements list); 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
+**Updated:** 12 October 2026 (Anna's first notes: VAT field editable, text cells no longer lose focus to the photo window, 25% for home utilities by what the document is: see "Anna's first notes" under "Next decisions"); 11 October 2026 (a month restored from a backup without images opened empty and then lost its table: fixed, see "Restore of a backup without images" under "Next decisions"); 11 October 2026 (PCN clients: the tax profile of a client and the review of invoices above the allocation ceiling, see "PCN clients" under "Next decisions"); 11 October 2026 (owner's first use of the button, the Edge passkey PIN, handing a month to Anna: see "Owner's first use" under "Two-agent redesign"); 10 October 2026 (the two-agent redesign is built: OCR agent, bookkeeper agent and the button "עיבוד חשבונאי", see "Two-agent redesign" under "Next decisions"); 9 October 2026 (open requirements list); 7 October 2026 (documents of another month and the periodic income report: see "Documents of several months and the income report" below; before that the dry run with two real clients: per-client codes from the ledger, check against the ledger, VAT and advances periods as client properties). Before that, 4 October: backup and transfer phase, see `BACKUP_SPEC.md`. Since 3 October the app is called **ANNATERIA** and its product is **client management plus reports**;
 the Rivhit TXT export is deprecated (code kept, hidden in the "⋯" menu). Read in this order: this file, `MIGRATION_HANDOFF.md`
 (Excel migration, reports, working agreements), `GUI_REDESIGN_PLAN.md` (what the new interface is and why).
 The Rivhit-intake sections below were last re-verified on 19 September 2026 and describe the legacy export.
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.11.3 · 19:22 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.12.1 · 18:45 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `af952b07-bd8d-47dd-b65b-7c4cca19d2a5` — backend version `2026.10.11.1 · 18:35 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.11.3 · 19:22 IDT
+גרסת ממשק: 2026.10.12.1 · 18:45 IDT
 גרסת שרת: 2026.10.11.1 · 18:35 IDT
 ~~~
 
@@ -82,6 +82,7 @@ Telegram is needed once for **חיבור המחשב לשיפור AI**. The bookk
   - Dialogs (GUI redesign stage 6): `dialogs.css` is the single template for every `dialog.workspace-dialog` (quiet header with a close icon, labels above fields, footer with the primary action first, a reserved line for `[role="alert"]` results so a dialog keeps its size, `.plate-*` status plates). The Excel import dialog is a four-step wizard (file, check, declaration, done) with a fixed size: `dialog[data-step]` decides which `[data-panel]` and which `.dialog-actions [data-for]` buttons are shown; `excel-import-ui.js` drives it (`setStep`), the import itself (`excel-import-flow.js`) is unchanged. After the import the dialog stays open on the "done" step with the result next to the close button.
   - Look and shell (GUI redesign, `GUI_REDESIGN_PLAN.md`): `tokens.css` (all colours, fonts, spacing, shadows; the only file with hex colours, enforced by `test/styles.test.mjs`), `base.css` (buttons, fields, badges, status plates, `[hidden]`), `shell.css` (top bar, scrolling `main.workspace`, status bar, `details.menu` menus), `shell.js` (menu behaviour and the info/error kind of `#status`; not loaded by the test harness), `fonts/` (self-hosted Heebo and Frank Ruhl Libre woff2 with their OFL licences). The other sheets are `photo.css` (photo window), `dialogs.css`, `journal.css`, `clients.css`, `sidebar.css`, `reports.css`; `shell.css` is always last. `ui-polish.js` adds Enter = primary action in dialogs, focus on open, tooltips for icon buttons and `data-open-menu` buttons.
   - `app.js` — UI, queues, journal, exports, custom-code request headers.
+  - `row-calculations.js` (recognised amounts; source amounts from a typed gross, net or VAT) and `home-utilities.js` (`isHomeUtility`: the 25% rule for electricity, water, sewage and property tax of a home business, by account name and document text).
   - `month-format.js` — months are stored as `YYYY-MM` and typed/shown as `MM/YYYY` (`parseMonthText` also accepts `M/YYYY`, `MM.YYYY`, `MM-YYYY`); all month inputs are text fields with that placeholder (native `type="month"` follows the browser language and cannot show MM/YYYY).
   - `confirm-dialog.js` — in-page `confirmDialog` and `dialogResult` (used by `app.js` and `workspace.js` instead of `window.confirm`/`prompt`, which some embedded browsers decline silently; results do not depend on the dialog `close` event).
   - `workspace.js` — File System Access root/client/declaration logic behind the sidebar; `sidebar-clients.js` renders the client list, `sidebar.js` collapses/resizes the sidebar (width and state in `localStorage` key `annateria-sidebar-v1`) and opens the settings dialog.
@@ -205,7 +206,7 @@ Custom codes are root-local, available to every client in that root, exactly thr
 ## Journal behaviour already implemented
 
 - Rows imported from Excel have no source image (`imageFile` is empty): they restore without a photo, cannot be re-run through Gemini, and `invoices.pdf` export reports a missing image. Chart-of-accounts codes appear in the classification selector by name (`currentMapping()` in `app.js`).
-- Open-row fields, including dates, are editable.
+- Open-row fields, including dates and the VAT amount, are editable (see "Anna's first notes").
 - Dates display as `DD/MM/YY`; export also accepts four-digit years and `-`, `/`, or `.` separators.
 - Gross and net remain separate inputs; recalculate/save on Enter or blur, not while typing.
 - Expense recognition controls recognised gross. VAT recognition independently controls deductible VAT; non-deductible VAT remains in the expense. Example: raw net/VAT `100/18` at 100% expense and 66.67% VAT becomes gross/net/VAT `118/106/12`.
@@ -306,13 +307,23 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.11.3 · 19:22 IDT` and backend `2026.10.11.1 · 18:35 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.12.1 · 18:45 IDT` and backend `2026.10.11.1 · 18:35 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
 5. The `test5` import was confirmed successful; repeat the same 186-field, VAT-rate, structural-flag and no-leak checks for future template or exporter changes.
 
 ## Next decisions
+
+### Anna's first notes (12 October 2026)
+
+Five notes from the bookkeeper's first use: (1) image quality is poor, (2) the VAT field cannot be changed, (3) the date field cannot be changed, (4) 25% for water, electricity, sewage and property tax was not always set, (5) the PDF import looks strange and unfriendly. Done on 12 Oct (frontend only, marker `2026.10.12.1`):
+
+- **VAT is editable** (note 2): the VAT cell is a number field like gross and net. The total stays, the net is what is left, the stored rate follows the VAT (`sourceAmountsFromVat` in `row-calculations.js`, column 10 in `manualAmountChanged`); a VAT above the total or an empty field is refused and the shown value comes back. As with gross and net, the typed number is the source amount, not the recognised one.
+- **Date and other text cells** (note 3, probable cause, not confirmed by Anna): a click anywhere in a row except buttons, fields and links opened the photo window and called `imagePopup.focus()`, which took the keyboard focus from the text cell, so a date (and purpose, supplier, reference) could not be typed. A click in an `.editable` cell no longer opens the photo; the photo button and the other cells (number, status, opinion) still do. A second, unconfirmed candidate: a row saved as waiting for the bookkeeper agent (`processing="pending"`) stays locked after a reload or a transfer to another PC until the "עיבוד חשבונאי" button runs, because the automatic run exists only while an upload session is open (`autoState` "off" otherwise). Reproduced in jsdom (`restoreRow` of a pending row: date and amounts locked). Not changed: it reverses an owner decision, to be discussed.
+- **25% for utilities** (note 4): `home-utilities.js` (`isHomeUtility`) decides by what the document is: the account name in the client's chart, the purpose and the document title contain electricity, water, sewage or property tax (whole Hebrew words with the one-letter prefixes), or the built-in account "מסים ואגרות" as before; the supplier name is not used (a shop "…חשמל בע״מ"). It replaces the hard-coded codes 809 and 820, which never matched the codes of a client's own chart. Only for clients of kind "home". A partial recognition is also written under the VAT amount ("הוכר 25%"), because the percent columns are hidden in the default column set.
+- **Known and not changed:** `applyBusinessRule` still resets both percent selectors on every classification change and when a declaration is opened, so a manual percent is lost; `currentMapping()` spreads the built-in names after the client's chart, so a client code that equals a built-in code shows the built-in name; `recordTarget` (re-run of one row) reads `textContent` of the amount cells, which are empty for number fields.
+- **Left:** note 1 (Telegram sends only the compressed `message.photo`; a file sent as a document is ignored by the Worker; PDF pages are rendered at most 2048 px, scale 2: Worker change and `wrangler deploy` need the owner's yes) and note 5 (a live Telegram session just to authorise a PDF, every page becomes a row, no page triage: open requirements 7 and 9). Questions for Anna: which rows she could not edit (photo, PDF or Excel; was the yellow plate "ממתינה לעיבוד חשבונאי" shown), and which images look bad (thumbnail, photo window or what OCR read; photo or PDF).
 
 ### Restore of a backup without images (11 October 2026)
 
@@ -446,7 +457,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **441 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **452 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 

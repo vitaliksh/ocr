@@ -26,3 +26,11 @@ export function sourceAmountsFromNet(netValue, vatPercent = 18) {
   const net = round(amount(netValue)), rate = Math.max(0, amount(vatPercent)) / 100, vat = round(net * rate);
   return { gross: round(net + vat).toFixed(2), net: net.toFixed(2), vat: vat.toFixed(2) };
 }
+
+// The user types the VAT of the document: the total stays, the rest is the net and the rate follows the VAT.
+export function sourceAmountsFromVat(vatValue, grossValue) {
+  const gross = round(amount(grossValue)), vat = round(amount(vatValue));
+  if (vat > gross) return null;
+  const net = round(gross - vat);
+  return { gross: gross.toFixed(2), net: net.toFixed(2), vat: vat.toFixed(2), percent: net > 0 ? round((vat / net) * 100) : 0 };
+}

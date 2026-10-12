@@ -168,6 +168,14 @@ td.amount-cell input {
   box-shadow: inset 3px 0 0 var(--warning);
 }
 
+#journal-table td[data-recognised]::after {
+  content: attr(data-recognised);
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  text-align: end;
+}
+
 td .photo-button {
   max-width: 100%;
   white-space: nowrap;

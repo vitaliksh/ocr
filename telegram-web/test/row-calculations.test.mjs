@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "../row-calculations.js";
+import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet, sourceAmountsFromVat } from "../row-calculations.js";
 
 test("25% расхода сначала выделяется из суммы с НДС", () => {
   const amounts = recognisedAmounts("610.17", "109.83", 25);
@@ -17,4 +17,9 @@ test("ручная сумма с НДС сразу разбивается по �
 });
 test("ручная сумма без НДС сразу дополняется НДС", () => {
   assert.deepEqual(sourceAmountsFromNet("100", 18), { gross: "118.00", net: "100.00", vat: "18.00" });
+});
+test("ручной НДС сохраняет сумму с НДС, остаток идёт в нетто, ставка следует за НДС", () => {
+  assert.deepEqual(sourceAmountsFromVat("10", "118"), { gross: "118.00", net: "108.00", vat: "10.00", percent: 9.26 });
+  assert.deepEqual(sourceAmountsFromVat("0", "118"), { gross: "118.00", net: "118.00", vat: "0.00", percent: 0 });
+  assert.equal(sourceAmountsFromVat("119", "118"), null);
 });

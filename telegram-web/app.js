@@ -31,7 +31,8 @@ import { setupBackup } from "./backup-ui.js";
 import { setupTransfer } from "./transfer-ui.js";
 import { setupBookkeeper } from "./bookkeeper-ui.js";
 import { setupPcnReview } from "./pcn-review-ui.js";
-import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet } from "./row-calculations.js";
+import { recognisedAmounts, sourceAmountsFromGross, sourceAmountsFromNet, sourceAmountsFromVat } from "./row-calculations.js";
+import { isHomeUtility } from "./home-utilities.js";
 import {
   readCustomRivhitMapping,
   readCustomRivhitMappingMetadata,
@@ -1077,9 +1078,14 @@ function recalculateRow(row) {
   const net = row.cells[9].querySelector("input");
   if (net) net.value = amounts.net;
   else row.cells[9].textContent = amounts.net;
-  row.cells[10].textContent = amounts.vat;
+  const vatInput = row.cells[10].querySelector("input");
+  if (vatInput) vatInput.value = amounts.vat;
+  else row.cells[10].textContent = amounts.vat;
   const partial = Number(expensePercent) !== 100 || Number(vatRecognisedPercent) !== 100;
   row.cells[10].toggleAttribute("data-partial", partial);
+  // The percent columns are hidden by default, so a partial recognition is also written under the VAT amount.
+  if (partial) row.cells[10].dataset.recognised = `הוכר ${Number(expensePercent) !== 100 ? expensePercent : vatRecognisedPercent}%`;
+  else delete row.cells[10].dataset.recognised;
   row.cells[10].title = partial ? `מוכר: מע״מ ${vatRecognisedPercent}% · הוצאה ${expensePercent}%` : "";
 }
 function vatRate(row) {
@@ -1094,9 +1100,18 @@ function manualAmountChanged(row, column) {
   const entered = Number(text);
   if (text === "" || !Number.isFinite(entered) || entered < 0) return recalculateRow(row);
   const amounts =
-    column === 8 ? sourceAmountsFromGross(entered, vatRate(row)) : sourceAmountsFromNet(entered, vatRate(row));
+    column === 10
+      ? sourceAmountsFromVat(entered, Number(row.dataset.rawNet || 0) + Number(row.dataset.rawVat || 0))
+      : column === 8
+        ? sourceAmountsFromGross(entered, vatRate(row))
+        : sourceAmountsFromNet(entered, vatRate(row));
+  if (!amounts) {
+    showError("המע״מ לא יכול להיות גבוה מהסכום הכולל.");
+    return recalculateRow(row);
+  }
   row.dataset.rawNet = amounts.net;
   row.dataset.rawVat = amounts.vat;
+  if (column === 10) row.dataset.vatPercent = String(amounts.percent);
   recalculateRow(row);
 }
 function normalReference(value) {
@@ -1152,7 +1167,12 @@ function updateDuplicateState(row) {
 }
 function applyBusinessRule(row) {
   const code = row.cells[1].querySelector("select")?.value,
-    homeUtility = businessKind.value === "home" && ["809", "820"].includes(code),
+    homeUtility =
+      businessKind.value === "home" &&
+      isHomeUtility({
+        accountName: chartAccounts[code]?.name || rivhitMapping[code],
+        texts: [cellValue(row.cells[3]), row.dataset.documentTitle],
+      }),
     limitedVat = ["806", "807", "812"].includes(code),
     expense = row.cells[12].querySelector("select"),
     vat = row.cells[11].querySelector("select");
@@ -1586,7 +1606,8 @@ function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, insertAf
   deleteCell.append(remove);
   row.append(deleteCell);
   row.addEventListener("click", (event) => {
-    if (!event.target.closest("button,input,select,a")) openPhoto(row.imageUrl, imageIndex);
+    // A text cell is for typing: the photo window would take the keyboard focus from it.
+    if (!event.target.closest("button,input,select,a,.editable")) openPhoto(row.imageUrl, imageIndex);
   });
   if (insertAfter?.parentNode === records) records.insertBefore(row, insertAfter.nextSibling);
   else records.append(row);
@@ -1827,6 +1848,7 @@ async function applyRecord(row, record) {
   values.slice(2).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 3]));
   row.replaceChild(amountCell(values[7], "סכום כולל מע״מ"), row.cells[8]);
   row.replaceChild(amountCell(values[8], "סכום ללא מע״מ"), row.cells[9]);
+  row.replaceChild(amountCell(values[9], "מע״מ"), row.cells[10]);
   const classification =
     record.document_kind === "income_report" ? await ensureIncomeClassification() : record.rivhit_code || "";
   row.cells[1].replaceChildren(classificationSelect(classification));
@@ -1919,6 +1941,7 @@ function restoreRow(saved, blob) {
   values.slice(2, 12).forEach((value, index) => row.replaceChild(editableCell(value), row.cells[index + 3]));
   row.replaceChild(amountCell(values[7], "סכום כולל מע״מ"), row.cells[8]);
   row.replaceChild(amountCell(values[8], "סכום ללא מע״מ"), row.cells[9]);
+  row.replaceChild(amountCell(values[9], "מע״מ"), row.cells[10]);
   row.cells[6].textContent = displayedReference(values[5]);
   row.cells[1].replaceChildren(classificationSelect(values[1] || ""));
   row.cells[11].replaceChildren(percentSelect(values[10] || 100, [100, 66.67, 25, 0], "vat"));
@@ -1959,7 +1982,7 @@ records.addEventListener("input", (event) => {
   const cell = event.target.closest?.("td"),
     row = cell?.parentElement,
     column = row ? [...row.cells].indexOf(cell) : -1;
-  if (row?.dataset.documentId && (column === 8 || column === 9)) return;
+  if (row?.dataset.documentId && (column === 8 || column === 9 || column === 10)) return;
   if (row?.dataset.documentId && column === 6) updateDuplicateState(row);
   queueDraftSave();
 });
@@ -1973,7 +1996,7 @@ records.addEventListener("change", (event) => {
   const row = event.target.closest?.("tr[data-document-id]"),
     cell = event.target.closest?.("td"),
     column = row && cell ? [...row.cells].indexOf(cell) : -1;
-  if (row && (column === 8 || column === 9)) manualAmountChanged(row, column);
+  if (row && (column === 8 || column === 9 || column === 10)) manualAmountChanged(row, column);
   if (row && column === 6) updateDuplicateState(row);
   queueDraftSave();
 });
