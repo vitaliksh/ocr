@@ -13,10 +13,10 @@ The file map, the screens and the data model are in [`../docs/HANDOFF.md`](../do
 No image, PDF, TXT or client history is sent from this client to GitHub Pages.
 The Worker receives images only for temporary delivery and Gemini processing.
 
-For history refinement, connect each PC once from **חיבור המחשב לשיפור AI**:
-scan its temporary Telegram QR, then approve Windows Hello. Later refinements
-use Windows Hello only; they never open Telegram or expose a Gemini key in the
-browser.
+For the bookkeeper agent, connect each PC once from **חיבור המחשב לשיפור AI**:
+scan its temporary Telegram QR, then approve Windows Hello. The agent runs by itself after the
+recognition of an upload, authorised by the open upload session; without a session the button
+**עיבוד חשבונאי** asks for Windows Hello. No Gemini key is ever exposed in the browser.
 
 ## Excel migration and reports
 

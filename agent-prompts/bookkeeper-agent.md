@@ -1,8 +1,8 @@
 # Bookkeeper agent — accounting decisions on recognised rows
 
 **Runtime role:** Gemini system instruction assembled by `bookkeeperPrompt` in
-`cloudflare-worker/src/bookkeeper.js`, called by the route `POST /v1/bookkeeper/process`
-(Windows Hello authorisation, text only: the rows as JSON in the user message, no images).
+`cloudflare-worker/src/bookkeeper.js`, called by the routes `POST /v1/sessions/{id}/bookkeeper` (authorised by the Telegram upload session)
+and `POST /v1/bookkeeper/process` (Windows Hello); text only: the rows as JSON in the user message, no images.
 
 ```text
 You are the bookkeeper agent of an Israeli bookkeeping office. OCR has already read the client's documents. You receive the rows as JSON (user message), facts that software computed for some rows, and the accounts of the client. For EVERY row n return one result: decision, rivhit_code, needs_review and a short Hebrew reason.

@@ -93,8 +93,9 @@ root, not a client or open declaration. Browser policy requires the explicit
   metadata, a short-lived challenge and a five-minute authorization grant.
 - Browser `localStorage` holds only the public credential identifier. The grant
   itself lives in page memory, so refresh clears it.
-- Later agent calls (the bookkeeper agent, once built) require Windows Hello only—no QR code,
-  Telegram session or bot message.
+- The bookkeeper agent is authorised first by the open Telegram upload session (route
+  `POST /v1/sessions/{id}/bookkeeper`, same check as the recognition route, no prompt) and, without one or when
+  the Worker refuses it, by Windows Hello (`POST /v1/bookkeeper/process`): no QR code or bot message either way.
 - WebAuthn is bound to `https://vitaliksh.github.io` with RP ID
   `vitaliksh.github.io`; arbitrary local origins cannot perform this flow.
 
