@@ -406,3 +406,56 @@ test("the Windows Hello bookkeeper route is unchanged: no passkey grant, no answ
   const response = await call("/v1/bookkeeper/process", { body: JSON.stringify({ rows: [{ n: 1 }] }) });
   assert.equal(response.status, 401);
 });
+
+// An image sent as a file reaches the session as the original; anything else gets an explanation.
+function webhookCase({ document, sessionId = SESSION }) {
+  const sent = [], forwarded = [];
+  globalThis.fetch = async (url, init) => {
+    sent.push(JSON.parse(init.body));
+    return Response.json({ ok: true });
+  };
+  const env = makeEnv({
+    TELEGRAM_BOT_TOKEN: "t",
+    TELEGRAM_WEBHOOK_SECRET: "secret",
+    UPLOAD_SESSION: stub(async (id, url, init) => {
+      if (String(url).endsWith("/telegram/lookup")) return new Response(sessionId);
+      forwarded.push(JSON.parse(init.body));
+      return Response.json({ ok: true });
+    }),
+  });
+  const run = () =>
+    call("/telegram/webhook", {
+      origin: null,
+      env,
+      headers: { "X-Telegram-Bot-Api-Secret-Token": "secret" },
+      body: JSON.stringify({ update_id: 7, message: { chat: { id: 5 }, from: { id: 9 }, document } }),
+    });
+  return { run, sent, forwarded };
+}
+
+test("an image sent as a file is forwarded to the upload session with its own type", async () => {
+  const { run, sent, forwarded } = webhookCase({ document: { file_id: "F1", mime_type: "image/png", file_size: 5000000 } });
+  assert.equal((await run()).status, 200);
+  assert.deepEqual(forwarded, [{ userId: 9, chatId: 5, updateId: 7, photos: [{ file_id: "F1", file_size: 5000000 }], contentType: "image/png" }]);
+  assert.deepEqual(sent, []);
+});
+
+test("a file that is not a JPG or PNG, or is over 20 MB, is refused with an explanation", async () => {
+  for (const [document, pattern] of [
+    [{ file_id: "F2", mime_type: "image/heic", file_size: 100 }, /JPG and PNG/],
+    [{ file_id: "F3", mime_type: "application/pdf", file_size: 100 }, /JPG and PNG/],
+    [{ file_id: "F4", mime_type: "image/jpeg", file_size: 21 * 1024 * 1024 }, /20 MB/],
+  ]) {
+    const { run, sent, forwarded } = webhookCase({ document });
+    await run();
+    assert.equal(forwarded.length, 0);
+    assert.match(sent[0].text, pattern);
+  }
+});
+
+test("an image file without an open upload session is answered, not stored", async () => {
+  const { run, sent, forwarded } = webhookCase({ document: { file_id: "F5", mime_type: "image/jpeg", file_size: 100 }, sessionId: "" });
+  await run();
+  assert.equal(forwarded.length, 0);
+  assert.match(sent[0].text, /No active upload session/);
+});

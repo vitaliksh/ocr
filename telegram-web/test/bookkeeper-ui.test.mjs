@@ -87,10 +87,22 @@ test("rows with fresh OCR are locked, say why, and the button and the plate appe
   assert.equal(row.cells[17].querySelector("input").disabled, true);
   for (const open of [row.cells[13].querySelector("button"), row.cells[16].querySelector("button"), row.cells[18].querySelector("button")]) assert.equal(open.disabled, false);
   assert.equal(button.hidden, false);
+  assert.ok(button.classList.contains("attention"));
   assert.equal(plate.hidden, false);
   assert.match(plate.textContent, /2 שורות חדשות ממתינות לעיבוד חשבונאי/);
   assert.match(plate.textContent, /אי אפשר לערוך/);
   assert.ok(plate.classList.contains("plate-warning"));
+});
+
+test("a waiting row is locked again when something else has re-enabled its cells (the table was unlocked after a restore)", async () => {
+  const { rowOf, bookkeeper } = await setup();
+  const row = rowOf("a");
+  for (const cell of row.querySelectorAll(".editable")) cell.contentEditable = "true";
+  for (const control of row.querySelectorAll("select,input")) control.disabled = false;
+  bookkeeper.syncAll();
+  assert.equal(row.cells[2].contentEditable, "false");
+  assert.equal(row.cells[8].querySelector("input").disabled, true);
+  assert.equal(row.cells[1].querySelector("select").disabled, true);
 });
 
 test("rows that are not waiting stay editable, and with none waiting there is no button and no plate", async () => {
@@ -127,6 +139,7 @@ test("a run applies a plan to every waiting row, unlocks them, reports and offer
   assert.equal(rowOf("a").cells[2].contentEditable, "true");
   assert.equal(rowOf("a").cells[8].querySelector("input").disabled, false);
   assert.equal(button.hidden, true);
+  assert.ok(!button.classList.contains("attention"));
   assert.match(plate.textContent, /העיבוד החשבונאי הושלם: 2 שורות/);
   assert.ok(plate.classList.contains("plate-success"));
   assert.ok(log.saves >= 1);

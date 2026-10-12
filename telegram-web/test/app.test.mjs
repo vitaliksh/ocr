@@ -260,7 +260,6 @@ test("a plan sets the account of the client, keeps the recognition rules, explai
   assert.deepEqual([copy.dataset.autoExclude, copy.dataset.wouldInclude, copy.dataset.duplicate], ["duplicate", "true", "true"]);
   assert.equal(app.rowSnapshot(copy).active, false);
   assert.equal(app.rowSnapshot(copy).statusText, "כפילות של שורה 1 בהצהרה זו");
-  assert.equal(copy.cells[16].querySelectorAll(".retry").length, 1);
 });
 
 test("a plan for a document that is not an expense or has no account leaves the row out and says why", async () => {
@@ -286,16 +285,25 @@ test("a corrected date lifts the exclusion and the row is included again; a user
   assert.equal(app.rowSnapshot(row).statusText, "כפילות — נדרש עיון");
 });
 
-test("a click in a text cell edits it; only the other cells of the row open the photo window", async () => {
+test("the photo window opens only from its button; a click in the row does not open it", async () => {
   const { app, window } = await loadApp();
   const opened = [];
   window.open = () => (opened.push(1), null);
   const row = await addRecord(app);
-  row.cells[2].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  row.cells[3].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  for (const cell of [0, 2, 3, 16]) row.cells[cell].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
   assert.equal(opened.length, 0);
-  row.cells[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  row.cells[13].querySelector("button").click();
   assert.equal(opened.length, 1);
+});
+
+test("a recognised row, a processed row and a restored row have no re-run button of their own", async () => {
+  const { app, rows } = await loadApp();
+  const row = await addRecord(app);
+  assert.equal(row.cells[16].querySelectorAll(".retry").length, 0);
+  app.applyBookkeeperPlan(row, plan());
+  assert.equal(row.cells[16].querySelectorAll(".retry").length, 0);
+  app.restoreRow(plain(app.rowSnapshot(row)), new Blob(["x"]));
+  assert.equal(rows().at(-1).cells[16].querySelectorAll(".retry").length, 0);
 });
 
 test("editing VAT keeps the total, moves the rest to net and follows the rate", async () => {
@@ -355,4 +363,10 @@ test("a partial recognition is written under the VAT amount, a full one is not",
   assert.equal(utility.cells[10].dataset.recognised, "הוכר 25%");
   const plain = await addRecord(app, { rivhit_code: "802", purpose: "נייר" });
   assert.equal(plain.cells[10].dataset.recognised, undefined);
+});
+
+test("the bookkeeper button sits in the top bar with the other journal actions, not in the heading of the table", async () => {
+  const { document } = await loadApp();
+  assert.ok(document.querySelector(".topbar #run-bookkeeper.journal-only"));
+  assert.equal(document.querySelector(".journal-heading #run-bookkeeper"), null);
 });

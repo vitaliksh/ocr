@@ -7,7 +7,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Repository:** https://github.com/vitaliksh/ocr
 
-**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.12.1 · 18:45 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
+**Latest browser source:** `main` (see `git log`); frontend marker `2026.10.12.2 · 19:10 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
 **Production Worker:** `af952b07-bd8d-47dd-b65b-7c4cca19d2a5` — backend version `2026.10.11.1 · 18:35 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
@@ -47,7 +47,7 @@ Push `main` for GitHub Pages. Worker source changes also require `npx wrangler d
 The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
-גרסת ממשק: 2026.10.12.1 · 18:45 IDT
+גרסת ממשק: 2026.10.12.2 · 19:10 IDT
 גרסת שרת: 2026.10.11.1 · 18:35 IDT
 ~~~
 
@@ -307,7 +307,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.12.1 · 18:45 IDT` and backend `2026.10.11.1 · 18:35 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.12.2 · 19:10 IDT` and backend `2026.10.11.1 · 18:35 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -320,10 +320,12 @@ Recommended short production check:
 Five notes from the bookkeeper's first use: (1) image quality is poor, (2) the VAT field cannot be changed, (3) the date field cannot be changed, (4) 25% for water, electricity, sewage and property tax was not always set, (5) the PDF import looks strange and unfriendly. Done on 12 Oct (frontend only, marker `2026.10.12.1`):
 
 - **VAT is editable** (note 2): the VAT cell is a number field like gross and net. The total stays, the net is what is left, the stored rate follows the VAT (`sourceAmountsFromVat` in `row-calculations.js`, column 10 in `manualAmountChanged`); a VAT above the total or an empty field is refused and the shown value comes back. As with gross and net, the typed number is the source amount, not the recognised one.
-- **Date and other text cells** (note 3, probable cause, not confirmed by Anna): a click anywhere in a row except buttons, fields and links opened the photo window and called `imagePopup.focus()`, which took the keyboard focus from the text cell, so a date (and purpose, supplier, reference) could not be typed. A click in an `.editable` cell no longer opens the photo; the photo button and the other cells (number, status, opinion) still do. A second, unconfirmed candidate: a row saved as waiting for the bookkeeper agent (`processing="pending"`) stays locked after a reload or a transfer to another PC until the "עיבוד חשבונאי" button runs, because the automatic run exists only while an upload session is open (`autoState` "off" otherwise). Reproduced in jsdom (`restoreRow` of a pending row: date and amounts locked). Not changed: it reverses an owner decision, to be discussed.
+- **Date and other text cells** (note 3, probable cause, not confirmed by Anna): a click anywhere in a row except buttons, fields and links opened the photo window and called `imagePopup.focus()`, which took the keyboard focus from the text cell, so a date (and purpose, supplier, reference) could not be typed. Since the owner's test of 12 Oct the photo opens **only from its "תמונה" button**; a click in the row does nothing.
+- **Bookkeeper agent: explicit button, no automatic run (owner decision of 12 Oct, replaces "Automatic run" below).** After an import (Telegram, PDF) the new rows are grey and read-only (`data-processing="pending"`, photo and delete stay usable) and the button "עיבוד חשבונאי" sits in the sticky top bar (`#run-bookkeeper`, class `journal-only`, before "דוחות"), red (`.attention`, set by `bookkeeper-ui.js`) while rows wait. The press processes every waiting row and unlocks them; rows imported later wait again for the next press. `autoState` is no longer passed by `app.js` (the option stays in `setupBookkeeper`, default "off"). The per-row buttons "עבד מחדש" are gone (processed, restored and rechecked rows); only a row whose recognition failed or was cancelled keeps its "נסה שוב" / "עבד". "עיבוד חשבונאי לכל השורות…" stays in the "⋯" menu. Found in a real browser while checking this: `lockRow` returned early when the row was already marked locked, so after the host's `setTableLocked(false)` re-enabled the cells a waiting row stayed editable (the first of several waiting rows); the lock is now applied on every sync (test added).
 - **25% for utilities** (note 4): `home-utilities.js` (`isHomeUtility`) decides by what the document is: the account name in the client's chart, the purpose and the document title contain electricity, water, sewage or property tax (whole Hebrew words with the one-letter prefixes), or the built-in account "מסים ואגרות" as before; the supplier name is not used (a shop "…חשמל בע״מ"). It replaces the hard-coded codes 809 and 820, which never matched the codes of a client's own chart. Only for clients of kind "home". A partial recognition is also written under the VAT amount ("הוכר 25%"), because the percent columns are hidden in the default column set.
 - **Known and not changed:** `applyBusinessRule` still resets both percent selectors on every classification change and when a declaration is opened, so a manual percent is lost; `currentMapping()` spreads the built-in names after the client's chart, so a client code that equals a built-in code shows the built-in name; `recordTarget` (re-run of one row) reads `textContent` of the amount cells, which are empty for number fields.
-- **Left:** note 1 (Telegram sends only the compressed `message.photo`; a file sent as a document is ignored by the Worker; PDF pages are rendered at most 2048 px, scale 2: Worker change and `wrangler deploy` need the owner's yes) and note 5 (a live Telegram session just to authorise a PDF, every page becomes a row, no page triage: open requirements 7 and 9). Questions for Anna: which rows she could not edit (photo, PDF or Excel; was the yellow plate "ממתינה לעיבוד חשבונאי" shown), and which images look bad (thumbnail, photo window or what OCR read; photo or PDF).
+- **Image quality (note 1, owner confirmed on 12 Oct: bad for the eye and for OCR).** Telegram delivers a photo sent as a photo in a reduced size (the 1280 px figure is common knowledge, not verified in the official docs); an image sent as a **file** arrives untouched (Bot API download limit 20 MB, official). Worker (`receiveImageFile` in `src/index.js`, 3 new tests, **not deployed yet: waits for the owner's yes**): a JPG or PNG document is forwarded to the upload session as an original, with its own content type; other types (HEIC, PDF) and files over 20 MB get an explanation; the connect message tells to send photos as a File. Frontend: PDF pages are rendered at up to scale 3 / 3000 px (about 215 dpi, was 144). Not done: an original above 12 MB is refused by the recognition route (shrinking before OCR is not built); until the Worker is deployed, tell Anna to send photos as photos.
+- **Left:** note 5 (PDF import: the owner reports that PDF pages added after photos gave mostly wrong invoices, "taken from some wrong place"; cause not found, needs the PDF and the wrong rows); the known weaknesses of the PDF path are a live Telegram session just to authorise it, every page becoming a row and no page triage (open requirements 7 and 9). Question for Anna: which rows she could not edit (photo, PDF or Excel); answered in part by the lock bug above.
 
 ### Restore of a backup without images (11 October 2026)
 
@@ -370,7 +372,7 @@ Built as described under "Editing" above, in `bookkeeper-flow.js` and `bookkeepe
 
 Changes to existing functions (for the record): `setTableLocked` (re-applies the locks and refreshes the plate), `applyRecord` (stores the full reference, title, period and sets the row to wait; an income report does not wait), `rowSnapshot` and `restoreRow` (the new optional fields), the lock handler of the declaration (refuses with waiting rows), `prepareMove` in `rows-move-flow.js` (a period document is proposed for the month of receipt and has no VAT deduction window; any other row as before), `entryFromRow` in `intake-facts.js` (full reference and source amounts). Every "עבד מחדש" of a row makes it wait for the agent again.
 
-#### Automatic run and "all rows" (11 October 2026)
+#### Automatic run and "all rows" (11 October 2026; the automatic start was switched off on 12 October, see "Anna's first notes")
 
 The two steps are one for the user (owner's complaint: hunting for the button and the Windows Hello prompt was not acceptable):
 
@@ -457,7 +459,7 @@ npm test
 npm run check
 ~~~
 
-Expected: **452 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
+Expected: **455 passing**. `test/app-harness.mjs` loads the real `index.html` + `app.js` into jsdom (esbuild bundles `app.js` in memory and exposes selected functions), so `app.js` itself needs no test hooks; `npm ci` installs these dev dependencies.
 
 Worker:
 
@@ -468,7 +470,7 @@ npm run check
 npx wrangler deploy
 ~~~
 
-Expected: **38 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
+Expected: **41 passing**. `npm run check` is `wrangler deploy --dry-run` and must list both Durable Objects.
 
 After a browser-only change, push `main`, wait for Pages, force-refresh, and verify the visible build marker. After a Worker change, record the returned version in `cloudflare-worker/DEPLOYMENT.md`, commit/push source and docs, and manually test the changed production flow.
 

@@ -481,6 +481,35 @@ async function telegramApi(env, method, body) {
   return response.json();
 }
 
+// Telegram compresses a photo sent as a photo; an image sent as a file arrives as it was taken (Bot API: download up to 20 MB).
+const TELEGRAM_FILE_LIMIT_BYTES = 20 * 1024 * 1024;
+const IMAGE_FILE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png"]);
+async function receiveImageFile(env, { userId, chatId, updateId, document }) {
+  const list = await env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(`telegram-user:${userId}`)).fetch(
+    "https://session/telegram/lookup",
+    { method: "POST" },
+  );
+  const sessionId = await list.text();
+  const reply = (text) => telegramApi(env, "sendMessage", { chat_id: chatId, text });
+  if (!sessionId) return reply("No active upload session. Start a new upload session from the PC.");
+  const contentType = String(document.mime_type || "").toLowerCase();
+  if (!IMAGE_FILE_TYPES.has(contentType))
+    return reply("Only JPG and PNG images are supported as files. Send a PDF from the computer.");
+  if (document.file_size > TELEGRAM_FILE_LIMIT_BYTES) return reply("The file is larger than 20 MB. Please send a smaller image.");
+  const response = await sessionStub(env, sessionId).fetch("https://session/telegram/photo", {
+    method: "POST",
+    body: JSON.stringify({
+      userId,
+      chatId,
+      updateId,
+      photos: [{ file_id: document.file_id, file_size: document.file_size }],
+      contentType: contentType === "image/png" ? "image/png" : "image/jpeg",
+    }),
+  });
+  const result = await response.json();
+  if (!result.ok) await reply("No active upload session. Start a new upload session from the PC.");
+}
+
 async function webhook(request, env) {
   if (!timingSafeEqual(request.headers.get("X-Telegram-Bot-Api-Secret-Token"), env.TELEGRAM_WEBHOOK_SECRET))
     return new Response("Forbidden", { status: 403 });
@@ -503,7 +532,7 @@ async function webhook(request, env) {
       const messageText =
         result.purpose === "passkey-enrollment"
           ? "Connected. Complete Windows Hello on your PC; do not send a photo."
-          : "Connected. Send document photos now.";
+          : "Connected. Send document photos now. For the best quality send each photo as a File (attach, File).";
       await telegramApi(env, "sendMessage", {
         chat_id: chatId,
         text: result.ok ? messageText : "No active upload session. Start a new upload session from the PC.",
@@ -532,6 +561,8 @@ async function webhook(request, env) {
             text: "No active upload session. Start a new upload session from the PC.",
           });
       }
+    } else if (message.document && !message.animation) {
+      await receiveImageFile(env, { userId, chatId, updateId: update.update_id, document: message.document });
     } else if (message.video || message.video_note || message.animation) {
       const list = await env.UPLOAD_SESSION.get(env.UPLOAD_SESSION.idFromName(`telegram-user:${userId}`)).fetch(
         "https://session/telegram/lookup",
@@ -793,7 +824,7 @@ export class UploadSession {
     this.broadcast({ type: "connected" });
     return json({ ok: true, purpose: session.purpose });
   }
-  async receivePhoto({ userId, updateId, photos }) {
+  async receivePhoto({ userId, updateId, photos, contentType = "" }) {
     const session = await this.activeSession();
     if (!session || session.telegramUserId !== userId) return json({ ok: false });
     if (session.documents.some((document) => document.updateId === updateId))
@@ -811,7 +842,7 @@ export class UploadSession {
     const documentId = crypto.randomUUID();
     const objectKey = `${session.sessionId}/${documentId}.jpg`;
     await this.env.UPLOAD_PHOTOS.put(objectKey, image.body, {
-      httpMetadata: { contentType: image.headers.get("content-type") || "image/jpeg" },
+      httpMetadata: { contentType: contentType || image.headers.get("content-type") || "image/jpeg" },
       customMetadata: { sessionId: session.sessionId },
     });
     const document = {
@@ -819,7 +850,7 @@ export class UploadSession {
       objectKey,
       receivedAt: Date.now(),
       updateId,
-      contentType: image.headers.get("content-type") || "image/jpeg",
+      contentType: contentType || image.headers.get("content-type") || "image/jpeg",
     };
     session.documents.push(document);
     session.expiresAt = Math.min(Date.now() + SESSION_TTL_MS, session.maxExpiresAt);

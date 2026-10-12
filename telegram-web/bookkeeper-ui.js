@@ -33,8 +33,8 @@ export function setupBookkeeper({ records, button, plate, getContext, applyPlan,
   const waiting = () => dataRows().filter((row) => row.dataset.processing === PENDING || row.dataset.processing === FAILED);
   const pendingCount = () => dataRows().filter((row) => row.dataset.processing === PENDING).length;
 
+  // Applied every time, not once: setTableLocked (host) re-enables every cell when it unlocks the table.
   function lockRow(row) {
-    if (row.dataset.agentLock) return;
     row.dataset.agentLock = "true";
     [...row.cells].forEach((cell, column) => {
       if (OPEN_CELLS.includes(column)) return;
@@ -70,6 +70,7 @@ export function setupBookkeeper({ records, button, plate, getContext, applyPlan,
     const pending = pendingCount();
     button.hidden = !rows.length || !getContext();
     button.disabled = running;
+    button.classList.toggle("attention", !running && pending > 0);
     if (running) return show(`מעבד ${rows.length} שורות…`, "info");
     if (pending) return show(waitingMessage(pending), "warning");
     if (rows.length) {

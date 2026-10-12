@@ -32,7 +32,8 @@ export async function renderPdfPages(file, { onPage, shouldStop = () => false } 
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       if (shouldStop()) break;
       const page = await document.getPage(pageNumber), base = page.getViewport({ scale: 1 });
-      const scale = Math.min(2, 2048 / Math.max(base.width, base.height)), viewport = page.getViewport({ scale });
+      // About 215 dpi for an A4 page (it was 144): small print of receipts and invoices stays legible for the eye and for OCR.
+      const scale = Math.min(3, 3000 / Math.max(base.width, base.height)), viewport = page.getViewport({ scale });
       const canvas = window.document.createElement("canvas"); canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
       const context = canvas.getContext("2d", { alpha: false }); context.fillStyle = "white"; context.fillRect(0, 0, canvas.width, canvas.height);
       await page.render({ canvasContext: context, viewport, background: "white" }).promise;

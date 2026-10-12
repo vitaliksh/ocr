@@ -708,7 +708,6 @@ function applyBookkeeperPlan(row, plan) {
   setExportIncluded(row, plan.include);
   if (plan.statusText) setStatus(row, plan.statusText, "review");
   else setStatus(row, row.highlights.length ? "מוכן לייצוא" : "מוכן, חסרים סימונים", row.highlights.length ? "ready" : "review");
-  addRerunButton(row);
 }
 // A corrected date or reference may lift the exclusion (or bring it back); the user's own decision is never overridden.
 function applyBookkeeperRecheck(row, facts) {
@@ -721,7 +720,6 @@ function applyBookkeeperRecheck(row, facts) {
     setExportIncluded(row, true);
     setStatus(row, row.highlights.length ? "מוכן לייצוא" : "מוכן, חסרים סימונים", row.highlights.length ? "ready" : "review");
   }
-  addRerunButton(row);
   queueDraftSave();
 }
 const tableRows = () => [...records.querySelectorAll("tr[data-document-id]")];
@@ -752,8 +750,6 @@ bookkeeper = setupBookkeeper({
   afterRun: (plans) => {
     if (plans.some((plan) => plan.facts.moves)) offerDistribution();
   },
-  // The agent starts by itself once the recognition of an upload is over (only while its upload session is open).
-  autoState: () => (!session ? "off" : pendingRecognitions ? "busy" : "ready"),
   confirmAll: (count) =>
     confirmDialog(
       `לעבד מחדש ${count} שורות פעילות? הסוכן יקבע מחדש את קוד המיון ואת סימון הייצוא שלהן; שינויים ידניים בהם יוחלפו. ` +
@@ -1605,10 +1601,6 @@ function addPendingRecord(imageUrl, receivedAt, documentId, imageIndex, insertAf
   });
   deleteCell.append(remove);
   row.append(deleteCell);
-  row.addEventListener("click", (event) => {
-    // A text cell is for typing: the photo window would take the keyboard focus from it.
-    if (!event.target.closest("button,input,select,a,.editable")) openPhoto(row.imageUrl, imageIndex);
-  });
   if (insertAfter?.parentNode === records) records.insertBefore(row, insertAfter.nextSibling);
   else records.append(row);
   refreshRows();
@@ -1874,7 +1866,6 @@ async function applyRecord(row, record) {
     include.checked && row.highlights.length ? "ready" : "review",
   );
   updateDuplicateState(row);
-  addRerunButton(row);
   queueDraftSave();
 }
 function cellValue(cell) {
@@ -1976,7 +1967,6 @@ function restoreRow(saved, blob) {
       onlyThis,
     );
   };
-  addRerunButton(row);
 }
 records.addEventListener("input", (event) => {
   const cell = event.target.closest?.("td"),

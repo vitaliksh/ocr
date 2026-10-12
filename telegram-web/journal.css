@@ -400,6 +400,7 @@ td .photo-button {
 
 #journal-table tr.waiting-agent td {
   background: var(--surface-muted);
+  color: var(--text-muted);
 }
 
 #journal-table tr.waiting-agent td.state {
