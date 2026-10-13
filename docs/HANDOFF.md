@@ -9,7 +9,7 @@ The Rivhit-intake sections below were last re-verified on 19 September 2026 and 
 
 **Latest browser source:** `main` (see `git log`); frontend marker `2026.10.12.2 · 19:10 IDT`. The last Rivhit-intake change was `a7053eb` (`812` mobile phone, `888` internet, declaration month in every TXT record).
 
-**Production Worker:** `af952b07-bd8d-47dd-b65b-7c4cca19d2a5` — backend version `2026.10.11.1 · 18:35 IDT`
+**Production Worker:** `ddcbff1d-f809-43e4-996f-221a85fbd21d` — backend version `2026.10.13.1 · 18:00 IDT`
 **Primary user:** Vitalik. Address him in Russian, informally. The shipped UI is Hebrew; do not translate it without an explicit request.
 
 ## Product and hard boundaries
@@ -40,7 +40,7 @@ The intended test root is `D:\ocr_test` (not `D:\ocr\_test`). `D:\ocr_test` cont
 | Worker API | https://rivhit-telegram-transfer.vitaliksh.workers.dev | Telegram, temporary R2, Gemini Pass 1, passkeys |
 | Telegram bot | `@Vitalikshbot` | iPhone intake and one-time computer enrollment |
 | Branch | `main` | GitHub Pages source; current relevant commit `2067553` |
-| Production Worker | `af952b07-bd8d-47dd-b65b-7c4cca19d2a5` (11 Oct 2026) | `/health` reports backend version; OCR currency-token guard; the bookkeeper route by session and by Windows Hello |
+| Production Worker | `ddcbff1d-f809-43e4-996f-221a85fbd21d` (13 Oct 2026) | `/health` reports backend version; OCR currency-token guard; the bookkeeper route by session and by Windows Hello |
 
 Push `main` for GitHub Pages. Worker source changes also require `npx wrangler deploy` from `cloudflare-worker/`.
 
@@ -48,7 +48,7 @@ The sidebar footer shows separate cache-verifiable frontend and backend markers:
 
 ~~~text
 גרסת ממשק: 2026.10.12.2 · 19:10 IDT
-גרסת שרת: 2026.10.11.1 · 18:35 IDT
+גרסת שרת: 2026.10.13.1 · 18:00 IDT
 ~~~
 
 The backend marker is fetched from `/health`. Force refresh with `Ctrl+F5` and verify both markers before testing a recent change.
@@ -307,7 +307,7 @@ Confirmed Rivhit import repair (19 September, browser version 2026.09.19.7):
 
 Recommended short production check:
 
-1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.12.2 · 19:10 IDT` and backend `2026.10.11.1 · 18:35 IDT`.
+1. `Ctrl+F5`; open the sidebar footer and verify frontend `2026.10.12.2 · 19:10 IDT` and backend `2026.10.13.1 · 18:00 IDT`.
 2. Select `D:\ocr_test`; confirm its clients appear and the prior OneDrive declaration does not remain active.
 3. Add a harmless custom code and process/rerun a document; confirm the code is available only as an approved option.
 4. Import a PDF into a non-OneDrive declaration.
@@ -324,7 +324,7 @@ Five notes from the bookkeeper's first use: (1) image quality is poor, (2) the V
 - **Bookkeeper agent: explicit button, no automatic run (owner decision of 12 Oct, replaces "Automatic run" below).** After an import (Telegram, PDF) the new rows are grey and read-only (`data-processing="pending"`, photo and delete stay usable) and the button "עיבוד חשבונאי" sits in the sticky top bar (`#run-bookkeeper`, class `journal-only`, before "דוחות"), red (`.attention`, set by `bookkeeper-ui.js`) while rows wait. The press processes every waiting row and unlocks them; rows imported later wait again for the next press. `autoState` is no longer passed by `app.js` (the option stays in `setupBookkeeper`, default "off"). The per-row buttons "עבד מחדש" are gone (processed, restored and rechecked rows); only a row whose recognition failed or was cancelled keeps its "נסה שוב" / "עבד". "עיבוד חשבונאי לכל השורות…" stays in the "⋯" menu. Found in a real browser while checking this: `lockRow` returned early when the row was already marked locked, so after the host's `setTableLocked(false)` re-enabled the cells a waiting row stayed editable (the first of several waiting rows); the lock is now applied on every sync (test added).
 - **25% for utilities** (note 4): `home-utilities.js` (`isHomeUtility`) decides by what the document is: the account name in the client's chart, the purpose and the document title contain electricity, water, sewage or property tax (whole Hebrew words with the one-letter prefixes), or the built-in account "מסים ואגרות" as before; the supplier name is not used (a shop "…חשמל בע״מ"). It replaces the hard-coded codes 809 and 820, which never matched the codes of a client's own chart. Only for clients of kind "home". A partial recognition is also written under the VAT amount ("הוכר 25%"), because the percent columns are hidden in the default column set.
 - **Known and not changed:** `applyBusinessRule` still resets both percent selectors on every classification change and when a declaration is opened, so a manual percent is lost; `currentMapping()` spreads the built-in names after the client's chart, so a client code that equals a built-in code shows the built-in name; `recordTarget` (re-run of one row) reads `textContent` of the amount cells, which are empty for number fields.
-- **Image quality (note 1, owner confirmed on 12 Oct: bad for the eye and for OCR).** Telegram delivers a photo sent as a photo in a reduced size (the 1280 px figure is common knowledge, not verified in the official docs); an image sent as a **file** arrives untouched (Bot API download limit 20 MB, official). Worker (`receiveImageFile` in `src/index.js`, 3 new tests, **not deployed yet: waits for the owner's yes**): a JPG or PNG document is forwarded to the upload session as an original, with its own content type; other types (HEIC, PDF) and files over 20 MB get an explanation; the connect message tells to send photos as a File. Frontend: PDF pages are rendered at up to scale 3 / 3000 px (about 215 dpi, was 144). Not done: an original above 12 MB is refused by the recognition route (shrinking before OCR is not built); until the Worker is deployed, tell Anna to send photos as photos.
+- **Image quality (note 1, owner confirmed on 12 Oct: bad for the eye and for OCR).** Telegram delivers a photo sent as a photo in a reduced size (the 1280 px figure is common knowledge, not verified in the official docs); an image sent as a **file** arrives untouched (Bot API download limit 20 MB, official). Worker (`receiveImageFile` in `src/index.js`, 3 new tests, **deployed on 13 Oct 2026, version `ddcbff1d-f809-43e4-996f-221a85fbd21d`, backend `2026.10.13.1 · 18:00 IDT`; to be tried by the owner with a real phone**): a JPG or PNG document is forwarded to the upload session as an original, with its own content type; other types (HEIC, PDF) and files over 20 MB get an explanation; the connect message tells to send photos as a File. Frontend: PDF pages are rendered at up to scale 3 / 3000 px (about 215 dpi, was 144). Not done: an original above 12 MB is refused by the recognition route (shrinking before OCR is not built); photos sent as ordinary photos stay compressed by Telegram: tell Anna to send them as a File.
 - **Left:** note 5 (PDF import: the owner reports that PDF pages added after photos gave mostly wrong invoices, "taken from some wrong place"; cause not found, needs the PDF and the wrong rows); the known weaknesses of the PDF path are a live Telegram session just to authorise it, every page becoming a row and no page triage (open requirements 7 and 9). Question for Anna: which rows she could not edit (photo, PDF or Excel); answered in part by the lock bug above.
 
 ### Restore of a backup without images (11 October 2026)
